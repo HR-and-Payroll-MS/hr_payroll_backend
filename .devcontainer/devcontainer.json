@@ -1,4 +1,3 @@
-// For format details, see https://containers.dev/implementors/json_reference/
 {
     "name": "hr_payroll_dev",
     "dockerComposeFile": [
@@ -17,14 +16,10 @@
             "type": "bind"
         }
     ],
-    // Tells devcontainer.json supporting services / tools whether they should run
-    // /bin/sh -c "while sleep 1000; do :; done" when starting the container instead of the container’s default command
     "overrideCommand": false,
     "service": "django",
-    // "remoteEnv": {"PATH": "/home/dev-user/.local/bin:${containerEnv:PATH}"},
     "remoteUser": "dev-user",
     "workspaceFolder": "/app",
-    // Set *default* container specific settings.json values on container create.
     "customizations": {
         "vscode": {
             "settings": {
@@ -40,29 +35,20 @@
                     "languageServer": "Pylance",
                     "linting.enabled": true,
                     "linting.mypyEnabled": true,
-                    "linting.mypyPath": "/usr/local/bin/mypy",
+                    "linting.mypyPath": "/usr/local/bin/mypy"
                 }
             },
-            // https://code.visualstudio.com/docs/remote/devcontainerjson-reference#_vs-code-specific-properties
-            // Add the IDs of extensions you want installed when the container is created.
             "extensions": [
                 "davidanson.vscode-markdownlint",
                 "mrmlnc.vscode-duplicate",
                 "visualstudioexptteam.vscodeintellicode",
                 "visualstudioexptteam.intellicode-api-usage-examples",
-                // python
                 "ms-python.python",
                 "ms-python.vscode-pylance",
                 "charliermarsh.ruff",
-                // django
                 "batisteo.vscode-django"
             ]
         }
     },
-    // Uncomment the next line if you want start specific services in your Docker Compose config.
-    // "runServices": [],
-    // Uncomment the next line if you want to keep your containers running after VS Code shuts down.
-    // "shutdownAction": "none",
-    // Uncomment the next line to run commands after the container is created.
     "postCreateCommand": "cat .devcontainer/bashrc.override.sh >> ~/.bashrc"
 }

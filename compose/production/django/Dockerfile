@@ -93,7 +93,7 @@ RUN chmod +x /start-flower
 
 # copy application code to WORKDIR
 COPY --from=client-builder --chown=django:django ${APP_HOME} ${APP_HOME}
- 
+
 # explicitly create the media folder before changing ownership below
 RUN mkdir -p ${APP_HOME}/hr_payroll/media
 
