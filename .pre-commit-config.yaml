@@ -9,15 +9,20 @@ repos:
     rev: v5.0.0
     hooks:
       - id: trailing-whitespace
+        exclude: '^hr_payroll/.*/migrations/.*\.py$'
       - id: end-of-file-fixer
+        exclude: '^hr_payroll/.*/migrations/.*\.py$'
       - id: check-json
       - id: check-toml
       - id: check-xml
       - id: check-yaml
       - id: debug-statements
+        exclude: '^hr_payroll/.*/migrations/.*\.py$'
       - id: check-builtin-literals
+        exclude: '^hr_payroll/.*/migrations/.*\.py$'
       - id: check-case-conflict
       - id: check-docstring-first
+        exclude: '^hr_payroll/.*/migrations/.*\.py$'
       - id: detect-private-key
 
   - repo: local
@@ -34,19 +39,24 @@ repos:
     hooks:
       - id: django-upgrade
         args: ['--target-version', '5.0']
+        exclude: '^hr_payroll/.*/migrations/.*\.py$'
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.12.1
+    rev: v0.12.5
     hooks:
       - id: ruff-check
         args: [--fix, --exit-non-zero-on-fix]
+        exclude: '^hr_payroll/.*/migrations/.*\.py$'
       - id: ruff-format
+        exclude: '^hr_payroll/.*/migrations/.*\.py$'
 
   - repo: https://github.com/Riverside-Healthcare/djLint
     rev: v1.36.4
     hooks:
       - id: djlint-reformat-django
+        exclude: '^hr_payroll/.*/migrations/.*\.py$'
       - id: djlint-django
+        exclude: '^hr_payroll/.*/migrations/.*\.py$'
 
 ci:
   autoupdate_schedule: weekly

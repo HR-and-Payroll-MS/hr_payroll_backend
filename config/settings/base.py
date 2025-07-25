@@ -102,6 +102,7 @@ MIGRATION_MODULES = {"sites": "hr_payroll.contrib.sites.migrations"}
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#authentication-backends
 AUTHENTICATION_BACKENDS = [
+    "hr_payroll.users.auth_backends.UsernameOrEmailBackend",
     "django.contrib.auth.backends.ModelBackend",
     "allauth.account.auth_backends.AuthenticationBackend",
 ]
