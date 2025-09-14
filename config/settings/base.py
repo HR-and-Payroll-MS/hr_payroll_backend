@@ -378,6 +378,7 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "Documentation of API endpoints of hr_payroll",
     "VERSION": "1.0.0",
     "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAdminUser"],
+    "SERVE_AUTHENTICATION": [],
     "SCHEMA_PATH_PREFIX": "/api/",
 }
 # django-webpack-loader
