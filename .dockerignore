@@ -10,3 +10,42 @@
 venv
 .git
 .envs/
+
+# VCS
+.git
+
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Django outputs
+staticfiles/
+media/
+*.sqlite3
+
+# Node
+node_modules/
+npm-debug.log*
+yarn.lock
+pnpm-lock.yaml
+
+# Editors/IDE
+.vscode/
+.idea/
+
+# Caches
+.ruff_cache/
+.mypy_cache/
+pytest_cache/
+.pytest_cache/
+
+# Local shells/tools that can break docker context
+.ipython/
+.local/
+.cache/
+.env
+.env.*

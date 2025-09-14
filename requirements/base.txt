@@ -25,3 +25,7 @@ django-cors-headers==4.7.0  # https://github.com/adamchainz/django-cors-headers
 # DRF-spectacular for api documentation
 drf-spectacular==0.28.0  # https://github.com/tfranzel/drf-spectacular
 django-webpack-loader==3.2.1  # https://github.com/django-webpack/django-webpack-loader
+# DRF simple-jwt for stateless authentication
+djangorestframework-simplejwt==5.3.1
+dj-rest-auth==5.0.2
+djoser==2.3.1

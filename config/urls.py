@@ -43,6 +43,12 @@ urlpatterns += [
         SpectacularSwaggerView.as_view(url_name="api-schema"),
         name="api-docs",
     ),
+    # dj-rest-auth (JWT enabled via REST_USE_JWT=True)
+    path("api/auth/", include("dj_rest_auth.urls")),
+    path("api/auth/registration/", include("dj_rest_auth.registration.urls")),
+    # Djoser endpoints (users + JWT)
+    path("api/auth/", include("djoser.urls")),
+    path("api/auth/", include("djoser.urls.jwt")),
 ]
 
 if settings.DEBUG:
