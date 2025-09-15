@@ -5,6 +5,7 @@ from typing import Any
 import redis
 from django.conf import settings
 from django.db import connection
+from django.db import transaction
 from django.http import JsonResponse
 
 
@@ -36,6 +37,7 @@ def check_redis() -> dict[str, Any]:
         return {"ok": True}
 
 
+@transaction.non_atomic_requests  # ensure no savepoint is created before the view
 def health(request):
     db = check_db()
     redis_info = check_redis()
