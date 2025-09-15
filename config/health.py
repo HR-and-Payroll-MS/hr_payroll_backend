@@ -5,9 +5,7 @@ from typing import Any
 import redis
 from django.conf import settings
 from django.db import connection
-from django.db.utils import DatabaseError
 from django.http import JsonResponse
-from redis.exceptions import RedisError
 
 
 def check_db() -> dict[str, Any]:
@@ -15,9 +13,9 @@ def check_db() -> dict[str, Any]:
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1;")
             cursor.fetchone()
-    except DatabaseError as exc:  # BLE001: catch a specific exception
+    except Exception as exc:  # noqa: BLE001 - health must degrade, not crash
         return {"ok": False, "error": str(exc)}
-    else:  # TRY300: success path in else
+    else:
         return {"ok": True}
 
 
@@ -32,9 +30,9 @@ def check_redis() -> dict[str, Any]:
             socket_connect_timeout=0.5,
         )
         client.ping()
-    except RedisError as exc:  # BLE001: catch a specific exception
+    except Exception as exc:  # noqa: BLE001 - health must degrade, not crash
         return {"ok": False, "error": str(exc)}
-    else:  # TRY300
+    else:
         return {"ok": True}
 
 
