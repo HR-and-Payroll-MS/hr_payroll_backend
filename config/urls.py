@@ -39,6 +39,8 @@ if settings.DEBUG:
 urlpatterns += [
     # API base url
     path("api/", include("config.api_router")),
+    # API v1 alias (keeps current /api/ for backward compatibility)
+    path("api/v1/", include("config.api_router")),
     # DRF auth token
     path("api/auth-token/", obtain_auth_token, name="obtain_auth_token"),
     path("api/schema/", SpectacularAPIView.as_view(), name="api-schema"),
@@ -46,6 +48,13 @@ urlpatterns += [
         "api/docs/",
         SpectacularSwaggerView.as_view(url_name="api-schema"),
         name="api-docs",
+    ),
+    # v1 schema/docs
+    path("api/v1/schema/", SpectacularAPIView.as_view(), name="api-schema-v1"),
+    path(
+        "api/v1/docs/",
+        SpectacularSwaggerView.as_view(url_name="api-schema-v1"),
+        name="api-docs-v1",
     ),
     # dj-rest-auth (JWT enabled via REST_USE_JWT=True)
     # Namespace these includes to prevent name collisions with allauth's routes
@@ -61,6 +70,18 @@ urlpatterns += [
             namespace="dj_rest_auth_registration",
         ),
     ),
+    # v1 dj-rest-auth aliases
+    path(
+        "api/v1/auth/",
+        include(("dj_rest_auth.urls", "dj_rest_auth"), namespace="dj_rest_auth_v1"),
+    ),
+    path(
+        "api/v1/auth/registration/",
+        include(
+            ("dj_rest_auth.registration.urls", "dj_rest_auth_registration"),
+            namespace="dj_rest_auth_registration_v1",
+        ),
+    ),
     # Safety net: if any browser hits these dj-rest-auth HTML routes,
     # redirect to SSR/allauth equivalents
     path(
@@ -73,9 +94,23 @@ urlpatterns += [
         RedirectView.as_view(url="/accounts/confirm-email/", permanent=False),
         name="djra_verification_sent_redirect",
     ),
+    # v1 safety net redirects
+    path(
+        "api/v1/auth/registration/account-confirm-email/<str:key>/",
+        RedirectView.as_view(pattern_name="account_confirm_email", permanent=False),
+        name="djra_confirm_email_redirect_v1",
+    ),
+    path(
+        "api/v1/auth/registration/account-email-verification-sent/",
+        RedirectView.as_view(url="/accounts/confirm-email/", permanent=False),
+        name="djra_verification_sent_redirect_v1",
+    ),
     # Djoser endpoints (users + JWT)
     path("api/auth/", include("djoser.urls")),
     path("api/auth/", include("djoser.urls.jwt")),
+    # v1 Djoser aliases
+    path("api/v1/auth/", include("djoser.urls")),
+    path("api/v1/auth/", include("djoser.urls.jwt")),
 ]
 
 if settings.DEBUG:
