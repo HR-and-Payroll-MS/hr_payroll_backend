@@ -37,10 +37,10 @@ if settings.DEBUG:
 
 # API URLS
 urlpatterns += [
-    # API base url
-    path("api/", include("config.api_router")),
-    # API v1 alias (keeps current /api/ for backward compatibility)
-    path("api/v1/", include("config.api_router")),
+    # API base url (namespace 'api')
+    path("api/", include(("config.api_router", "api"), namespace="api")),
+    # API v1 alias (namespace 'api_v1')
+    path("api/v1/", include(("config.api_router", "api"), namespace="api_v1")),
     # DRF auth token
     path("api/auth-token/", obtain_auth_token, name="obtain_auth_token"),
     path("api/schema/", SpectacularAPIView.as_view(), name="api-schema"),
