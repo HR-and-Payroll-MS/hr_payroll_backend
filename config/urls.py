@@ -6,6 +6,7 @@ from django.urls import include
 from django.urls import path
 from django.views import defaults as default_views
 from django.views.generic import TemplateView
+from django.views.generic.base import RedirectView
 from drf_spectacular.views import SpectacularAPIView
 from drf_spectacular.views import SpectacularSwaggerView
 from rest_framework.authtoken.views import obtain_auth_token
@@ -47,8 +48,31 @@ urlpatterns += [
         name="api-docs",
     ),
     # dj-rest-auth (JWT enabled via REST_USE_JWT=True)
-    path("api/auth/", include("dj_rest_auth.urls")),
-    path("api/auth/registration/", include("dj_rest_auth.registration.urls")),
+    # Namespace these includes to prevent name collisions with allauth's routes
+    # (e.g., 'account_email_verification_sent', 'account_confirm_email').
+    path(
+        "api/auth/",
+        include(("dj_rest_auth.urls", "dj_rest_auth"), namespace="dj_rest_auth"),
+    ),
+    path(
+        "api/auth/registration/",
+        include(
+            ("dj_rest_auth.registration.urls", "dj_rest_auth_registration"),
+            namespace="dj_rest_auth_registration",
+        ),
+    ),
+    # Safety net: if any browser hits these dj-rest-auth HTML routes,
+    # redirect to SSR/allauth equivalents
+    path(
+        "api/auth/registration/account-confirm-email/<str:key>/",
+        RedirectView.as_view(pattern_name="account_confirm_email", permanent=False),
+        name="djra_confirm_email_redirect",
+    ),
+    path(
+        "api/auth/registration/account-email-verification-sent/",
+        RedirectView.as_view(url="/accounts/confirm-email/", permanent=False),
+        name="djra_verification_sent_redirect",
+    ),
     # Djoser endpoints (users + JWT)
     path("api/auth/", include("djoser.urls")),
     path("api/auth/", include("djoser.urls.jwt")),

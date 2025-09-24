@@ -322,6 +322,13 @@ ACCOUNT_LOGIN_METHODS = {"username", "email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
 # https://docs.allauth.org/en/latest/account/configuration.html
 ACCOUNT_EMAIL_VERIFICATION = "mandatory"
+# Make duplicate emails raise a validation error at signup instead of
+# sending a security email to the existing owner (prevents noisy emails).
+# See: https://docs.allauth.org/en/latest/account/advanced.html#account-prevent-enumeration
+ACCOUNT_PREVENT_ENUMERATION = False
+# Be explicit about email requirements/uniqueness (model also enforces uniqueness)
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_UNIQUE_EMAIL = True
 # https://docs.allauth.org/en/latest/account/configuration.html
 ACCOUNT_ADAPTER = "hr_payroll.users.adapters.AccountAdapter"
 # https://docs.allauth.org/en/latest/account/forms.html
