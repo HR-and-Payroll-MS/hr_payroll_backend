@@ -94,6 +94,7 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS = [
     "hr_payroll.users",
     "hr_payroll.audit",
+    "hr_payroll.employees",
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps

@@ -11,6 +11,53 @@ License: MIT
 
 Moved to [settings](https://cookiecutter-django.readthedocs.io/en/latest/1-getting-started/settings.html).
 
+## API overview
+
+- Base prefixes: the project exposes both unversioned and versioned API routes.
+  - Unversioned: `/api/` (namespace: `api`)
+  - Versioned: `/api/v1/` (namespace: `api_v1`) — current alias of `/api/`
+- OpenAPI schema and docs:
+  - JSON schema: `/api/schema/` and `/api/v1/schema/`
+  - Swagger UI: `/api/docs/` and `/api/v1/docs/`
+- Authentication:
+  - Token/JWT: `dj-rest-auth` under `/api/auth/…` and `/api/v1/auth/…`
+  - User management: `djoser` routes are mounted under the same `/api/auth/…` prefix.
+
+### Employees module (Iteration 1)
+
+Models:
+
+- Department: simple department catalog.
+- Employee: one-to-one with `users.User`, optional `department`, `title`, `hire_date`.
+- EmployeeDocument: file uploads associated with an employee.
+
+Endpoints (DRF viewsets):
+
+- Departments: `GET/POST /api/v1/departments/`, `GET/PATCH/PUT/DELETE /api/v1/departments/{id}/`
+- Employees: `GET/POST /api/v1/employees/`, `GET/PATCH/PUT/DELETE /api/v1/employees/{id}/`
+- Employee Documents: `GET/POST /api/v1/employee-documents/`, `GET /api/v1/employee-documents/{id}/`
+
+Permissions (summary):
+
+- Admins and Managers can create/update/delete employees and departments.
+- Regular employees can list and retrieve, and only see their own `Employee` record and their own `EmployeeDocument` items.
+
+Note: File uploads require MEDIA settings to be configured in your environment; in development, use the default MEDIA_ROOT served by Django or your chosen storage.
+
+### Seed default RBAC groups
+
+Seed three default groups and sensible base permissions for the `User` model:
+
+    python manage.py setup_rbac
+
+This creates groups: `Admin`, `Manager`, and `Employee`.
+
+- Admin: full permissions on users
+- Manager: view/change users
+- Employee: view users
+
+You can assign users to these groups via the Django admin or programmatically.
+
 ## Basic Commands
 
 ### Setting Up Your Users
@@ -19,7 +66,7 @@ Moved to [settings](https://cookiecutter-django.readthedocs.io/en/latest/1-getti
 
 - To create a **superuser account**, use this command:
 
-      $ python manage.py createsuperuser
+      python manage.py createsuperuser
 
 For convenience, you can keep your normal user logged in on Chrome and your superuser logged in on Firefox (or similar), so that you can see how the site behaves for both kinds of users.
 
@@ -27,19 +74,19 @@ For convenience, you can keep your normal user logged in on Chrome and your supe
 
 Running type checks with mypy:
 
-    $ mypy hr_payroll
+    mypy hr_payroll
 
 ### Test coverage
 
 To run the tests, check your test coverage, and generate an HTML coverage report:
 
-    $ coverage run -m pytest
-    $ coverage html
-    $ open htmlcov/index.html
+    coverage run -m pytest
+    coverage html
+    open htmlcov/index.html
 
 #### Running tests with pytest
 
-    $ pytest
+    pytest
 
 ### Live reloading and Sass CSS compilation
 
@@ -51,26 +98,20 @@ This app comes with Celery.
 
 To run a celery worker:
 
-```bash
-cd hr_payroll
-celery -A config.celery_app worker -l info
-```
+    cd hr_payroll
+    celery -A config.celery_app worker -l info
 
 Please note: For Celery's import magic to work, it is important _where_ the celery commands are run. If you are in the same folder with _manage.py_, you should be right.
 
 To run [periodic tasks](https://docs.celeryq.dev/en/stable/userguide/periodic-tasks.html), you'll need to start the celery beat scheduler service. You can start it as a standalone process:
 
-```bash
-cd hr_payroll
-celery -A config.celery_app beat
-```
+    cd hr_payroll
+    celery -A config.celery_app beat
 
 or you can embed the beat service inside a worker with the `-B` option (not recommended for production use):
 
-```bash
-cd hr_payroll
-celery -A config.celery_app worker -B -l info
-```
+    cd hr_payroll
+    celery -A config.celery_app worker -B -l info
 
 ### Email Server
 
