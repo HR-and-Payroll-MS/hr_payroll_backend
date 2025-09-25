@@ -109,10 +109,7 @@ class EmployeeSerializer(serializers.ModelSerializer):
             user_field = self.fields.get("user")
             qs = getattr(user_field, "queryset", None)
             if qs is not None and not qs.exists():
-                msg = (
-                    "No available users to assign. All users are already "
-                    "employees."
-                )
+                msg = "No available users to assign. All users are already employees."
                 raise serializers.ValidationError({"user": msg})
             msg = "This field is required (provide username or user id)."
             raise serializers.ValidationError({"user": msg})

@@ -16,8 +16,7 @@ class IsAdminOrManagerCanWrite(BasePermission):
         if not is_elevated:
             groups = getattr(u, "groups", None)
             is_elevated = bool(
-                groups
-                and groups.filter(name__in=["Admin", "Manager"]).exists(),
+                groups and groups.filter(name__in=["Admin", "Manager"]).exists(),
             )
         return is_elevated
 
@@ -34,8 +33,7 @@ class IsSelfEmployeeOrElevated(BasePermission):
         if not is_elevated:
             groups = getattr(u, "groups", None)
             is_elevated = bool(
-                groups
-                and groups.filter(name__in=["Admin", "Manager"]).exists(),
+                groups and groups.filter(name__in=["Admin", "Manager"]).exists(),
             )
         if is_elevated:
             return True

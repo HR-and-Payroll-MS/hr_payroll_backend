@@ -12,7 +12,7 @@ class TestDjoserJWTFlow(APITestCase):
             username="manager",
             email="manager@example.com",
             password="ManagerPass!123",  # noqa: S106
-    )
+        )
         manager.is_active = True
         manager.save()
         # Add Manager group
