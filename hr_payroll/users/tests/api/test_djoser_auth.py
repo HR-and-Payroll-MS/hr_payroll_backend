@@ -1,25 +1,21 @@
-# ruff: noqa: S106
 from django.contrib.auth import get_user_model
-from django.contrib.auth.tokens import default_token_generator
-from djoser.utils import encode_uid
+from django.contrib.auth.models import Group
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 
 class TestDjoserJWTFlow(APITestCase):
     def test_register_login_refresh_and_me(self):
-        # 0) Prepare: create a Manager and authenticate (registration restricted to Admin/Manager)
+        # 0) Prepare: create a Manager and authenticate (registration restricted)
         user_model = get_user_model()
         manager = user_model.objects.create_user(
             username="manager",
             email="manager@example.com",
-            password="ManagerPass!123",
-        )  # ruff: noqa: S106
+            password="ManagerPass!123",  # noqa: S106
+        )
         manager.is_active = True
         manager.save()
         # Add Manager group
-        from django.contrib.auth.models import Group
-
         mgr_group, _ = Group.objects.get_or_create(name="Manager")
         manager.groups.add(mgr_group)
         self.client.force_authenticate(user=manager)
@@ -28,8 +24,8 @@ class TestDjoserJWTFlow(APITestCase):
         payload = {
             "username": "testseud",
             "email": "testseud@gmail.com",
-            "password": "testPassword123!",  # ruff: noqa: S106 # Allow hardcoded password in test
-            "re_password": "testPassword123!",  # ruff: noqa: S106 # Allow hardcoded password in test
+            "password": "testPassword123!",  # Allow hardcoded password in test
+            "re_password": "testPassword123!",  # Allow hardcoded password in test
         }
         r = self.client.post("/api/auth/users/", payload, format="json")
         assert r.status_code in (status.HTTP_201_CREATED, status.HTTP_204_NO_CONTENT)
@@ -46,7 +42,7 @@ class TestDjoserJWTFlow(APITestCase):
             {
                 "username": "testseud",
                 "password": "testPassword123!",
-            },  # ruff: noqa: S106  # Allow hardcoded password in test
+            },
             format="json",
         )
         assert r.status_code == status.HTTP_200_OK
@@ -79,8 +75,8 @@ class TestDjoserJWTFlow(APITestCase):
         user = user_model.objects.create_user(
             username="bob",
             email="bob@example.com",
-            password="StrongPass!234",
-        )  # ruff: noqa: S106 # Allow hardcoded password in test
+            password="StrongPass!234",  # noqa: S106
+        )
         user.is_active = True
         user.save()
 
@@ -89,7 +85,7 @@ class TestDjoserJWTFlow(APITestCase):
             {
                 "username": "bob@example.com",
                 "password": "StrongPass!234",
-            },  # ruff: noqa: S106 # Allow hardcoded password in test
+            },
             format="json",
         )
         assert r.status_code == status.HTTP_200_OK

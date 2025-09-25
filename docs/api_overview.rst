@@ -26,4 +26,3 @@ Versioning Notes
 
 Both ``/api/`` and ``/api/v1/`` are available. The serializer for Users returns
 fully-qualified links respecting the current namespace (v1-aware URLs).
-

@@ -37,4 +37,3 @@ Field-Level Restrictions
 
 - Regular employees can update their first/last name and password.
 - Only Admin/Manager can change username/email via the API.
-

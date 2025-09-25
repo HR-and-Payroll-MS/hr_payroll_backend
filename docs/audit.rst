@@ -17,4 +17,3 @@ Extending
 ----------------------------------------------------------------------
 
 Add additional events by invoking the audit utility from views or signals.
-

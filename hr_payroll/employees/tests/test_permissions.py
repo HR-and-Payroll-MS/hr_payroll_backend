@@ -2,12 +2,14 @@ import io
 
 import pytest
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Group, Permission
+from django.contrib.auth.models import Group
 from django.core.management import call_command
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from hr_payroll.employees.models import Department, Employee, EmployeeDocument
+from hr_payroll.employees.models import Department
+from hr_payroll.employees.models import Employee
+from hr_payroll.employees.models import EmployeeDocument
 
 
 @pytest.mark.django_db
@@ -40,8 +42,12 @@ def test_setup_rbac_includes_employees_models_permissions():
 
 @pytest.mark.django_db
 def test_non_elevated_cannot_create_department_or_employee():
-    User = get_user_model()
-    user = User.objects.create_user(username="low", email="l@example.com", password="x")
+    user_model = get_user_model()
+    user = user_model.objects.create_user(  # type: ignore[attr-defined]
+        username="low",
+        email="l@example.com",
+        password="x",  # noqa: S106
+    )
     client = APIClient()
     client.force_authenticate(user=user)
 
@@ -49,15 +55,23 @@ def test_non_elevated_cannot_create_department_or_employee():
     assert r.status_code in (status.HTTP_403_FORBIDDEN, status.HTTP_401_UNAUTHORIZED)
 
     # Try creating an employee record for someone
-    other = User.objects.create_user(username="other", email="o@example.com", password="x")
+    other = user_model.objects.create_user(  # type: ignore[attr-defined]
+        username="other",
+        email="o@example.com",
+        password="x",  # noqa: S106
+    )
     r = client.post("/api/v1/employees/", {"user": other.pk}, format="json")
     assert r.status_code in (status.HTTP_403_FORBIDDEN, status.HTTP_401_UNAUTHORIZED)
 
 
 @pytest.mark.django_db
 def test_document_upload_validation_rejects_large_and_type(tmp_path):
-    User = get_user_model()
-    user = User.objects.create_user(username="emp", email="e@example.com", password="x")
+    user_model = get_user_model()
+    user = user_model.objects.create_user(  # type: ignore[attr-defined]
+        username="emp",
+        email="e@example.com",
+        password="x",  # noqa: S106
+    )
     emp = Employee.objects.create(user=user)
     client = APIClient()
     client.force_authenticate(user=user)

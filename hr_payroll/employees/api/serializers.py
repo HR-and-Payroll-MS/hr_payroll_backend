@@ -1,11 +1,14 @@
-from django.contrib.auth import get_user_model
 from collections import OrderedDict
+from typing import Any
 from typing import cast
-from rest_framework.relations import RelatedField
+
+from allauth.account.models import EmailAddress
+from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from ..models import Department, Employee, EmployeeDocument
-from allauth.account.models import EmailAddress
+from hr_payroll.employees.models import Department
+from hr_payroll.employees.models import Employee
+from hr_payroll.employees.models import EmployeeDocument
 
 
 class UsernameOrPkRelatedField(serializers.SlugRelatedField):
@@ -16,12 +19,12 @@ class UsernameOrPkRelatedField(serializers.SlugRelatedField):
     - Queryset on the field is used for browsable API choices; lookups use all users
     """
 
-    def __init__(self, *args, **kwargs):  # noqa: D401
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Keep an unrestricted queryset for lookups so we can return friendly validation
         self._all_users_qs = get_user_model().objects.all()
 
-    def to_internal_value(self, data):  # noqa: D401, ANN001
+    def to_internal_value(self, data):
         # Try by PK if numeric
         try:
             pk = int(data)  # handles int and numeric strings
@@ -42,9 +45,10 @@ class UsernameOrPkRelatedField(serializers.SlugRelatedField):
             except get_user_model().DoesNotExist:
                 pass
 
-        raise serializers.ValidationError("User not found.")
+        msg = "User not found."
+        raise serializers.ValidationError(msg)
 
-    def get_choices(self, cutoff=None):  # noqa: D401, ANN001
+    def get_choices(self, cutoff=None):
         """Show username and id side-by-side in the browsable API dropdown."""
         qs = self.get_queryset()
         if qs is None:
@@ -67,47 +71,62 @@ class DepartmentSerializer(serializers.ModelSerializer):
 
 class EmployeeSerializer(serializers.ModelSerializer):
     # Single prompt: accept username or id; represent as username on read
-    user = UsernameOrPkRelatedField(slug_field="username", queryset=get_user_model().objects.all(), required=False)
+    user = UsernameOrPkRelatedField(
+        slug_field="username",
+        queryset=get_user_model().objects.all(),
+        required=False,
+    )
     department = serializers.PrimaryKeyRelatedField(
-        queryset=Department.objects.all(), allow_null=True, required=False
+        queryset=Department.objects.all(),
+        allow_null=True,
+        required=False,
     )
 
     class Meta:
         model = Employee
         fields = ["id", "user", "department", "title", "hire_date"]
 
-    def __init__(self, *args, **kwargs):  # noqa: D401
-        # Dynamically restrict selectable users when creating: only users without an Employee
-        # On update, allow all users; validation will still prevent assigning a user who already has an Employee
+    def __init__(self, *args, **kwargs):
+        # On create: restrict selectable users to those without an Employee
+        # On update: allow all users; validation still prevents assigning a
+        # user who already has an Employee
         super().__init__(*args, **kwargs)
         creating = getattr(self, "instance", None) is None
-        User = get_user_model()
-        qs = User.objects.filter(employee__isnull=True) if creating else User.objects.all()
+        user_model = get_user_model()
+        qs = (
+            user_model.objects.filter(employee__isnull=True)
+            if creating
+            else user_model.objects.all()
+        )
         if "user" in self.fields:
-            field = cast(RelatedField, self.fields["user"])  # type: ignore[no-redef]
+            field = cast("Any", self.fields["user"])  # type: ignore[no-redef]
             field.queryset = qs
 
-    def validate(self, attrs):  # noqa: D401
-        # Ensure 'user' is provided on create. If no available users, show a clearer message.
+    def validate(self, attrs):
+        # Ensure 'user' is provided on create. If no available users,
+        # show a clearer message.
         if self.instance is None and not attrs.get("user"):
             user_field = self.fields.get("user")
             qs = getattr(user_field, "queryset", None)
             if qs is not None and not qs.exists():
-                raise serializers.ValidationError({
-                    "user": "No available users to assign. All users are already employees."
-                })
-            raise serializers.ValidationError({
-                "user": "This field is required (provide username or user id)."
-            })
+                msg = "No available users to assign. All users are already employees."
+                raise serializers.ValidationError({"user": msg})
+            msg = "This field is required (provide username or user id)."
+            raise serializers.ValidationError({"user": msg})
         return super().validate(attrs)
 
-    def validate_user(self, user):  # noqa: D401, ANN001
+    def validate_user(self, user):
         # Ensure an employee record does not already exist for this user
         instance = getattr(self, "instance", None)
-        if instance is not None and getattr(instance, "user_id", None) == getattr(user, "id", None):
+        if instance is not None and getattr(instance, "user_id", None) == getattr(
+            user,
+            "id",
+            None,
+        ):
             return user
         if Employee.objects.filter(user=user).exists():
-            raise serializers.ValidationError("Employee for this user already exists.")
+            msg = "Employee for this user already exists."
+            raise serializers.ValidationError(msg)
         return user
 
 
@@ -119,13 +138,15 @@ class EmployeeDocumentSerializer(serializers.ModelSerializer):
         model = EmployeeDocument
         fields = ["id", "employee", "name", "file", "uploaded_at"]
 
-    def validate_file(self, f):  # noqa: D401, ANN001
+    def validate_file(self, f):
         name = getattr(f, "name", "") or ""
         if not any(name.lower().endswith(ext) for ext in self.ALLOWED_EXT):
-            raise serializers.ValidationError("Unsupported file type.")
+            msg = "Unsupported file type."
+            raise serializers.ValidationError(msg)
         size = getattr(f, "size", None)
         if size is not None and size > self.MAX_SIZE:
-            raise serializers.ValidationError("File too large (max 5MB).")
+            msg = "File too large (max 5MB)."
+            raise serializers.ValidationError(msg)
         return f
 
 
@@ -137,26 +158,30 @@ class OnboardEmployeeNewSerializer(serializers.Serializer):
     first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     # Employee fields
-    department = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all(), required=False, allow_null=True)
+    department = serializers.PrimaryKeyRelatedField(
+        queryset=Department.objects.all(),
+        required=False,
+        allow_null=True,
+    )
     title = serializers.CharField(max_length=150, required=False, allow_blank=True)
     hire_date = serializers.DateField(required=False, allow_null=True)
 
-    def validate(self, attrs):  # noqa: D401
-        User = get_user_model()
-        if User.objects.filter(username=attrs["username"]).exists():
+    def validate(self, attrs):
+        user_model = get_user_model()
+        if user_model.objects.filter(username=attrs["username"]).exists():
             raise serializers.ValidationError({"username": "Username already exists."})
-        if User.objects.filter(email=attrs["email"]).exists():
+        if user_model.objects.filter(email=attrs["email"]).exists():
             raise serializers.ValidationError({"email": "Email already exists."})
         return attrs
 
-    def create(self, validated_data):  # noqa: D401
-        User = get_user_model()
+    def create(self, validated_data):
+        user_model = get_user_model()
         dept = validated_data.pop("department", None)
         title = validated_data.pop("title", "")
         hire_date = validated_data.pop("hire_date", None)
         password = validated_data.pop("password")
 
-        user = User.objects.create_user(
+        user = user_model.objects.create_user(
             username=validated_data.pop("username"),
             email=validated_data.get("email"),
             first_name=validated_data.pop("first_name", ""),
@@ -170,35 +195,53 @@ class OnboardEmployeeNewSerializer(serializers.Serializer):
         email_value = validated_data.get("email")
         if email_value:
             EmailAddress.objects.update_or_create(
-                user=user, email=email_value, defaults={"verified": True, "primary": True}
+                user=user,
+                email=email_value,
+                defaults={"verified": True, "primary": True},
             )
 
-        employee = Employee.objects.create(user=user, department=dept, title=title, hire_date=hire_date)
-        return employee
+        return Employee.objects.create(
+            user=user,
+            department=dept,
+            title=title,
+            hire_date=hire_date,
+        )
 
 
 class OnboardEmployeeExistingSerializer(serializers.Serializer):
     # Select an existing user (not yet an employee)
-    user = UsernameOrPkRelatedField(slug_field="username", queryset=get_user_model().objects.all())
-    department = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all(), required=False, allow_null=True)
+    user = UsernameOrPkRelatedField(
+        slug_field="username",
+        queryset=get_user_model().objects.all(),
+    )
+    department = serializers.PrimaryKeyRelatedField(
+        queryset=Department.objects.all(),
+        required=False,
+        allow_null=True,
+    )
     title = serializers.CharField(max_length=150, required=False, allow_blank=True)
     hire_date = serializers.DateField(required=False, allow_null=True)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Limit choices to users without an employee, for the browsable API UX
-        User = get_user_model()
-        self.fields["user"].queryset = User.objects.filter(employee__isnull=True)
+        user_model = get_user_model()
+        self.fields["user"].queryset = user_model.objects.filter(employee__isnull=True)
 
-    def validate_user(self, user):  # noqa: D401, ANN001
+    def validate_user(self, user):
         if Employee.objects.filter(user=user).exists():
-            raise serializers.ValidationError("Employee for this user already exists.")
+            msg = "Employee for this user already exists."
+            raise serializers.ValidationError(msg)
         return user
 
-    def create(self, validated_data):  # noqa: D401
+    def create(self, validated_data):
         user = validated_data.pop("user")
         department = validated_data.pop("department", None)
         title = validated_data.pop("title", "")
         hire_date = validated_data.pop("hire_date", None)
-        employee = Employee.objects.create(user=user, department=department, title=title, hire_date=hire_date)
-        return employee
+        return Employee.objects.create(
+            user=user,
+            department=department,
+            title=title,
+            hire_date=hire_date,
+        )

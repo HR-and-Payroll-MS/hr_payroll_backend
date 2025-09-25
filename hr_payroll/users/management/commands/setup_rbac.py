@@ -4,7 +4,10 @@ from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.core.management.base import BaseCommand
 from django.utils.translation import gettext as _
-from hr_payroll.employees.models import Department, Employee as Emp, EmployeeDocument
+
+from hr_payroll.employees.models import Department
+from hr_payroll.employees.models import Employee as Emp
+from hr_payroll.employees.models import EmployeeDocument
 
 
 class Command(BaseCommand):
@@ -31,10 +34,12 @@ class Command(BaseCommand):
             # Admin: all perms for the model
             admin_perms.extend(model_perms)
 
-            # Manager: view + change
+            # Manager role gets view and change permissions
             model_name = model._meta.model_name  # noqa: SLF001
             manager_perms.extend(
-                model_perms.filter(codename__in=[f"view_{model_name}", f"change_{model_name}"])
+                model_perms.filter(
+                    codename__in=[f"view_{model_name}", f"change_{model_name}"],
+                ),
             )
 
             # Employee: view for all models
@@ -65,7 +70,7 @@ class Command(BaseCommand):
             self.stdout.write(
                 self.style.SUCCESS(
                     f"Ensured group '{role_name}' with permissions ({count})",
-                )
+                ),
             )
 
         self.stdout.write(self.style.SUCCESS("RBAC setup complete"))

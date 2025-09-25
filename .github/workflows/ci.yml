@@ -57,12 +57,13 @@ jobs:
             postgres.cache-from=type=gha,scope=postgres-cached-tests
             postgres.cache-to=type=gha,scope=postgres-cached-tests,mode=max
 
-      - name: Build and cache docs
+      - name: Build and cache docs (local)
         uses: docker/bake-action@v6
         with:
           push: false
           load: true
           files: docker-compose.docs.yml
+          source: .
           set: |
             docs.cache-from=type=gha,scope=cached-docs
             docs.cache-to=type=gha,scope=cached-docs,mode=max

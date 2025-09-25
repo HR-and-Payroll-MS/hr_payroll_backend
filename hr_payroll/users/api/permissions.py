@@ -4,7 +4,7 @@ from rest_framework.permissions import BasePermission
 class IsManagerOrAdmin(BasePermission):
     """Allow access only to staff or users in Admin/Manager groups."""
 
-    def has_permission(self, request, view):  # noqa: D401
+    def has_permission(self, request, view):
         u = getattr(request, "user", None)
         if not (u and getattr(u, "is_authenticated", False)):
             return False
