@@ -10,6 +10,11 @@ Welcome to hr_payroll's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   api_overview
+   auth_and_rbac
+   employees
+   audit
+   changelog
    howto
    users
 

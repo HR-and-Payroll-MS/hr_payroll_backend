@@ -7,8 +7,24 @@ from rest_framework.test import APITestCase
 
 
 class TestDjoserJWTFlow(APITestCase):
-    def test_register_activate_login_refresh_and_me(self):
-        # 1) Register
+    def test_register_login_refresh_and_me(self):
+        # 0) Prepare: create a Manager and authenticate (registration restricted to Admin/Manager)
+        user_model = get_user_model()
+        manager = user_model.objects.create_user(
+            username="manager",
+            email="manager@example.com",
+            password="ManagerPass!123",
+        )  # ruff: noqa: S106
+        manager.is_active = True
+        manager.save()
+        # Add Manager group
+        from django.contrib.auth.models import Group
+
+        mgr_group, _ = Group.objects.get_or_create(name="Manager")
+        manager.groups.add(mgr_group)
+        self.client.force_authenticate(user=manager)
+
+        # 1) Register (as Manager)
         payload = {
             "username": "testseud",
             "email": "testseud@gmail.com",
@@ -18,24 +34,13 @@ class TestDjoserJWTFlow(APITestCase):
         r = self.client.post("/api/auth/users/", payload, format="json")
         assert r.status_code in (status.HTTP_201_CREATED, status.HTTP_204_NO_CONTENT)
 
-        # User inactive until activation
-        user_model = get_user_model()
+        # User is active immediately (activation emails disabled)
         user = user_model.objects.get(username="testseud")
-        assert user.is_active is False
-
-        # 2) Activate
-        uid = encode_uid(user.pk)
-        token = default_token_generator.make_token(user)
-        r = self.client.post(
-            "/api/auth/users/activation/",
-            {"uid": uid, "token": token},
-            format="json",
-        )
-        assert r.status_code in (status.HTTP_200_OK, status.HTTP_204_NO_CONTENT)
-        user.refresh_from_db()
         assert user.is_active is True
 
-        # 3) Login (JWT create)
+        # 2) Login (JWT create)
+        # Clear manager force-auth so JWT auth is used
+        self.client.force_authenticate(user=None)
         r = self.client.post(
             "/api/auth/jwt/create/",
             {
@@ -50,7 +55,7 @@ class TestDjoserJWTFlow(APITestCase):
         assert access is not None
         assert refresh is not None
 
-        # 4) Refresh
+        # 3) Refresh
         r = self.client.post(
             "/api/auth/jwt/refresh/",
             {"refresh": refresh},
@@ -60,7 +65,9 @@ class TestDjoserJWTFlow(APITestCase):
         new_access = r.data.get("access")
         assert new_access is not None
 
-        # 5) Me with Bearer token
+        # 4) Me with Bearer token
+        # Ensure no lingering force-auth; use Bearer token
+        self.client.force_authenticate(user=None)
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {new_access}")
         r = self.client.get("/api/auth/users/me/")
         assert r.status_code == status.HTTP_200_OK

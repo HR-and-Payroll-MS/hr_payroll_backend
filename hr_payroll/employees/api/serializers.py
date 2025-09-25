@@ -5,6 +5,7 @@ from rest_framework.relations import RelatedField
 from rest_framework import serializers
 
 from ..models import Department, Employee, EmployeeDocument
+from allauth.account.models import EmailAddress
 
 
 class UsernameOrPkRelatedField(serializers.SlugRelatedField):
@@ -126,3 +127,78 @@ class EmployeeDocumentSerializer(serializers.ModelSerializer):
         if size is not None and size > self.MAX_SIZE:
             raise serializers.ValidationError("File too large (max 5MB).")
         return f
+
+
+class OnboardEmployeeNewSerializer(serializers.Serializer):
+    # New user credentials
+    username = serializers.CharField(max_length=150)
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+    first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    # Employee fields
+    department = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all(), required=False, allow_null=True)
+    title = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    hire_date = serializers.DateField(required=False, allow_null=True)
+
+    def validate(self, attrs):  # noqa: D401
+        User = get_user_model()
+        if User.objects.filter(username=attrs["username"]).exists():
+            raise serializers.ValidationError({"username": "Username already exists."})
+        if User.objects.filter(email=attrs["email"]).exists():
+            raise serializers.ValidationError({"email": "Email already exists."})
+        return attrs
+
+    def create(self, validated_data):  # noqa: D401
+        User = get_user_model()
+        dept = validated_data.pop("department", None)
+        title = validated_data.pop("title", "")
+        hire_date = validated_data.pop("hire_date", None)
+        password = validated_data.pop("password")
+
+        user = User.objects.create_user(
+            username=validated_data.pop("username"),
+            email=validated_data.get("email"),
+            first_name=validated_data.pop("first_name", ""),
+            last_name=validated_data.pop("last_name", ""),
+        )
+        user.is_active = True
+        user.set_password(password)
+        user.save()
+
+        # Ensure email is marked verified and primary in allauth
+        email_value = validated_data.get("email")
+        if email_value:
+            EmailAddress.objects.update_or_create(
+                user=user, email=email_value, defaults={"verified": True, "primary": True}
+            )
+
+        employee = Employee.objects.create(user=user, department=dept, title=title, hire_date=hire_date)
+        return employee
+
+
+class OnboardEmployeeExistingSerializer(serializers.Serializer):
+    # Select an existing user (not yet an employee)
+    user = UsernameOrPkRelatedField(slug_field="username", queryset=get_user_model().objects.all())
+    department = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all(), required=False, allow_null=True)
+    title = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    hire_date = serializers.DateField(required=False, allow_null=True)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Limit choices to users without an employee, for the browsable API UX
+        User = get_user_model()
+        self.fields["user"].queryset = User.objects.filter(employee__isnull=True)
+
+    def validate_user(self, user):  # noqa: D401, ANN001
+        if Employee.objects.filter(user=user).exists():
+            raise serializers.ValidationError("Employee for this user already exists.")
+        return user
+
+    def create(self, validated_data):  # noqa: D401
+        user = validated_data.pop("user")
+        department = validated_data.pop("department", None)
+        title = validated_data.pop("title", "")
+        hire_date = validated_data.pop("hire_date", None)
+        employee = Employee.objects.create(user=user, department=department, title=title, hire_date=hire_date)
+        return employee

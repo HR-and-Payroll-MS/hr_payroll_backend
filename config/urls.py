@@ -63,48 +63,18 @@ urlpatterns += [
         "api/auth/",
         include(("dj_rest_auth.urls", "dj_rest_auth"), namespace="dj_rest_auth"),
     ),
-    path(
-        "api/auth/registration/",
-        include(
-            ("dj_rest_auth.registration.urls", "dj_rest_auth_registration"),
-            namespace="dj_rest_auth_registration",
-        ),
-    ),
+    # Registration endpoints removed: only managers/admins can create users via Djoser
     # v1 dj-rest-auth aliases
     path(
         "api/v1/auth/",
         include(("dj_rest_auth.urls", "dj_rest_auth"), namespace="dj_rest_auth_v1"),
     ),
-    path(
-        "api/v1/auth/registration/",
-        include(
-            ("dj_rest_auth.registration.urls", "dj_rest_auth_registration"),
-            namespace="dj_rest_auth_registration_v1",
-        ),
-    ),
+    # v1 registration endpoints removed
     # Safety net: if any browser hits these dj-rest-auth HTML routes,
     # redirect to SSR/allauth equivalents
-    path(
-        "api/auth/registration/account-confirm-email/<str:key>/",
-        RedirectView.as_view(pattern_name="account_confirm_email", permanent=False),
-        name="djra_confirm_email_redirect",
-    ),
-    path(
-        "api/auth/registration/account-email-verification-sent/",
-        RedirectView.as_view(url="/accounts/confirm-email/", permanent=False),
-        name="djra_verification_sent_redirect",
-    ),
+    # Registration-related redirect helpers removed
     # v1 safety net redirects
-    path(
-        "api/v1/auth/registration/account-confirm-email/<str:key>/",
-        RedirectView.as_view(pattern_name="account_confirm_email", permanent=False),
-        name="djra_confirm_email_redirect_v1",
-    ),
-    path(
-        "api/v1/auth/registration/account-email-verification-sent/",
-        RedirectView.as_view(url="/accounts/confirm-email/", permanent=False),
-        name="djra_verification_sent_redirect_v1",
-    ),
+    # v1 registration-related redirect helpers removed
     # Djoser endpoints (users + JWT)
     path("api/auth/", include("djoser.urls")),
     path("api/auth/", include("djoser.urls.jwt")),

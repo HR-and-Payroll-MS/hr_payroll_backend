@@ -317,7 +317,7 @@ CELERY_TASK_SEND_SENT_EVENT = True
 CELERY_WORKER_HIJACK_ROOT_LOGGER = False
 # django-allauth
 # ------------------------------------------------------------------------------
-ACCOUNT_ALLOW_REGISTRATION = env.bool("DJANGO_ACCOUNT_ALLOW_REGISTRATION", True)
+ACCOUNT_ALLOW_REGISTRATION = False
 # https://docs.allauth.org/en/latest/account/configuration.html
 ACCOUNT_LOGIN_METHODS = {"username", "email"}
 # https://docs.allauth.org/en/latest/account/configuration.html
@@ -366,12 +366,24 @@ SIMPLE_JWT = {
 DJOSER = {
     "LOGIN_FIELD": "username",
     "USER_CREATE_PASSWORD_RETYPE": True,
-    "SEND_ACTIVATION_EMAIL": True,
+    # Disable activation emails to streamline manager-led onboarding
+    "SEND_ACTIVATION_EMAIL": False,
     "ACTIVATION_URL": "auth/activate/{uid}/{token}",
     "PASSWORD_RESET_CONFIRM_URL": "auth/password/reset/confirm/{uid}/{token}",
     "SERIALIZERS": {
         "user": "hr_payroll.users.api.serializers.UserSerializer",
         "current_user": "hr_payroll.users.api.serializers.UserSerializer",
+    },
+    "PERMISSIONS": {
+        # Only Admins/Managers may create/list/delete users via Djoser
+        "user_create": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
+        "user_delete": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
+        "user_list": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
+        # Everyone authenticated can view/update their own user; serializer enforces field-level restrictions
+        "user": ["rest_framework.permissions.IsAuthenticated"],
+        "current_user": ["rest_framework.permissions.IsAuthenticated"],
+        # Allow authenticated users to change their own password
+        "set_password": ["rest_framework.permissions.IsAuthenticated"],
     },
 }
 
