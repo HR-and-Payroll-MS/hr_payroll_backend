@@ -8,9 +8,18 @@ from hr_payroll.employees.models import Employee
 
 @pytest.mark.django_db
 def test_admin_can_create_employee_by_username():
-    User = get_user_model()
-    admin = User.objects.create_user(username="adminx", email="ax@example.com", password="x", is_staff=True)
-    target = User.objects.create_user(username="empnew", email="empnew@example.com", password="x")
+    user_model = get_user_model()
+    admin = user_model.objects.create_user(  # type: ignore[attr-defined]
+        username="adminx",
+        email="ax@example.com",
+        password="x",  # noqa: S106
+        is_staff=True,
+    )
+    target = user_model.objects.create_user(  # type: ignore[attr-defined]
+        username="empnew",
+        email="empnew@example.com",
+        password="x",  # noqa: S106
+    )
 
     client = APIClient()
     client.force_authenticate(user=admin)
@@ -24,8 +33,13 @@ def test_admin_can_create_employee_by_username():
 
 @pytest.mark.django_db
 def test_missing_user_returns_400():
-    User = get_user_model()
-    admin = User.objects.create_user(username="adminy", email="ay@example.com", password="x", is_staff=True)
+    user_model = get_user_model()
+    admin = user_model.objects.create_user(  # type: ignore[attr-defined]
+        username="adminy",
+        email="ay@example.com",
+        password="x",  # noqa: S106
+        is_staff=True,
+    )
     client = APIClient()
     client.force_authenticate(user=admin)
 
@@ -36,9 +50,18 @@ def test_missing_user_returns_400():
 
 @pytest.mark.django_db
 def test_duplicate_employee_prevented():
-    User = get_user_model()
-    admin = User.objects.create_user(username="adminz", email="az@example.com", password="x", is_staff=True)
-    target = User.objects.create_user(username="empdup", email="empdup@example.com", password="x")
+    user_model = get_user_model()
+    admin = user_model.objects.create_user(  # type: ignore[attr-defined]
+        username="adminz",
+        email="az@example.com",
+        password="x",  # noqa: S106
+        is_staff=True,
+    )
+    target = user_model.objects.create_user(  # type: ignore[attr-defined]
+        username="empdup",
+        email="empdup@example.com",
+        password="x",  # noqa: S106
+    )
     Employee.objects.create(user=target)
 
     client = APIClient()
@@ -51,9 +74,17 @@ def test_duplicate_employee_prevented():
 
 @pytest.mark.django_db
 def test_non_elevated_cannot_create_employee():
-    User = get_user_model()
-    user = User.objects.create_user(username="lowx", email="lowx@example.com", password="x")
-    other = User.objects.create_user(username="someone", email="s@example.com", password="x")
+    user_model = get_user_model()
+    user = user_model.objects.create_user(  # type: ignore[attr-defined]
+        username="lowx",
+        email="lowx@example.com",
+        password="x",  # noqa: S106
+    )
+    other = user_model.objects.create_user(  # type: ignore[attr-defined]
+        username="someone",
+        email="s@example.com",
+        password="x",  # noqa: S106
+    )
 
     client = APIClient()
     client.force_authenticate(user=user)

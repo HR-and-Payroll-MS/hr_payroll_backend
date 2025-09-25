@@ -1,6 +1,6 @@
 from django.conf import settings
-from django.db import models
 from django.core.exceptions import ValidationError
+from django.db import models
 
 
 class Department(models.Model):
@@ -17,7 +17,11 @@ class Department(models.Model):
 class Employee(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     department = models.ForeignKey(
-        Department, on_delete=models.SET_NULL, null=True, blank=True, related_name="employees"
+        Department,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="employees",
     )
     title = models.CharField(max_length=150, blank=True)
     hire_date = models.DateField(null=True, blank=True)
@@ -35,7 +39,11 @@ def employee_upload_to(instance: "EmployeeDocument", filename: str) -> str:
 
 
 class EmployeeDocument(models.Model):
-    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="documents")
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.CASCADE,
+        related_name="documents",
+    )
     name = models.CharField(max_length=200)
     file = models.FileField(upload_to=employee_upload_to)
     uploaded_at = models.DateTimeField(auto_now_add=True)
@@ -46,7 +54,7 @@ class EmployeeDocument(models.Model):
     def __str__(self) -> str:  # pragma: no cover - trivial
         return self.name
 
-    def clean(self):  # noqa: D401
+    def clean(self):
         # Basic file validation: max 5MB, allowed extensions
         if self.file and hasattr(self.file, "size"):
             if self.file.size > 5 * 1024 * 1024:

@@ -29,4 +29,3 @@ Notes
 
 - Activation emails can be disabled if desired to streamline onboarding
 - Generic Employee create kept for compatibility but the onboarding endpoints are preferred
-

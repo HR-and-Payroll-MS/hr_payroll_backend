@@ -67,4 +67,3 @@ Security & Object Permissions
 
 - Admin/Manager can write across Departments/Employees/EmployeeDocuments
 - Regular employees can read and modify their own resources only
-

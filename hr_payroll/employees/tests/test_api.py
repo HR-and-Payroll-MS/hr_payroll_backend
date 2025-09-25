@@ -5,13 +5,19 @@ from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from hr_payroll.employees.models import Department, Employee, EmployeeDocument
+from hr_payroll.employees.models import Department
+from hr_payroll.employees.models import Employee
 
 
 @pytest.mark.django_db
 def test_department_crud_rbac():
-    User = get_user_model()
-    admin = User.objects.create_user(username="admin1", email="a@example.com", password="x", is_staff=True)
+    user_model = get_user_model()
+    admin = user_model.objects.create_user(  # type: ignore[attr-defined]
+        username="admin1",
+        email="a@example.com",
+        password="x",  # noqa: S106
+        is_staff=True,
+    )
     client = APIClient()
     client.force_authenticate(user=admin)
 
@@ -23,14 +29,24 @@ def test_department_crud_rbac():
     # list
     r = client.get("/api/v1/departments/")
     assert r.status_code == status.HTTP_200_OK
-    assert any(d["id"] == dept_id for d in [{"id": x["id"]} for x in r.data]) or any(d.get("id") == dept_id for d in r.data)
+    assert any(d["id"] == dept_id for d in [{"id": x["id"]} for x in r.data]) or any(
+        d.get("id") == dept_id for d in r.data
+    )
 
     # update
-    r = client.patch(f"/api/v1/departments/{dept_id}/", {"description": "People ops"}, format="json")
+    r = client.patch(
+        f"/api/v1/departments/{dept_id}/",
+        {"description": "People ops"},
+        format="json",
+    )
     assert r.status_code == status.HTTP_200_OK
 
     # non-elevated cannot create
-    user = User.objects.create_user(username="u1", email="u1@example.com", password="x")
+    user = user_model.objects.create_user(  # type: ignore[attr-defined]
+        username="u1",
+        email="u1@example.com",
+        password="x",  # noqa: S106
+    )
     client.force_authenticate(user=user)
     r = client.post("/api/v1/departments/", {"name": "IT"}, format="json")
     assert r.status_code in (status.HTTP_403_FORBIDDEN, status.HTTP_401_UNAUTHORIZED)
@@ -38,10 +54,23 @@ def test_department_crud_rbac():
 
 @pytest.mark.django_db
 def test_employee_visibility_and_docs_upload(tmp_path):
-    User = get_user_model()
-    admin = User.objects.create_user(username="admin2", email="a2@example.com", password="x", is_staff=True)
-    user = User.objects.create_user(username="emp1", email="e1@example.com", password="x")
-    other = User.objects.create_user(username="emp2", email="e2@example.com", password="x")
+    user_model = get_user_model()
+    admin = user_model.objects.create_user(  # type: ignore[attr-defined]
+        username="admin2",
+        email="a2@example.com",
+        password="x",  # noqa: S106
+        is_staff=True,
+    )
+    user = user_model.objects.create_user(  # type: ignore[attr-defined]
+        username="emp1",
+        email="e1@example.com",
+        password="x",  # noqa: S106
+    )
+    other = user_model.objects.create_user(  # type: ignore[attr-defined]
+        username="emp2",
+        email="e2@example.com",
+        password="x",  # noqa: S106
+    )
 
     # create employee records
     d = Department.objects.create(name="Engineering")
@@ -70,4 +99,4 @@ def test_employee_visibility_and_docs_upload(tmp_path):
     client.force_authenticate(user=admin)
     r = client.get("/api/v1/employees/")
     assert r.status_code == status.HTTP_200_OK
-    assert len(r.data) >= 2
+    assert len(r.data) >= 2  # noqa: PLR2004

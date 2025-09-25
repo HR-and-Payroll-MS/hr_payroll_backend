@@ -7,7 +7,7 @@ from django.dispatch import receiver
 
 
 @receiver(post_save, sender=get_user_model())
-def add_default_employee_group(sender, instance, created, **kwargs):  # noqa: D401, ANN001
+def add_default_employee_group(sender, instance, created, **kwargs):
     """Assign every newly created user to the least-privileged 'Employee' group.
 
     This ensures new signups have a default role without requiring manual admin action.

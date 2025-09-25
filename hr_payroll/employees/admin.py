@@ -1,6 +1,8 @@
 from django.contrib import admin
 
-from .models import Department, Employee, EmployeeDocument
+from hr_payroll.employees.models import Department
+from hr_payroll.employees.models import Employee
+from hr_payroll.employees.models import EmployeeDocument
 
 
 @admin.register(Department)
