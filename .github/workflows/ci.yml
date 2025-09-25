@@ -63,8 +63,8 @@ jobs:
           push: false
           load: true
           files: docker-compose.docs.yml
+          source: .
           set: |
-            *.source=docker
             docs.cache-from=type=gha,scope=cached-docs
             docs.cache-to=type=gha,scope=cached-docs,mode=max
 
