@@ -22,6 +22,7 @@ services:
     ports:
       - '8000:8000'
     command: /start
+    user: "${UID:-1000}:${GID:-1000}"
 
   postgres:
     build:

@@ -1,0 +1,15 @@
+#############################################
+# Deprecated placeholder - do not use.
+# This file previously attempted to override
+# build sections to force pulling images from
+# Docker Hub, but compose does not support
+# removing 'build' via null in a merged file.
+#
+# Use the provided scripts instead:
+#  - scripts/win/release-dockerhub.cmd
+#  - scripts/linux/release-dockerhub.sh
+#  - scripts/win/pull-retag.cmd
+#  - scripts/linux/pull-retag.sh
+#
+# See DEPLOYMENT_DOCKERHUB.md for details.
+#############################################
