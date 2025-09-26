@@ -19,6 +19,16 @@ TAG="${2:-latest}"
 REPO_PREFIX="hr-payroll"
 COMPOSE_FILE="docker-compose.production.yml"
 
+# Validate namespace format (Docker Hub requires exactly two segments: <namespace>/<repo>)
+# The script constructs repos as: ${NAMESPACE}/${REPO_PREFIX}-${svc}:${TAG}
+# So NAMESPACE must not contain '/'
+if [[ "$NAMESPACE" == *"/"* ]]; then
+  echo "Error: NAMESPACE should be your Docker Hub username or org only (no slash)."
+  echo "       Given: '$NAMESPACE' -> would create invalid path '${NAMESPACE}/${REPO_PREFIX}-<svc>'"
+  echo "       Example usage: $0 yourname v1.0.0"
+  exit 1
+fi
+
 echo "Logging in to Docker Hub (skip if already logged in)..."
 docker login || { echo "Docker login failed. Please login and re-run."; exit 1; }
 

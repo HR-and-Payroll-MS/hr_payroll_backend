@@ -16,6 +16,14 @@ TAG="${2:-latest}"
 REPO_PREFIX="hr-payroll"
 services=(django postgres traefik nginx celeryworker celerybeat flower)
 
+# Validate namespace format (must not contain '/')
+if [[ "$NAMESPACE" == *"/"* ]]; then
+  echo "Error: NAMESPACE should be your Docker Hub username or org only (no slash)."
+  echo "       Given: '$NAMESPACE' -> would create invalid path '${NAMESPACE}/${REPO_PREFIX}-<svc>'"
+  echo "       Example usage: $0 yourname v1.0.0"
+  exit 1
+fi
+
 for svc in "${services[@]}"; do
   remote_img="${NAMESPACE}/${REPO_PREFIX}-${svc}:${TAG}"
   local_img="hr_payroll_production_${svc}"
