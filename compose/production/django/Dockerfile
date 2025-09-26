@@ -107,3 +107,4 @@ RUN DATABASE_URL="" \
   python manage.py compilemessages
 
 ENTRYPOINT ["/entrypoint"]
+CMD ["/start"]

@@ -5,6 +5,8 @@ set -o pipefail
 set -o nounset
 
 
+python /app/manage.py migrate --noinput
 python /app/manage.py collectstatic --noinput
 
-exec /usr/local/bin/gunicorn config.asgi --bind 0.0.0.0:5000 --chdir=/app -k uvicorn_worker.UvicornWorker
+PORT="${PORT:-5000}"
+exec /usr/local/bin/gunicorn config.asgi --bind 0.0.0.0:"${PORT}" --chdir=/app -k uvicorn_worker.UvicornWorker
