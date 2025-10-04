@@ -255,10 +255,8 @@ class OnboardEmployeeNewSerializer(serializers.Serializer):
     # (kept as read_only so schema shows them as output-only if needed)
     username = serializers.CharField(max_length=150, read_only=True)
     email = serializers.EmailField(read_only=True)
-    # Internal write_only field so we can inject the generated password in validate();
-    # clients are not allowed to supply it (we reject if present) and we expose
-    # the generated value separately as "initial_password" in the view response.
-    password = serializers.CharField(write_only=True, required=False)
+    # Password is fully internal; not declared as a field to avoid any
+    # chance of client submission.
     first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     # Employee fields
@@ -274,7 +272,11 @@ class OnboardEmployeeNewSerializer(serializers.Serializer):
         # Reject attempts to supply forbidden fields (credentials are auto-generated)
         forbidden = [
             f
-            for f in ("username", "email", "password")
+            for f in (
+                "username",
+                "email",
+                "password",  # password not a declared field but still reject
+            )
             if f in self.initial_data and self.initial_data.get(f)
         ]
         if forbidden:
@@ -293,7 +295,8 @@ class OnboardEmployeeNewSerializer(serializers.Serializer):
         # Inject for create()
         attrs["username"] = gen_username
         attrs["email"] = gen_email
-        attrs["password"] = gen_password
+        # Store password internally only
+        attrs["_generated_password"] = gen_password
         return attrs
 
     def create(self, validated_data):
@@ -301,7 +304,7 @@ class OnboardEmployeeNewSerializer(serializers.Serializer):
         dept = validated_data.pop("department", None)
         title = validated_data.pop("title", "")
         hire_date = validated_data.pop("hire_date", None)
-        password = validated_data.pop("password")
+        password = validated_data.pop("_generated_password")
 
         user = user_model.objects.create_user(
             username=validated_data.pop("username"),
