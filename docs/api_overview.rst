@@ -1,11 +1,15 @@
 API Overview
 ======================================================================
 
-Base URLs
+Base URL
 ----------------------------------------------------------------------
 
-- v1: ``/api/v1/`` (recommended)
-- Legacy alias: ``/api/`` (mirrors v1 routes)
+The project exposes a single versioned API namespace:
+
+- ``/api/v1/``
+
+Previous un-versioned aliases (``/api/``) have been removed to enforce explicit
+versioning and simplify documentation.
 
 Routers
 ----------------------------------------------------------------------
@@ -21,8 +25,16 @@ OpenAPI & Docs
 - Schema: ``/api/v1/schema/``
 - Swagger UI: ``/api/v1/docs/`` (admin-only by default)
 
-Versioning Notes
+Versioning Policy
 ----------------------------------------------------------------------
 
-Both ``/api/`` and ``/api/v1/`` are available. The serializer for Users returns
-fully-qualified links respecting the current namespace (v1-aware URLs).
+- All new endpoints MUST live under ``/api/v1/``.
+- Future breaking changes will introduce ``/api/v2/`` while keeping ``/api/v1/``
+	available until formally deprecated.
+- Hyperlinked fields (e.g., in user serializers) always emit fully-qualified
+	``/api/v1/`` URLs.
+
+Deprecation Strategy
+^^^^^^^^^^^^^^^^^^^^
+- Add a deprecation notice in responses or documentation before removing a prior version.
+- Provide migration notes in ``changelog.rst``.
