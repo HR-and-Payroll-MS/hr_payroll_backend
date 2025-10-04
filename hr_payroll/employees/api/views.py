@@ -83,10 +83,19 @@ class EmployeeViewSet(viewsets.ModelViewSet[Employee]):
         serializer = OnboardEmployeeNewSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         employee = serializer.save()
-        return Response(
-            EmployeeSerializer(employee, context={"request": request}).data,
-            status=status.HTTP_201_CREATED,
+        emp_data = EmployeeSerializer(employee, context={"request": request}).data
+        # Attach generated credentials (serializer stored them)
+        extra = {}
+        generated_pairs = (
+            ("generated_username", "username"),
+            ("generated_email", "email"),
+            ("generated_password", "initial_password"),
         )
+        for attr, key in generated_pairs:
+            if hasattr(serializer, attr):
+                extra[key] = getattr(serializer, attr)
+        emp_data.update(extra)
+        return Response(emp_data, status=status.HTTP_201_CREATED)
 
     @extend_schema(
         summary="Onboard an existing user as Employee",

@@ -42,7 +42,6 @@ def test_autofill_username_email_basic(auth_client):
     resp = _post_onboard(
         auth_client,
         {
-            "password": "TempPass123!",
             "first_name": "Jane",
             "last_name": "Doe",
         },
@@ -55,19 +54,26 @@ def test_autofill_username_email_basic(auth_client):
     # Pattern j + truncated last + sequence, e.g. jdoe001
     assert u.username.startswith("jdoe")
     assert u.email == f"{u.username}@hr_payroll.com"
+    body = resp.json()
+    assert body["username"] == u.username
+    assert body["email"] == u.email
+    # Ensure initial password provided and meets minimum length
+    min_initial_password_length = 8
+    assert "initial_password" in body
+    assert len(body["initial_password"]) >= min_initial_password_length
 
 
 def test_autofill_handles_collision(auth_client):
     # First Jane Doe
     r1 = _post_onboard(
         auth_client,
-        {"password": "TempPass123!", "first_name": "Jane", "last_name": "Doe"},
+        {"first_name": "Jane", "last_name": "Doe"},
     )
     assert r1.status_code == HTTPStatus.CREATED
     # Second Jane Doe
     r2 = _post_onboard(
         auth_client,
-        {"password": "TempPass123!", "first_name": "Jane", "last_name": "Doe"},
+        {"first_name": "Jane", "last_name": "Doe"},
     )
     assert r2.status_code == HTTPStatus.CREATED
     user_model = get_user_model()
@@ -83,7 +89,7 @@ def test_autofill_handles_collision(auth_client):
 
 
 def test_autofill_missing_names(auth_client):
-    resp = _post_onboard(auth_client, {"password": "TempPass123!"})
+    resp = _post_onboard(auth_client, {})
     assert resp.status_code == HTTPStatus.CREATED
     user_model = get_user_model()
     created = user_model.objects.order_by("-id").first()
@@ -94,7 +100,7 @@ def test_autofill_missing_names(auth_client):
 def test_autofill_non_ascii(auth_client):
     resp = _post_onboard(
         auth_client,
-        {"password": "TempPass123!", "first_name": "José", "last_name": "Niño"},
+        {"first_name": "José", "last_name": "Niño"},
     )
     assert resp.status_code == HTTPStatus.CREATED
     user_model = get_user_model()
