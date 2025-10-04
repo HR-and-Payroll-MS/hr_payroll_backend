@@ -52,8 +52,9 @@ def test_autofill_username_email_basic(auth_client):
     # Response 'user' is the username slug per EmployeeSerializer
     user_model = get_user_model()
     u = user_model.objects.get(username=data["user"])
-    assert u.username.startswith("jane.doe")
-    assert u.email.startswith(u.username + "@")
+    # Pattern j + truncated last + sequence, e.g. jdoe001
+    assert u.username.startswith("jdoe")
+    assert u.email == f"{u.username}@hr_payroll.com"
 
 
 def test_autofill_handles_collision(auth_client):
@@ -86,7 +87,8 @@ def test_autofill_missing_names(auth_client):
     assert resp.status_code == HTTPStatus.CREATED
     user_model = get_user_model()
     created = user_model.objects.order_by("-id").first()
-    assert created.username.startswith("user")
+    # Fallback: first initial 'u' + 'user' + sequence
+    assert created.username.startswith("uuser")
 
 
 def test_autofill_non_ascii(auth_client):
@@ -97,5 +99,5 @@ def test_autofill_non_ascii(auth_client):
     assert resp.status_code == HTTPStatus.CREATED
     user_model = get_user_model()
     created = user_model.objects.order_by("-id").first()
-    # slugify should drop accents -> jose.nino
-    assert created.username.startswith("jose.nino")
+    # Accents dropped; last name Niño -> nino truncated (default length 6)
+    assert created.username.startswith("jnino")

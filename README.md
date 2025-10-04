@@ -145,3 +145,25 @@ Bootstrap v5 is installed using npm and customised by tweaking your variables in
 You can find a list of available variables [in the bootstrap source](https://github.com/twbs/bootstrap/blob/v5.1.3/scss/_variables.scss), or get explanations on them in the [Bootstrap docs](https://getbootstrap.com/docs/5.1/customize/sass/).
 
 Bootstrap's javascript as well as its dependencies are concatenated into a single file: `static/js/vendors.js`.
+
+## Onboarding Username & Email Generation
+
+When creating a new employee via the endpoint `POST /api/v1/employees/onboard/new/`, if `username` and/or `email` are omitted they are auto-generated using a deterministic compact pattern:
+
+    <first-initial><truncated-last><sequence>
+
+Example: `John Robertson` -> `jrobert001` (email: `jrobert001@hr_payroll.com`). The sequence is zero-padded to ensure stable sorting and starts at `001` for each distinct name root.
+
+### Environment Settings
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ONBOARDING_EMAIL_DOMAIN` | `hr_payroll.com` | Domain appended to generated username for the email address. |
+| `ONBOARDING_LAST_NAME_LENGTH` | `6` | Maximum characters from the slugified last name to retain. |
+| `ONBOARDING_SEQUENCE_PAD` | `3` | Zero-padding width for the numeric sequence (e.g. 001, 002). |
+
+The generator is collision-safe (will increment the sequence until a unique username & email are found) and accent/whitespace tolerant (names are slugified).
+
+If both first and last name are missing, it falls back to pattern: `uuser001`, `uuser002`, etc.
+
+These values can be tuned without code changes by setting the corresponding environment variables.

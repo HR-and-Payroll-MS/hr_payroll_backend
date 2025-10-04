@@ -153,33 +153,43 @@ class EmployeeDocumentSerializer(serializers.ModelSerializer):
 
 
 def _generate_unique_username_email(first_name: str, last_name: str) -> tuple[str, str]:
-    """Generate a unique username and email based on names.
+    """Generate a unique, compact username & email.
 
-    Pattern: first.last (lower, slugified). If collision, append -2, -3, ...
-    Email local part mirrors username; domain from
-    settings.DEFAULT_ONBOARDING_EMAIL_DOMAIN or fallback to example.com.
+    Pattern (deterministic):
+        <first-initial><truncated-last><seq>
+
+    - first-initial: first letter of first name (fallback 'u')
+    - truncated-last: slugified last name truncated to ONBOARDING_LAST_NAME_LENGTH
+      (fallback 'user' if blank)
+    - seq: zero-padded integer starting at 001 ensuring uniqueness
+    Example: John Robertson -> jrobert001, next collision jrobert002
+
+    Email: <username>@<ONBOARDING_EMAIL_DOMAIN>
     """
-    # Slugify each component separately so we can preserve the dot between them
-    parts = []
-    if first_name:
-        parts.append(slugify(first_name))
-    if last_name:
-        parts.append(slugify(last_name))
-    if not parts:
-        parts = ["user"]
-    base = ".".join([p for p in parts if p]).strip(".") or "user"
+    fi = (first_name or "").strip()[:1].lower() or "u"
+    ln_raw = slugify((last_name or "").strip())
+    if not ln_raw:
+        ln_raw = "user"
+    max_len = getattr(settings, "ONBOARDING_LAST_NAME_LENGTH", 6)
+    ln_part = ln_raw[:max_len]
     user_model = get_user_model()
-    candidate = base
-    i = 2
-    while user_model.objects.filter(username=candidate).exists():
-        candidate = f"{base}-{i}"
-        i += 1
-    domain = getattr(settings, "DEFAULT_ONBOARDING_EMAIL_DOMAIN", "example.com")
+    pad = getattr(settings, "ONBOARDING_SEQUENCE_PAD", 3)
+    seq = 1
+    while True:
+        seq_str = str(seq).zfill(pad)
+        candidate = f"{fi}{ln_part}{seq_str}" if seq > 0 else f"{fi}{ln_part}"
+        if not user_model.objects.filter(username=candidate).exists():
+            break
+        seq += 1
+    domain = getattr(settings, "ONBOARDING_EMAIL_DOMAIN", "hr_payroll.com")
     email_candidate = f"{candidate}@{domain}".lower()
-    j = 2
+    # Email uniqueness enforced by user model's unique constraint; on rare
+    # collision we increment further.
     while user_model.objects.filter(email=email_candidate).exists():
-        email_candidate = f"{candidate}-{j}@{domain}".lower()
-        j += 1
+        seq += 1
+        seq_str = str(seq).zfill(pad)
+        candidate = f"{fi}{ln_part}{seq_str}"
+        email_candidate = f"{candidate}@{domain}".lower()
     return candidate, email_candidate
 
 
@@ -187,11 +197,25 @@ class OnboardEmployeeNewSerializer(serializers.Serializer):
     """Serializer to onboard a brand-new employee.
 
     If ``username`` and/or ``email`` are omitted or blank they are automatically
-    generated from ``first_name`` and ``last_name`` using the pattern:
-        first.last
-    (slugified & lowercase). Collisions are resolved with -2, -3, ... suffixes.
-    The email local part mirrors the username and the domain is taken from
-    settings.DEFAULT_ONBOARDING_EMAIL_DOMAIN (fallback 'example.com').
+    generated using a deterministic compact pattern:
+
+        <first-initial><truncated-last><seq>
+
+    - first-initial: first letter of the provided first name (fallback 'u')
+        - truncated-last: slugified last name limited by
+            ONBOARDING_LAST_NAME_LENGTH (fallback 'user')
+        - seq: zero-padded sequence starting at 001 (width
+            ONBOARDING_SEQUENCE_PAD)
+
+    Example: first_name=John, last_name=Robertson -> jrobert001 (domain
+    appended for email)
+
+    Settings influencing generation:
+        ONBOARDING_EMAIL_DOMAIN (default hr_payroll.com)
+        ONBOARDING_LAST_NAME_LENGTH (default 6)
+        ONBOARDING_SEQUENCE_PAD (default 3)
+
+    The email local part equals the generated username.
     """
 
     # New user credentials (username & email can be omitted for auto-generation)

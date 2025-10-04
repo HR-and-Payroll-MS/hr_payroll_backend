@@ -429,10 +429,15 @@ SPECTACULAR_SETTINGS = {
         },
     ],
 }
-# Default email domain used when auto-generating onboarding user emails
-DEFAULT_ONBOARDING_EMAIL_DOMAIN = os.environ.get(
-    "ONBOARDING_EMAIL_DOMAIN", "example.com"
-)
+# Onboarding username/email generation settings
+# NOTE: DEFAULT_ONBOARDING_EMAIL_DOMAIN is deprecated in favor of ONBOARDING_EMAIL_DOMAIN
+ONBOARDING_EMAIL_DOMAIN = os.environ.get("ONBOARDING_EMAIL_DOMAIN", "hr_payroll.com")
+ONBOARDING_LAST_NAME_LENGTH = int(
+    os.environ.get("ONBOARDING_LAST_NAME_LENGTH", "6")
+)  # truncate last name to keep IDs short
+ONBOARDING_SEQUENCE_PAD = int(
+    os.environ.get("ONBOARDING_SEQUENCE_PAD", "3")
+)  # zero pad sequence numbers (e.g. 001)
 # django-webpack-loader
 # ------------------------------------------------------------------------------
 WEBPACK_LOADER = {
