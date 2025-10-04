@@ -1,6 +1,7 @@
 # ruff: noqa: ERA001, E501
 """Base settings to build other settings files upon."""
 
+import os
 import ssl
 from datetime import timedelta
 from pathlib import Path
@@ -428,6 +429,10 @@ SPECTACULAR_SETTINGS = {
         },
     ],
 }
+# Default email domain used when auto-generating onboarding user emails
+DEFAULT_ONBOARDING_EMAIL_DOMAIN = os.environ.get(
+    "ONBOARDING_EMAIL_DOMAIN", "example.com"
+)
 # django-webpack-loader
 # ------------------------------------------------------------------------------
 WEBPACK_LOADER = {

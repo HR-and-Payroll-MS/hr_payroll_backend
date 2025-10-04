@@ -3,7 +3,9 @@ from typing import Any
 from typing import cast
 
 from allauth.account.models import EmailAddress
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.utils.text import slugify
 from rest_framework import serializers
 
 from hr_payroll.employees.models import Department
@@ -150,10 +152,51 @@ class EmployeeDocumentSerializer(serializers.ModelSerializer):
         return f
 
 
+def _generate_unique_username_email(first_name: str, last_name: str) -> tuple[str, str]:
+    """Generate a unique username and email based on names.
+
+    Pattern: first.last (lower, slugified). If collision, append -2, -3, ...
+    Email local part mirrors username; domain from
+    settings.DEFAULT_ONBOARDING_EMAIL_DOMAIN or fallback to example.com.
+    """
+    # Slugify each component separately so we can preserve the dot between them
+    parts = []
+    if first_name:
+        parts.append(slugify(first_name))
+    if last_name:
+        parts.append(slugify(last_name))
+    if not parts:
+        parts = ["user"]
+    base = ".".join([p for p in parts if p]).strip(".") or "user"
+    user_model = get_user_model()
+    candidate = base
+    i = 2
+    while user_model.objects.filter(username=candidate).exists():
+        candidate = f"{base}-{i}"
+        i += 1
+    domain = getattr(settings, "DEFAULT_ONBOARDING_EMAIL_DOMAIN", "example.com")
+    email_candidate = f"{candidate}@{domain}".lower()
+    j = 2
+    while user_model.objects.filter(email=email_candidate).exists():
+        email_candidate = f"{candidate}-{j}@{domain}".lower()
+        j += 1
+    return candidate, email_candidate
+
+
 class OnboardEmployeeNewSerializer(serializers.Serializer):
-    # New user credentials
-    username = serializers.CharField(max_length=150)
-    email = serializers.EmailField()
+    """Serializer to onboard a brand-new employee.
+
+    If ``username`` and/or ``email`` are omitted or blank they are automatically
+    generated from ``first_name`` and ``last_name`` using the pattern:
+        first.last
+    (slugified & lowercase). Collisions are resolved with -2, -3, ... suffixes.
+    The email local part mirrors the username and the domain is taken from
+    settings.DEFAULT_ONBOARDING_EMAIL_DOMAIN (fallback 'example.com').
+    """
+
+    # New user credentials (username & email can be omitted for auto-generation)
+    username = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    email = serializers.EmailField(required=False, allow_blank=True)
     password = serializers.CharField(write_only=True)
     first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
@@ -168,6 +211,19 @@ class OnboardEmployeeNewSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         user_model = get_user_model()
+        # Auto-generate if missing or blank
+        provided_username = attrs.get("username", "").strip()
+        provided_email = attrs.get("email", "").strip()
+        if not provided_username or not provided_email:
+            gen_username, gen_email = _generate_unique_username_email(
+                attrs.get("first_name", ""),
+                attrs.get("last_name", ""),
+            )
+            if not provided_username:
+                attrs["username"] = gen_username
+            if not provided_email:
+                attrs["email"] = gen_email
+        # Ensure uniqueness (in case user supplied values)
         if user_model.objects.filter(username=attrs["username"]).exists():
             raise serializers.ValidationError({"username": "Username already exists."})
         if user_model.objects.filter(email=attrs["email"]).exists():
