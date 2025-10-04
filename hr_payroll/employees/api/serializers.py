@@ -73,22 +73,45 @@ class DepartmentSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "description"]
 
 
+class UserNestedSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = get_user_model()
+        # Include commonly useful identity fields only
+        fields = ["id", "username", "email", "first_name", "last_name", "is_active"]
+
+
 class EmployeeSerializer(serializers.ModelSerializer):
-    # Single prompt: accept username or id; represent as username on read
+    # Input: still allow setting by username or id. Output: nested user + department.
     user = UsernameOrPkRelatedField(
         slug_field="username",
         queryset=get_user_model().objects.all(),
         required=False,
+        write_only=True,
     )
     department = serializers.PrimaryKeyRelatedField(
         queryset=Department.objects.all(),
         allow_null=True,
         required=False,
+        write_only=True,
     )
 
     class Meta:
         model = Employee
         fields = ["id", "user", "department", "title", "hire_date"]
+
+    def to_representation(self, instance):  # type: ignore[override]
+        base = super().to_representation(instance)
+        # Replace user pk/slug with nested structure
+        user_obj = getattr(instance, "user", None)
+        if user_obj is not None:
+            base["user"] = UserNestedSerializer(user_obj).data
+        # Replace department id with nested department if present
+        dept = getattr(instance, "department", None)
+        if dept is not None:
+            base["department"] = DepartmentSerializer(dept).data
+        else:
+            base["department"] = None
+        return base
 
     def __init__(self, *args, **kwargs):
         # On create: restrict selectable users to those without an Employee

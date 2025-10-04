@@ -84,17 +84,17 @@ class EmployeeViewSet(viewsets.ModelViewSet[Employee]):
         serializer.is_valid(raise_exception=True)
         employee = serializer.save()
         emp_data = EmployeeSerializer(employee, context={"request": request}).data
-        # Attach generated credentials (serializer stored them)
-        extra = {}
-        generated_pairs = (
-            ("generated_username", "username"),
-            ("generated_email", "email"),
-            ("generated_password", "initial_password"),
-        )
-        for attr, key in generated_pairs:
-            if hasattr(serializer, attr):
-                extra[key] = getattr(serializer, attr)
-        emp_data.update(extra)
+        # Attach generated credentials separately under a new key
+        # to avoid field duplication
+        creds = {}
+        if hasattr(serializer, "generated_username"):
+            creds["username"] = serializer.generated_username
+        if hasattr(serializer, "generated_email"):
+            creds["email"] = serializer.generated_email
+        if hasattr(serializer, "generated_password"):
+            creds["initial_password"] = serializer.generated_password
+        if creds:
+            emp_data["credentials"] = creds
         return Response(emp_data, status=status.HTTP_201_CREATED)
 
     @extend_schema(

@@ -47,20 +47,22 @@ def test_autofill_username_email_basic(auth_client):
         },
     )
     assert resp.status_code == HTTPStatus.CREATED, resp.content
-    data = resp.json()
-    # Response 'user' is the username slug per EmployeeSerializer
+    body = resp.json()
+    assert isinstance(body.get("user"), dict)
+    user_data = body["user"]
     user_model = get_user_model()
-    u = user_model.objects.get(username=data["user"])
+    u = user_model.objects.get(username=user_data["username"])
     # Pattern j + truncated last + sequence, e.g. jdoe001
     assert u.username.startswith("jdoe")
     assert u.email == f"{u.username}@hr_payroll.com"
-    body = resp.json()
-    assert body["username"] == u.username
-    assert body["email"] == u.email
-    # Ensure initial password provided and meets minimum length
+    assert user_data["email"] == u.email
+    # Credentials nested
+    creds = body.get("credentials", {})
+    assert creds.get("username") == u.username
+    assert creds.get("email") == u.email
     min_initial_password_length = 8
-    assert "initial_password" in body
-    assert len(body["initial_password"]) >= min_initial_password_length
+    assert "initial_password" in creds
+    assert len(creds["initial_password"]) >= min_initial_password_length
 
 
 def test_autofill_handles_collision(auth_client):

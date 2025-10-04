@@ -83,7 +83,9 @@ def test_employee_visibility_and_docs_upload(tmp_path):
     r = client.get("/api/v1/employees/")
     assert r.status_code == status.HTTP_200_OK
     assert len(r.data) == 1
-    assert r.data[0]["user"] == user.username
+    # Now returns nested user object
+    assert isinstance(r.data[0]["user"], dict)
+    assert r.data[0]["user"]["username"] == user.username
 
     # Upload document (self)
     file_bytes = io.BytesIO(b"dummy")
@@ -100,3 +102,9 @@ def test_employee_visibility_and_docs_upload(tmp_path):
     r = client.get("/api/v1/employees/")
     assert r.status_code == status.HTTP_200_OK
     assert len(r.data) >= 2  # noqa: PLR2004
+    # Ensure nested structures for each employee
+    for emp in r.data:
+        assert isinstance(emp.get("user"), dict)
+        if emp.get("department") is not None:
+            assert isinstance(emp.get("department"), dict)
+            assert "name" in emp["department"]
