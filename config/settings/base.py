@@ -438,6 +438,9 @@ ONBOARDING_LAST_NAME_LENGTH = int(
 ONBOARDING_SEQUENCE_PAD = int(
     os.environ.get("ONBOARDING_SEQUENCE_PAD", "3")
 )  # zero pad sequence numbers (e.g. 001)
+ONBOARDING_CREDENTIAL_TTL_MINUTES = int(
+    os.environ.get("ONBOARDING_CREDENTIAL_TTL_MINUTES", "30")
+)  # minutes credentials (initial password) retrievable before regen required
 # django-webpack-loader
 # ------------------------------------------------------------------------------
 WEBPACK_LOADER = {
