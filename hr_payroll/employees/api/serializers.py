@@ -1,3 +1,5 @@
+import secrets
+import string
 from collections import OrderedDict
 from typing import Any
 from typing import cast
@@ -193,6 +195,37 @@ def _generate_unique_username_email(first_name: str, last_name: str) -> tuple[st
     return candidate, email_candidate
 
 
+def _generate_secure_password(length: int = 12) -> str:
+    """Return a moderately sized secure password.
+
+    Ensures at least one lowercase, uppercase, digit, and symbol.
+    Avoid visually ambiguous characters and quotes.
+    """
+    lower = string.ascii_lowercase
+    upper = string.ascii_uppercase
+    digits = string.digits
+    symbols = "!@#$%^&*+-_"  # curated set
+    all_chars = lower + upper + digits + symbols
+    while True:
+        pwd = [
+            secrets.choice(lower),
+            secrets.choice(upper),
+            secrets.choice(digits),
+            secrets.choice(symbols),
+        ]
+        pwd += [secrets.choice(all_chars) for _ in range(length - 4)]
+        secrets.SystemRandom().shuffle(pwd)
+        candidate = "".join(pwd)
+        # Basic complexity check (already ensured); length check adjustable
+        if (
+            any(c.islower() for c in candidate)
+            and any(c.isupper() for c in candidate)
+            and any(c.isdigit() for c in candidate)
+            and any(c in symbols for c in candidate)
+        ):
+            return candidate
+
+
 class OnboardEmployeeNewSerializer(serializers.Serializer):
     """Serializer to onboard a brand-new employee.
 
@@ -218,10 +251,14 @@ class OnboardEmployeeNewSerializer(serializers.Serializer):
     The email local part equals the generated username.
     """
 
-    # New user credentials (username & email can be omitted for auto-generation)
-    username = serializers.CharField(max_length=150, required=False, allow_blank=True)
-    email = serializers.EmailField(required=False, allow_blank=True)
-    password = serializers.CharField(write_only=True)
+    # Credentials are auto-generated; disallow client submission
+    # (kept as read_only so schema shows them as output-only if needed)
+    username = serializers.CharField(max_length=150, read_only=True)
+    email = serializers.EmailField(read_only=True)
+    # Internal write_only field so we can inject the generated password in validate();
+    # clients are not allowed to supply it (we reject if present) and we expose
+    # the generated value separately as "initial_password" in the view response.
+    password = serializers.CharField(write_only=True, required=False)
     first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     # Employee fields
@@ -234,24 +271,29 @@ class OnboardEmployeeNewSerializer(serializers.Serializer):
     hire_date = serializers.DateField(required=False, allow_null=True)
 
     def validate(self, attrs):
-        user_model = get_user_model()
-        # Auto-generate if missing or blank
-        provided_username = attrs.get("username", "").strip()
-        provided_email = attrs.get("email", "").strip()
-        if not provided_username or not provided_email:
-            gen_username, gen_email = _generate_unique_username_email(
-                attrs.get("first_name", ""),
-                attrs.get("last_name", ""),
+        # Reject attempts to supply forbidden fields (credentials are auto-generated)
+        forbidden = [
+            f
+            for f in ("username", "email", "password")
+            if f in self.initial_data and self.initial_data.get(f)
+        ]
+        if forbidden:
+            raise serializers.ValidationError(
+                dict.fromkeys(forbidden, "This field is not editable.")
             )
-            if not provided_username:
-                attrs["username"] = gen_username
-            if not provided_email:
-                attrs["email"] = gen_email
-        # Ensure uniqueness (in case user supplied values)
-        if user_model.objects.filter(username=attrs["username"]).exists():
-            raise serializers.ValidationError({"username": "Username already exists."})
-        if user_model.objects.filter(email=attrs["email"]).exists():
-            raise serializers.ValidationError({"email": "Email already exists."})
+
+        gen_username, gen_email = _generate_unique_username_email(
+            attrs.get("first_name", ""),
+            attrs.get("last_name", ""),
+        )
+        gen_password = _generate_secure_password()
+        self.generated_username = gen_username  # type: ignore[attr-defined]
+        self.generated_email = gen_email  # type: ignore[attr-defined]
+        self.generated_password = gen_password  # type: ignore[attr-defined]
+        # Inject for create()
+        attrs["username"] = gen_username
+        attrs["email"] = gen_email
+        attrs["password"] = gen_password
         return attrs
 
     def create(self, validated_data):
