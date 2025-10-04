@@ -399,6 +399,34 @@ SPECTACULAR_SETTINGS = {
     "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAdminUser"],
     "SERVE_AUTHENTICATION": ["rest_framework.authentication.SessionAuthentication"],
     "SCHEMA_PATH_PREFIX": "/api/",
+    # Apply custom grouping of endpoints into logical feature tags
+    "POSTPROCESSING_HOOKS": [
+        "config.schema.group_tags",
+    ],
+    # Provide explicit descriptions so Swagger UI shows helpful summaries.
+    # Names must match those appended in config.schema.ALL_TAGS
+    "TAGS": [
+        {
+            "name": "Employees",
+            "description": "Operations for creating, viewing, and managing employee records.",
+        },
+        {
+            "name": "Employee Documents",
+            "description": "Upload and manage documents associated with employees (IDs, certifications, etc.).",
+        },
+        {
+            "name": "Departments",
+            "description": "CRUD operations and metadata for organizational departments.",
+        },
+        {
+            "name": "Users",
+            "description": "User profile management separate from authentication endpoints.",
+        },
+        {
+            "name": "Authentication",
+            "description": "Registration, login, JWT tokens, password management, and related auth flows.",
+        },
+    ],
 }
 # django-webpack-loader
 # ------------------------------------------------------------------------------
