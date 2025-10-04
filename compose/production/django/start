@@ -7,6 +7,7 @@ set -o nounset
 
 python /app/manage.py migrate --noinput
 python /app/manage.py collectstatic --noinput
+python /app/manage.py setup_rbac
 
 PORT="${PORT:-5000}"
 exec /usr/local/bin/gunicorn config.asgi --bind 0.0.0.0:"${PORT}" --chdir=/app -k uvicorn_worker.UvicornWorker

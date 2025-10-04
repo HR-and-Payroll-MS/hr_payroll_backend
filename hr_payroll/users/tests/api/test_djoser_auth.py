@@ -27,7 +27,7 @@ class TestDjoserJWTFlow(APITestCase):
             "password": "testPassword123!",  # Allow hardcoded password in test
             "re_password": "testPassword123!",  # Allow hardcoded password in test
         }
-        r = self.client.post("/api/auth/users/", payload, format="json")
+        r = self.client.post("/api/v1/auth/users/", payload, format="json")
         assert r.status_code in (status.HTTP_201_CREATED, status.HTTP_204_NO_CONTENT)
 
         # User is active immediately (activation emails disabled)
@@ -38,7 +38,7 @@ class TestDjoserJWTFlow(APITestCase):
         # Clear manager force-auth so JWT auth is used
         self.client.force_authenticate(user=None)
         r = self.client.post(
-            "/api/auth/jwt/create/",
+            "/api/v1/auth/jwt/create/",
             {
                 "username": "testseud",
                 "password": "testPassword123!",
@@ -53,7 +53,7 @@ class TestDjoserJWTFlow(APITestCase):
 
         # 3) Refresh
         r = self.client.post(
-            "/api/auth/jwt/refresh/",
+            "/api/v1/auth/jwt/refresh/",
             {"refresh": refresh},
             format="json",
         )
@@ -65,7 +65,7 @@ class TestDjoserJWTFlow(APITestCase):
         # Ensure no lingering force-auth; use Bearer token
         self.client.force_authenticate(user=None)
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {new_access}")
-        r = self.client.get("/api/auth/users/me/")
+        r = self.client.get("/api/v1/auth/users/me/")
         assert r.status_code == status.HTTP_200_OK
         assert r.data["username"] == "testseud"
         assert r.data["email"] == "testseud@gmail.com"
@@ -81,7 +81,7 @@ class TestDjoserJWTFlow(APITestCase):
         user.save()
 
         r = self.client.post(
-            "/api/auth/jwt/create/",
+            "/api/v1/auth/jwt/create/",
             {
                 "username": "bob@example.com",
                 "password": "StrongPass!234",
