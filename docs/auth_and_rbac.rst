@@ -1,14 +1,39 @@
 Authentication and RBAC
 ======================================================================
 
-Authentication
+Authentication Backends
 ----------------------------------------------------------------------
 
-- Session auth (SSR): django-allauth under ``/accounts/``
-- API auth: Djoser + SimpleJWT under ``/api/v1/auth/``
-  - JWT create: ``/api/v1/auth/jwt/create/``
-  - JWT refresh: ``/api/v1/auth/jwt/refresh/``
-  - Current user: ``/api/v1/auth/users/me/``
+- Session (SSR): django-allauth under ``/accounts/``
+- Session API (dj-rest-auth): login/logout & password change/reset endpoints
+- JWT (Djoser + SimpleJWT): token create/refresh/verify
+- User Management (Djoser): user CRUD, activation, username/password flows
+
+OpenAPI Tag Groups
+----------------------------------------------------------------------
+``JWT Authentication``
+  - ``POST /api/v1/auth/jwt/create/``
+  - ``POST /api/v1/auth/jwt/refresh/``
+  - ``POST /api/v1/auth/jwt/verify/``
+``Session Auth``
+  - ``POST /api/v1/auth/login/``
+  - ``POST /api/v1/auth/logout/``
+  - ``POST /api/v1/auth/password/change/`` (self)
+  - ``POST /api/v1/auth/password/reset/`` (Manager/Admin)
+  - ``POST /api/v1/auth/password/reset/confirm/`` (Manager/Admin)
+``User Management``
+  - ``/api/v1/auth/users/`` CRUD (Manager/Admin except self via ``/users/me``)
+  - ``/api/v1/auth/users/me/`` (self read/update/delete if allowed)
+  - Activation + resend (Manager/Admin)
+  - Set/reset username (Manager/Admin)
+  - Set password (self)
+  - Reset password (Manager/Admin initiate)
+
+Permission Model Adjustments
+----------------------------------------------------------------------
+- Regular employees: manage only their own password (set_password / password change) and profile.
+- Managers/Admin: can perform onboarding, activation-related tasks, username changes, password resets for users.
+- All other sensitive account recovery endpoints are restricted.
 
 Registration Policy
 ----------------------------------------------------------------------

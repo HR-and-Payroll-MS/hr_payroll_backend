@@ -385,6 +385,14 @@ DJOSER = {
         "current_user": ["rest_framework.permissions.IsAuthenticated"],
         # Allow authenticated users to change their own password
         "set_password": ["rest_framework.permissions.IsAuthenticated"],
+        # Manager/Admin only for username, activation, and password reset flows
+        "set_username": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
+        "reset_username": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
+        "reset_username_confirm": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
+        "activation": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
+        "resend_activation": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
+        "reset_password": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
+        "reset_password_confirm": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
     },
 }
 
@@ -426,6 +434,18 @@ SPECTACULAR_SETTINGS = {
         {
             "name": "Authentication",
             "description": "Registration, login, JWT tokens, password management, and related auth flows.",
+        },
+        {
+            "name": "JWT Authentication",
+            "description": "Issue, refresh, and verify JSON Web Tokens (Djoser + SimpleJWT).",
+        },
+        {
+            "name": "Session Auth",
+            "description": "Session / dj-rest-auth based login, logout, and password change/reset flows.",
+        },
+        {
+            "name": "User Management",
+            "description": "User CRUD, activation, username & password management (Djoser).",
         },
     ],
 }

@@ -16,8 +16,13 @@ PATTERN_TAGS = [
     ("/api/v1/employee-documents", "Employee Documents"),
     ("/api/v1/employees", "Employees"),
     ("/api/v1/departments", "Departments"),
-    ("/api/v1/auth/", "Authentication"),  # includes jwt/, users/, password/, etc.
-    ("/api/v1/users", "Users"),  # keep last so auth/users takes Authentication first
+    ("/api/v1/auth/jwt", "JWT Authentication"),
+    ("/api/v1/auth/users", "User Management"),
+    ("/api/v1/auth/login", "Session Auth"),
+    ("/api/v1/auth/logout", "Session Auth"),
+    ("/api/v1/auth/password", "Session Auth"),
+    ("/api/v1/auth/", "Authentication"),
+    ("/api/v1/users", "Users"),
 ]
 
 ALL_TAGS = [t for _, t in PATTERN_TAGS]
