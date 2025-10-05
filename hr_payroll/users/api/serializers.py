@@ -12,6 +12,10 @@ class UserSerializer(serializers.ModelSerializer[User]):
         slug_field="name",
     )
 
+    # Make username & email explicitly read-only to preserve auto-generation invariant
+    username = serializers.CharField(read_only=True)
+    email = serializers.EmailField(read_only=True)
+
     class Meta:
         model = User
         fields = [
@@ -43,26 +47,18 @@ class UserSerializer(serializers.ModelSerializer[User]):
         )
 
     def update(self, instance, validated_data):
-        request = self.context.get("request")
-        user = getattr(request, "user", None)
-        is_manager_or_admin = False
-        if user and getattr(user, "is_authenticated", False):
-            if getattr(user, "is_staff", False):
-                is_manager_or_admin = True
-            else:
-                groups = getattr(user, "groups", None)
-                is_manager_or_admin = bool(
-                    groups and groups.filter(name__in=["Admin", "Manager"]).exists(),
+        # Enforce invariant: username & email are system-managed (onboarding rules)
+        forbidden = {k for k in ("username", "email") if k in self.initial_data}
+        if forbidden:
+            # If client attempted to send them, raise a validation error.
+            errors = {}
+            for f in forbidden:
+                errors[f] = (
+                    "This field is read-only and auto-generated. "
+                    "Use onboarding to change it."
                 )
-
-        # Everyone can change their first/last name
+            raise serializers.ValidationError(errors)
         instance.first_name = validated_data.get("first_name", instance.first_name)
         instance.last_name = validated_data.get("last_name", instance.last_name)
-
-        # Only Admin/Manager can change email/username via this endpoint
-        if is_manager_or_admin:
-            instance.email = validated_data.get("email", instance.email)
-            instance.username = validated_data.get("username", instance.username)
-
         instance.save()
         return instance
