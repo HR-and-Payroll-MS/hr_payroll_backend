@@ -232,6 +232,8 @@ class EmployeeDocumentViewSet(
     mixins.CreateModelMixin,
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.DestroyModelMixin,
     viewsets.GenericViewSet[EmployeeDocument],
 ):
     queryset = EmployeeDocument.objects.select_related("employee", "employee__user")
