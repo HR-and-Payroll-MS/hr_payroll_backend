@@ -389,6 +389,10 @@ DJOSER = {
         "set_username": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
         "reset_username": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
         "reset_username_confirm": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
+        # Some Djoser versions use the alternate naming convention 'username_reset' / 'username_reset_confirm'
+        # so we include both to ensure permissions are enforced before hitting email rendering.
+        "username_reset": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
+        "username_reset_confirm": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
         "activation": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
         "resend_activation": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
         "reset_password": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
@@ -449,6 +453,10 @@ SPECTACULAR_SETTINGS = {
         },
     ],
 }
+# Djoser expects a global URL template for username reset confirmations.
+# Even though we restrict this flow to Managers/Admins, define it to avoid AttributeError
+# during permission tests (Djoser builds the context before sending emails when permitted).
+USERNAME_RESET_CONFIRM_URL = "auth/username/reset/confirm/{uid}/{token}"
 # Onboarding username/email generation settings
 # NOTE: DEFAULT_ONBOARDING_EMAIL_DOMAIN is deprecated in favor of ONBOARDING_EMAIL_DOMAIN
 ONBOARDING_EMAIL_DOMAIN = os.environ.get("ONBOARDING_EMAIL_DOMAIN", "hr_payroll.com")
