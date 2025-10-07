@@ -23,5 +23,6 @@ def test_schema_tag_grouping(db):
     assert tags_map["/api/v1/departments/"] == ["Departments"]
     assert tags_map["/api/v1/employee-documents/"] == ["Employee Documents"]
     # Auth endpoints grouped
-    assert tags_map["/api/v1/auth/jwt/create/"] == ["Authentication"]
+    # JWT endpoints are grouped under a dedicated 'JWT Authentication' tag
+    assert tags_map["/api/v1/auth/jwt/create/"] == ["JWT Authentication"]
     assert tags_map["/api/v1/users/"] == ["Users"]

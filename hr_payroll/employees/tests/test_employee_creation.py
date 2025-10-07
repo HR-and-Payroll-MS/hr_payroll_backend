@@ -27,7 +27,9 @@ def test_admin_can_create_employee_by_username():
     payload = {"user": target.username, "title": "Engineer", "hire_date": "2025-09-24"}
     r = client.post("/api/v1/employees/", payload, format="json")
     assert r.status_code in (status.HTTP_201_CREATED, status.HTTP_200_OK)
-    assert r.data["user"] == target.username
+    # API now returns a nested user object; assert the nested username matches
+    assert isinstance(r.data["user"], dict)
+    assert r.data["user"]["username"] == target.username
     assert Employee.objects.filter(user=target).exists()
 
 
