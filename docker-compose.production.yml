@@ -14,7 +14,7 @@ services:
       context: .
       dockerfile: ./compose/production/django/Dockerfile
 
-    image: hr_payroll_production_django
+    image: seud/hr-payroll-django:9311090
     volumes:
       - production_django_media:/app/hr_payroll/media
     depends_on:
