@@ -65,6 +65,48 @@ Credential Recovery
 Temporary retrieval and regeneration of credentials is documented in
 :doc:`credential_recovery`.
 
+Integration note for frontend
+------------------------------
+
+When creating an Employee (either onboarding a new user or promoting an existing
+user), the API returns a nested representation for the `user` and `department`
+fields. Frontend clients should expect the `user` field to be an object with
+these keys at minimum: ``id``, ``username``, ``email``, ``first_name``,
+``last_name``, ``is_active``. Do not rely on the top-level `user` value being a
+string: older versions returned just the username but the API now returns a
+full nested object to reduce extra lookups.
+
+Example (successful create response):
+
+.. code-block:: json
+
+    {
+      "id": 7,
+      "user": {
+        "id": 42,
+        "username": "jrobert001",
+        "email": "jrobert001@hr_payroll.com",
+        "first_name": "John",
+        "last_name": "Robertson",
+        "is_active": true
+      },
+      "department": {"id": 3, "name": "Engineering", "description": ""},
+      "title": "Engineer",
+      "credentials": {  // present only immediately after onboarding
+        "username": "jrobert001",
+        "email": "jrobert001@hr_payroll.com",
+        "initial_password": "Ab9!xYt2Qw$z"
+      }
+    }
+
+Notes:
+
+- `credentials` are only returned when a user account was created during the
+  onboarding call (``/api/v1/employees/onboard/new``). They are available
+  once and are not stored in cleartext on the server.
+- To assign an existing user during create, POST the user's `username` or `id`
+  using the `user` field; the response will still return the nested `user`.
+
 Uploads & Validation
 ----------------------------------------------------------------------
 
