@@ -36,3 +36,15 @@ logs *args:
 # manage: Executes `manage.py` command.
 manage +args:
     @docker compose run --rm django python ./manage.py {{args}}
+
+# migrate: Run Django migrations in container.
+migrate:
+    @docker compose run --rm django python ./manage.py migrate
+
+# makemigrations: Create new migrations.
+makemigrations *apps:
+    @docker compose run --rm django python ./manage.py makemigrations {{apps}}
+
+# test: Run pytest in container with warnings enabled.
+test:
+    @docker compose run --rm django python -Wa -m pytest -q

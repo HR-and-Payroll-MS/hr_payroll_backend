@@ -23,6 +23,7 @@ PATTERN_TAGS = [
     ("/api/v1/auth/password", "Session Auth"),
     ("/api/v1/auth/", "Authentication"),
     ("/api/v1/users", "Users"),
+    ("/api/v1/positions", "Positions"),
 ]
 
 ALL_TAGS = [t for _, t in PATTERN_TAGS]

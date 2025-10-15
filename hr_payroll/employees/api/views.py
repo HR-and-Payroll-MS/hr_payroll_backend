@@ -1,9 +1,9 @@
 from django.conf import settings
 from django.core.cache import cache
 from django.utils import timezone
+from drf_spectacular.utils import OpenApiExample
 from drf_spectacular.utils import OpenApiResponse
 from drf_spectacular.utils import extend_schema
-from rest_framework import mixins
 from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -17,10 +17,12 @@ from hr_payroll.employees.api.serializers import EmployeeDocumentSerializer
 from hr_payroll.employees.api.serializers import EmployeeSerializer
 from hr_payroll.employees.api.serializers import OnboardEmployeeExistingSerializer
 from hr_payroll.employees.api.serializers import OnboardEmployeeNewSerializer
+from hr_payroll.employees.api.serializers import PositionSerializer
 from hr_payroll.employees.api.serializers import _generate_secure_password
 from hr_payroll.employees.models import Department
 from hr_payroll.employees.models import Employee
 from hr_payroll.employees.models import EmployeeDocument
+from hr_payroll.employees.models import Position
 
 
 class DepartmentViewSet(viewsets.ModelViewSet[Department]):
@@ -28,8 +30,23 @@ class DepartmentViewSet(viewsets.ModelViewSet[Department]):
     serializer_class = DepartmentSerializer
     permission_classes = [IsAuthenticated & IsAdminOrManagerCanWrite]
 
+    def get_queryset(self):  # type: ignore[override]
+        qs = super().get_queryset()
+        request = getattr(self, "request", None)
+        include_inactive = False
+        if request is not None:
+            u = request.user
+            is_elevated = getattr(u, "is_staff", False) or (
+                getattr(u, "groups", None)
+                and u.groups.filter(name__in=["Admin", "Manager"]).exists()
+            )
+            include_inactive = is_elevated and request.query_params.get(
+                "include_inactive"
+            ) in {"1", "true", "True"}
+        return qs if include_inactive else qs.filter(is_active=True)
 
-class EmployeeViewSet(viewsets.ModelViewSet[Employee]):
+
+class EmployeeViewSet(viewsets.ReadOnlyModelViewSet[Employee]):
     queryset = Employee.objects.select_related("user", "department")
     serializer_class = EmployeeSerializer
     # Authenticated users can read (limited by queryset), only elevated can write
@@ -42,22 +59,24 @@ class EmployeeViewSet(viewsets.ModelViewSet[Employee]):
             return OnboardEmployeeExistingSerializer
         return super().get_serializer_class()
 
-    def get_queryset(self):
+    def get_queryset(self):  # type: ignore[override]
         qs = super().get_queryset()
-        u = self.request.user
-        if getattr(u, "is_staff", False) or (
+        request = self.request
+        u = request.user
+        is_elevated = getattr(u, "is_staff", False) or (
             getattr(u, "groups", None)
             and u.groups.filter(name__in=["Admin", "Manager"]).exists()
-        ):  # type: ignore[attr-defined]
+        )  # type: ignore[attr-defined]
+        include_inactive = is_elevated and request.query_params.get(
+            "include_inactive"
+        ) in {"1", "true", "True"}
+        qs = qs if include_inactive else qs.filter(is_active=True)
+        if is_elevated:
             return qs
-        # Regular employees: only see their own record
+        # Regular employees: only see their own record (and active by default)
         return qs.filter(user=u)
 
-    # Prefer the onboarding endpoints in docs; keep create available
-    # but hide it from the schema for clarity.
-    @extend_schema(exclude=True)
-    def create(self, request, *args, **kwargs):
-        return super().create(request, *args, **kwargs)
+    # Creation is supported only via explicit onboarding endpoints below
 
     @extend_schema(
         summary="Onboard a brand-new employee (create User + Employee)",
@@ -66,6 +85,47 @@ class EmployeeViewSet(viewsets.ModelViewSet[Employee]):
             "corresponding Employee. Only Admin or Manager may call this "
             "endpoint."
         ),
+        examples=[
+            OpenApiExample(
+                "Minimal",
+                value={
+                    "first_name": "John",
+                    "last_name": "Doe",
+                    "department": 1,
+                    "title": "Software Engineer",
+                    "hire_date": "2025-10-01",
+                },
+            ),
+            OpenApiExample(
+                "Full",
+                value={
+                    "first_name": "Jane",
+                    "last_name": "Smith",
+                    "department": 2,
+                    "title": "HR Manager",
+                    "hire_date": "2025-10-01",
+                    "supervisor": 5,
+                    "position": 3,
+                    "national_id": "ID-123456",
+                    "gender": "female",
+                    "date_of_birth": "1990-06-15",
+                    "employment_status": "active",
+                    "employee_email": "jane.smith@company.com",
+                    "phone": "+11234567890",
+                    "address": "123 Main St",
+                },
+            ),
+            OpenApiExample(
+                "With CV upload (multipart)",
+                summary="Use multipart/form-data with 'cv_file' field (PDF)",
+                value={
+                    "first_name": "Pat",
+                    "last_name": "Lee",
+                    "department": 1,
+                    "cv_file": "<PDF binary>",
+                },
+            ),
+        ],
         responses={
             201: OpenApiResponse(
                 response=EmployeeSerializer,
@@ -201,6 +261,39 @@ class EmployeeViewSet(viewsets.ModelViewSet[Employee]):
             "Promotes an existing non-employee User to Employee. Only Admin "
             "or Manager may call this endpoint."
         ),
+        examples=[
+            OpenApiExample(
+                "By username (minimal)",
+                value={
+                    "user": "empnew",
+                    "department": 1,
+                    "title": "Engineer",
+                    "hire_date": "2025-10-01",
+                },
+            ),
+            OpenApiExample(
+                "By id (comprehensive)",
+                value={
+                    "user": 42,
+                    "department": 3,
+                    "title": "Data Analyst",
+                    "hire_date": "2025-10-01",
+                    "supervisor": 5,
+                    "position": 7,
+                    "employment_status": "active",
+                    "first_name": "Alex",
+                    "last_name": "Lee",
+                    "employee_email": "alex.lee@company.com",
+                    "phone": "+15551234567",
+                    "address": "456 Market St",
+                },
+            ),
+            OpenApiExample(
+                "With CV upload (multipart)",
+                summary="Use multipart/form-data with 'cv_file' field (PDF)",
+                value={"user": "jsmith", "department": 2, "cv_file": "<PDF binary>"},
+            ),
+        ],
         responses={
             201: OpenApiResponse(
                 response=EmployeeSerializer,
@@ -227,15 +320,83 @@ class EmployeeViewSet(viewsets.ModelViewSet[Employee]):
             status=status.HTTP_201_CREATED,
         )
 
+    @extend_schema(
+        summary="Bulk onboard employees (array)",
+        description=(
+            "Accepts a JSON array of onboarding payloads. Each item may be for\n"
+            "- a new employee (use the same shape as onboard/new), or\n"
+            "- an existing user (include user as username or id, "
+            "like onboard/existing).\n\n"
+            "The endpoint returns a list of results with either the created employee\n"
+            "payload (and optional credentials for new users) or an error object."
+        ),
+        request=None,
+        responses={
+            200: OpenApiResponse(
+                description="Array of results (success or error) ",
+            )
+        },
+        examples=[
+            OpenApiExample(
+                "Mixed payload",
+                value=[
+                    {"first_name": "Ana", "last_name": "Diaz", "department": 1},
+                    {"user": "jsmith", "department": 2, "title": "QA"},
+                ],
+            )
+        ],
+    )
+    @action(methods=["post"], detail=False, url_path="onboard/bulk")
+    def onboard_bulk(self, request):  # noqa: C901 - allow minor complexity here
+        u = request.user
+        is_elevated = getattr(u, "is_staff", False) or (
+            getattr(u, "groups", None)
+            and u.groups.filter(name__in=["Admin", "Manager"]).exists()
+        )  # type: ignore[attr-defined]
+        if not is_elevated:
+            msg = "Only Admin or Manager can onboard employees."
+            raise PermissionDenied(msg)
+        payload = request.data
+        if not isinstance(payload, list):
+            return Response(
+                {"detail": "Expected a JSON array."}, status=status.HTTP_400_BAD_REQUEST
+            )
+        results = []
+        for item in payload:
+            if not isinstance(item, dict):
+                results.append({"error": "Item must be an object."})
+                continue
+            try:
+                if "user" in item and item["user"] not in (None, ""):
+                    ser = OnboardEmployeeExistingSerializer(data=item)
+                    ser.is_valid(raise_exception=True)
+                    employee = ser.save()
+                    results.append(
+                        EmployeeSerializer(employee, context={"request": request}).data
+                    )
+                else:
+                    ser = OnboardEmployeeNewSerializer(data=item)
+                    ser.is_valid(raise_exception=True)
+                    employee = ser.save()
+                    emp_data = EmployeeSerializer(
+                        employee, context={"request": request}
+                    ).data
+                    creds = {}
+                    if hasattr(ser, "generated_username"):
+                        creds["username"] = ser.generated_username
+                    if hasattr(ser, "generated_email"):
+                        creds["email"] = ser.generated_email
+                    if hasattr(ser, "generated_password"):
+                        creds["initial_password"] = ser.generated_password
+                    if creds:
+                        emp_data["credentials"] = creds
+                    results.append(emp_data)
+            except Exception as exc:  # noqa: BLE001 - collect per-item errors
+                results.append({"error": str(exc)})
+        return Response(results, status=status.HTTP_200_OK)
 
-class EmployeeDocumentViewSet(
-    mixins.CreateModelMixin,
-    mixins.ListModelMixin,
-    mixins.RetrieveModelMixin,
-    mixins.UpdateModelMixin,
-    mixins.DestroyModelMixin,
-    viewsets.GenericViewSet[EmployeeDocument],
-):
+
+class EmployeeDocumentViewSet(viewsets.ModelViewSet[EmployeeDocument]):
     queryset = EmployeeDocument.objects.select_related("employee", "employee__user")
     serializer_class = EmployeeDocumentSerializer
     permission_classes = [IsAuthenticated]
@@ -265,3 +426,9 @@ class EmployeeDocumentViewSet(
             msg = "You can only upload documents for yourself."
             raise PermissionDenied(msg)
         serializer.save()
+
+
+class PositionViewSet(viewsets.ModelViewSet[Position]):
+    queryset = Position.objects.select_related("department")
+    serializer_class = PositionSerializer
+    permission_classes = [IsAuthenticated & IsAdminOrManagerCanWrite]

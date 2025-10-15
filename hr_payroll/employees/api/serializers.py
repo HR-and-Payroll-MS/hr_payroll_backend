@@ -1,6 +1,7 @@
 import secrets
 import string
 from collections import OrderedDict
+from contextlib import suppress
 from typing import Any
 from typing import cast
 
@@ -13,6 +14,20 @@ from rest_framework import serializers
 from hr_payroll.employees.models import Department
 from hr_payroll.employees.models import Employee
 from hr_payroll.employees.models import EmployeeDocument
+from hr_payroll.employees.models import Position
+from hr_payroll.employees.services.cv_parser import parse_cv
+
+
+class NullablePKRelatedField(serializers.PrimaryKeyRelatedField):
+    """PK field that treats blank strings as None when allow_null=True.
+
+    This improves browsable API UX where empty selects submit "" instead of null.
+    """
+
+    def to_internal_value(self, data):  # type: ignore[override]
+        if self.allow_null and (data is None or data == ""):
+            return None
+        return super().to_internal_value(data)
 
 
 class UsernameOrPkRelatedField(serializers.SlugRelatedField):
@@ -68,9 +83,26 @@ class UsernameOrPkRelatedField(serializers.SlugRelatedField):
 
 
 class DepartmentSerializer(serializers.ModelSerializer):
+    manager = NullablePKRelatedField(
+        queryset=Employee.objects.filter(user__groups__name="Manager"),
+        allow_null=True,
+        required=False,
+    )
+
     class Meta:
         model = Department
-        fields = ["id", "name", "description"]
+        fields = [
+            "id",
+            "name",
+            "description",
+            "location",
+            "budget_code",
+            "manager",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["created_at", "updated_at"]
 
 
 class UserNestedSerializer(serializers.ModelSerializer):
@@ -78,6 +110,25 @@ class UserNestedSerializer(serializers.ModelSerializer):
         model = get_user_model()
         # Include commonly useful identity fields only
         fields = ["id", "username", "email", "first_name", "last_name", "is_active"]
+
+
+class PositionSerializer(serializers.ModelSerializer):
+    department = serializers.PrimaryKeyRelatedField(
+        queryset=Department.objects.all(), allow_null=True, required=False
+    )
+
+    class Meta:
+        model = Position
+        fields = [
+            "id",
+            "title",
+            "department",
+            "salary_grade",
+            "description",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["created_at", "updated_at"]
 
 
 class EmployeeSerializer(serializers.ModelSerializer):
@@ -88,8 +139,20 @@ class EmployeeSerializer(serializers.ModelSerializer):
         required=False,
         write_only=True,
     )
-    department = serializers.PrimaryKeyRelatedField(
+    department = NullablePKRelatedField(
         queryset=Department.objects.all(),
+        allow_null=True,
+        required=False,
+        write_only=True,
+    )
+    supervisor = NullablePKRelatedField(
+        queryset=Employee.objects.all(),
+        allow_null=True,
+        required=False,
+        write_only=True,
+    )
+    position = NullablePKRelatedField(
+        queryset=Position.objects.all(),
         allow_null=True,
         required=False,
         write_only=True,
@@ -97,7 +160,28 @@ class EmployeeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Employee
-        fields = ["id", "user", "department", "title", "hire_date"]
+        fields = [
+            "id",
+            "user",
+            "department",
+            "title",
+            "hire_date",
+            "supervisor",
+            "position",
+            "national_id",
+            "gender",
+            "date_of_birth",
+            "employment_status",
+            "first_name",
+            "last_name",
+            "email",
+            "phone",
+            "address",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["created_at", "updated_at"]
 
     def to_representation(self, instance):  # type: ignore[override]
         base = super().to_representation(instance)
@@ -111,6 +195,24 @@ class EmployeeSerializer(serializers.ModelSerializer):
             base["department"] = DepartmentSerializer(dept).data
         else:
             base["department"] = None
+        # Replace supervisor id with a minimal nested representation
+        sup = getattr(instance, "supervisor", None)
+        if sup is not None:
+            base["supervisor"] = {
+                "id": sup.id,
+                "user": {
+                    "id": getattr(sup.user, "id", None),
+                    "username": getattr(sup.user, "username", None),
+                },
+            }
+        else:
+            base["supervisor"] = None
+        # Replace position id with nested position
+        pos = getattr(instance, "position", None)
+        if pos is not None:
+            base["position"] = PositionSerializer(pos).data
+        else:
+            base["position"] = None
         return base
 
     def __init__(self, *args, **kwargs):
@@ -280,9 +382,9 @@ class OnboardEmployeeNewSerializer(serializers.Serializer):
     email = serializers.EmailField(read_only=True)
     # Password is fully internal; not declared as a field to avoid any
     # chance of client submission.
-    first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
-    last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
-    # Employee fields
+    # Convenience: accept a single full_name and split into first/last if provided
+    full_name = serializers.CharField(required=False, allow_blank=True)
+    # Employee fields (superset of regular Employee writable fields)
     department = serializers.PrimaryKeyRelatedField(
         queryset=Department.objects.all(),
         required=False,
@@ -290,6 +392,27 @@ class OnboardEmployeeNewSerializer(serializers.Serializer):
     )
     title = serializers.CharField(max_length=150, required=False, allow_blank=True)
     hire_date = serializers.DateField(required=False, allow_null=True)
+    supervisor = NullablePKRelatedField(
+        queryset=Employee.objects.all(), required=False, allow_null=True
+    )
+    position = NullablePKRelatedField(
+        queryset=Position.objects.all(), required=False, allow_null=True
+    )
+    national_id = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    gender = serializers.ChoiceField(
+        choices=Employee.Gender.choices, required=False, allow_blank=False
+    )
+    date_of_birth = serializers.DateField(required=False, allow_null=True)
+    employment_status = serializers.ChoiceField(
+        choices=Employee.EmploymentStatus.choices, required=False
+    )
+    first_name = serializers.CharField(max_length=80, required=False, allow_blank=True)
+    last_name = serializers.CharField(max_length=80, required=False, allow_blank=True)
+    employee_email = serializers.EmailField(required=False, allow_blank=True)
+    phone = serializers.CharField(max_length=32, required=False, allow_blank=True)
+    address = serializers.CharField(required=False, allow_blank=True)
+    # Optional CV upload as raw bytes (when used via multipart/form-data)
+    cv_file = serializers.FileField(required=False, allow_empty_file=False)
 
     def validate(self, attrs):
         # Reject attempts to supply forbidden fields (credentials are auto-generated)
@@ -306,6 +429,14 @@ class OnboardEmployeeNewSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 dict.fromkeys(forbidden, "This field is not editable.")
             )
+
+        # If full_name provided and first/last omitted, split it
+        full_name = self.initial_data.get("full_name")
+        if full_name and not attrs.get("first_name") and not attrs.get("last_name"):
+            parts = str(full_name).strip().split()
+            if parts:
+                attrs["first_name"] = parts[0]
+                attrs["last_name"] = " ".join(parts[1:]) if len(parts) > 1 else ""
 
         gen_username, gen_email = _generate_unique_username_email(
             attrs.get("first_name", ""),
@@ -324,16 +455,63 @@ class OnboardEmployeeNewSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         user_model = get_user_model()
+        cv_file = validated_data.pop("cv_file", None)
+        # If CV provided, parse and prefill missing fields
+        if cv_file is not None:
+            with suppress(Exception):
+                content = cv_file.read()
+                extracted = parse_cv(content, getattr(cv_file, "name", None))
+                with suppress(Exception):
+                    cv_file.seek(0)
+                # Fill only if not provided explicitly
+                for src_key, dst_key in (
+                    ("first_name", "first_name"),
+                    ("last_name", "last_name"),
+                    ("email", "employee_email"),
+                    ("phone", "phone"),
+                    ("date_of_birth", "date_of_birth"),
+                    ("full_name", None),  # handled by split logic already
+                ):
+                    if (
+                        dst_key
+                        and not validated_data.get(dst_key)
+                        and extracted.get(src_key)
+                    ):
+                        validated_data[dst_key] = extracted[src_key]
+                    if not dst_key and extracted.get(src_key):
+                        # if full_name was provided from CV and no names set
+                        if not validated_data.get(
+                            "first_name"
+                        ) and not validated_data.get("last_name"):
+                            parts = str(extracted[src_key]).split()
+                            if parts:
+                                validated_data["first_name"] = parts[0]
+                                validated_data["last_name"] = (
+                                    " ".join(parts[1:]) if len(parts) > 1 else ""
+                                )
         dept = validated_data.pop("department", None)
         title = validated_data.pop("title", "")
         hire_date = validated_data.pop("hire_date", None)
+        supervisor = validated_data.pop("supervisor", None)
+        position = validated_data.pop("position", None)
+        national_id = validated_data.pop("national_id", "") or None
+        gender = validated_data.pop("gender", None)
+        date_of_birth = validated_data.pop("date_of_birth", None)
+        employment_status = validated_data.pop(
+            "employment_status", Employee.EmploymentStatus.ACTIVE
+        )
+        first_name_emp = validated_data.pop("first_name", "")
+        last_name_emp = validated_data.pop("last_name", "")
+        employee_email = validated_data.pop("employee_email", "") or None
+        phone = validated_data.pop("phone", "") or None
+        address = validated_data.pop("address", "") or None
         password = validated_data.pop("_generated_password")
 
         user = user_model.objects.create_user(
             username=validated_data.pop("username"),
             email=validated_data.get("email"),
-            first_name=validated_data.pop("first_name", ""),
-            last_name=validated_data.pop("last_name", ""),
+            first_name=first_name_emp,
+            last_name=last_name_emp,
         )
         user.is_active = True
         user.set_password(password)
@@ -348,12 +526,33 @@ class OnboardEmployeeNewSerializer(serializers.Serializer):
                 defaults={"verified": True, "primary": True},
             )
 
-        return Employee.objects.create(
+        employee = Employee.objects.create(
             user=user,
             department=dept,
             title=title,
             hire_date=hire_date,
+            supervisor=supervisor,
+            position=position,
+            national_id=national_id,
+            gender=gender,
+            date_of_birth=date_of_birth,
+            employment_status=employment_status,
+            first_name=first_name_emp,
+            last_name=last_name_emp,
+            email=employee_email,
+            phone=phone,
+            address=address,
+            # is_active is now auto-synced from employment_status
         )
+        # Persist uploaded CV as EmployeeDocument if provided
+        if cv_file is not None:
+            with suppress(Exception):
+                EmployeeDocument.objects.create(
+                    employee=employee,
+                    name=getattr(cv_file, "name", "cv.pdf"),
+                    file=cv_file,
+                )
+        return employee
 
 
 class OnboardEmployeeExistingSerializer(serializers.Serializer):
@@ -369,6 +568,28 @@ class OnboardEmployeeExistingSerializer(serializers.Serializer):
     )
     title = serializers.CharField(max_length=150, required=False, allow_blank=True)
     hire_date = serializers.DateField(required=False, allow_null=True)
+    supervisor = NullablePKRelatedField(
+        queryset=Employee.objects.all(), required=False, allow_null=True
+    )
+    position = NullablePKRelatedField(
+        queryset=Position.objects.all(), required=False, allow_null=True
+    )
+    national_id = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    gender = serializers.ChoiceField(
+        choices=Employee.Gender.choices, required=False, allow_blank=False
+    )
+    date_of_birth = serializers.DateField(required=False, allow_null=True)
+    employment_status = serializers.ChoiceField(
+        choices=Employee.EmploymentStatus.choices, required=False
+    )
+    first_name = serializers.CharField(max_length=80, required=False, allow_blank=True)
+    last_name = serializers.CharField(max_length=80, required=False, allow_blank=True)
+    # Convenience: accept a single full_name and split into first/last if provided
+    full_name = serializers.CharField(required=False, allow_blank=True)
+    employee_email = serializers.EmailField(required=False, allow_blank=True)
+    phone = serializers.CharField(max_length=32, required=False, allow_blank=True)
+    address = serializers.CharField(required=False, allow_blank=True)
+    cv_file = serializers.FileField(required=False, allow_empty_file=False)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -382,14 +603,80 @@ class OnboardEmployeeExistingSerializer(serializers.Serializer):
             raise serializers.ValidationError(msg)
         return user
 
-    def create(self, validated_data):
+    def create(self, validated_data):  # noqa: C901 - acceptable orchestration here
         user = validated_data.pop("user")
+        cv_file = validated_data.pop("cv_file", None)
         department = validated_data.pop("department", None)
         title = validated_data.pop("title", "")
         hire_date = validated_data.pop("hire_date", None)
-        return Employee.objects.create(
+        supervisor = validated_data.pop("supervisor", None)
+        position = validated_data.pop("position", None)
+        national_id = validated_data.pop("national_id", "") or None
+        gender = validated_data.pop("gender", None)
+        date_of_birth = validated_data.pop("date_of_birth", None)
+        employment_status = validated_data.pop(
+            "employment_status", Employee.EmploymentStatus.ACTIVE
+        )
+        # If full_name provided, split unless explicit first/last provided
+        first_name_emp = validated_data.pop("first_name", "")
+        last_name_emp = validated_data.pop("last_name", "")
+        full_name = self.initial_data.get("full_name")
+        if full_name and not first_name_emp and not last_name_emp:
+            parts = str(full_name).strip().split()
+            if parts:
+                first_name_emp = parts[0]
+                last_name_emp = " ".join(parts[1:]) if len(parts) > 1 else ""
+        # Autofill from the selected user if still missing
+        if not first_name_emp:
+            first_name_emp = getattr(user, "first_name", "") or ""
+        if not last_name_emp:
+            last_name_emp = getattr(user, "last_name", "") or ""
+        employee_email = validated_data.pop("employee_email", "") or None
+        if not employee_email:
+            employee_email = getattr(user, "email", None) or None
+        phone = validated_data.pop("phone", "") or None
+        address = validated_data.pop("address", "") or None
+        # Prefill from CV if provided
+        if cv_file is not None:
+            with suppress(Exception):
+                content = cv_file.read()
+                extracted = parse_cv(content, getattr(cv_file, "name", None))
+                with suppress(Exception):
+                    cv_file.seek(0)
+                if not first_name_emp and extracted.get("first_name"):
+                    first_name_emp = extracted["first_name"]
+                if not last_name_emp and extracted.get("last_name"):
+                    last_name_emp = extracted["last_name"]
+                if not employee_email and extracted.get("email"):
+                    employee_email = extracted["email"]
+                if not phone and extracted.get("phone"):
+                    phone = extracted["phone"]
+                if not date_of_birth and extracted.get("date_of_birth"):
+                    date_of_birth = extracted["date_of_birth"]
+
+        employee = Employee.objects.create(
             user=user,
             department=department,
             title=title,
             hire_date=hire_date,
+            supervisor=supervisor,
+            position=position,
+            national_id=national_id,
+            gender=gender,
+            date_of_birth=date_of_birth,
+            employment_status=employment_status,
+            first_name=first_name_emp,
+            last_name=last_name_emp,
+            email=employee_email,
+            phone=phone,
+            address=address,
+            # is_active is now auto-synced from employment_status
         )
+        if cv_file is not None:
+            with suppress(Exception):
+                EmployeeDocument.objects.create(
+                    employee=employee,
+                    name=getattr(cv_file, "name", "cv.pdf"),
+                    file=cv_file,
+                )
+        return employee

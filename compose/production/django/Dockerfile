@@ -53,11 +53,33 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
   libpq-dev \
   # Translations dependencies
   gettext \
-  # entrypoint
+  # entrypoint helper
   wait-for-it \
+  # process supervisor / init
+  tini \
+  # OpenSSH server for Azure 'az webapp ssh' interactive access
+  openssh-server \
   # cleaning up unused files
   && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   && rm -rf /var/lib/apt/lists/*
+
+# SSH configuration (minimal hardening; no root login, key only)
+RUN mkdir -p /var/run/sshd /etc/ssh && \
+    echo 'Port 2222' > /etc/ssh/sshd_config && \
+    echo 'Protocol 2' >> /etc/ssh/sshd_config && \
+    echo 'HostKey /etc/ssh/ssh_host_rsa_key' >> /etc/ssh/sshd_config && \
+    echo 'HostKey /etc/ssh/ssh_host_ed25519_key' >> /etc/ssh/sshd_config && \
+    echo 'PermitRootLogin no' >> /etc/ssh/sshd_config && \
+    echo 'PasswordAuthentication no' >> /etc/ssh/sshd_config && \
+    echo 'ChallengeResponseAuthentication no' >> /etc/ssh/sshd_config && \
+    echo 'UsePAM no' >> /etc/ssh/sshd_config && \
+    echo 'AllowUsers django' >> /etc/ssh/sshd_config && \
+    ssh-keygen -A
+
+# Provide a placeholder authorized_keys file (Azure may inject ephemeral keys differently; keep dir ready)
+RUN mkdir -p /home/django/.ssh && chmod 700 /home/django/.ssh && touch /home/django/.ssh/authorized_keys && chmod 600 /home/django/.ssh/authorized_keys && chown -R django:django /home/django/.ssh
+
+EXPOSE 2222
 
 # All absolute dir copies ignore workdir instruction. All relative dir copies are wrt to the workdir instruction
 # copy python dependency wheels from python-build-stage

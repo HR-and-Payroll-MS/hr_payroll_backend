@@ -11,6 +11,12 @@ class AuditLog(models.Model):
         blank=True,
     )
     message = models.TextField(blank=True)
+    # Optional structured fields for richer auditing
+    model_name = models.CharField(max_length=150, blank=True)
+    record_id = models.BigIntegerField(null=True, blank=True)
+    before = models.JSONField(null=True, blank=True)
+    after = models.JSONField(null=True, blank=True)
+    ip_address = models.CharField(max_length=64, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

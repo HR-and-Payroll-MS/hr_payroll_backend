@@ -24,12 +24,16 @@ def test_admin_can_create_employee_by_username():
     client = APIClient()
     client.force_authenticate(user=admin)
 
-    payload = {"user": target.username, "title": "Engineer", "hire_date": "2025-09-24"}
-    r = client.post("/api/v1/employees/", payload, format="json")
-    assert r.status_code in (status.HTTP_201_CREATED, status.HTTP_200_OK)
-    # API now returns a nested user object; assert the nested username matches
-    assert isinstance(r.data["user"], dict)
-    assert r.data["user"]["username"] == target.username
+    payload = {
+        "user": target.username,
+        "department": None,
+        "title": "Engineer",
+        "hire_date": "2025-09-24",
+    }
+    r = client.post("/api/v1/employees/onboard/existing/", payload, format="json")
+    assert r.status_code == status.HTTP_201_CREATED
+    # Onboarding existing returns nested employee data under default representation
+    assert isinstance(r.data.get("user"), dict)
     assert Employee.objects.filter(user=target).exists()
 
 
@@ -45,7 +49,8 @@ def test_missing_user_returns_400():
     client = APIClient()
     client.force_authenticate(user=admin)
 
-    r = client.post("/api/v1/employees/", {"title": "NoUser"}, format="json")
+    payload = {"title": "NoUser"}
+    r = client.post("/api/v1/employees/onboard/existing/", payload, format="json")
     assert r.status_code == status.HTTP_400_BAD_REQUEST
     assert "user" in r.data
 
@@ -69,7 +74,9 @@ def test_duplicate_employee_prevented():
     client = APIClient()
     client.force_authenticate(user=admin)
 
-    r = client.post("/api/v1/employees/", {"user": target.username}, format="json")
+    r = client.post(
+        "/api/v1/employees/onboard/existing/", {"user": target.username}, format="json"
+    )
     assert r.status_code == status.HTTP_400_BAD_REQUEST
     assert "user" in r.data
 
@@ -91,5 +98,7 @@ def test_non_elevated_cannot_create_employee():
     client = APIClient()
     client.force_authenticate(user=user)
 
-    r = client.post("/api/v1/employees/", {"user": other.username}, format="json")
+    r = client.post(
+        "/api/v1/employees/onboard/existing/", {"user": other.username}, format="json"
+    )
     assert r.status_code in (status.HTTP_403_FORBIDDEN, status.HTTP_401_UNAUTHORIZED)

@@ -1,4 +1,5 @@
 from django.contrib.auth.models import AbstractUser
+from django.db import models
 from django.db.models import CharField
 from django.db.models import EmailField
 from django.urls import reverse
@@ -20,6 +21,9 @@ class User(AbstractUser):
     # but the more robust way is to add them again like h following
     first_name = CharField(_("First Name"), max_length=150, blank=True)
     last_name = CharField(_("Last Name"), max_length=150, blank=True)
+    # Audit timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):
         # Automatically build th full name
