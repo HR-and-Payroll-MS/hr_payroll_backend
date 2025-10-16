@@ -16,4 +16,4 @@ else
     >&2 echo 'Using provided DATABASE_URL'
 fi
 
-exec ./start.sh
+exec start.sh
