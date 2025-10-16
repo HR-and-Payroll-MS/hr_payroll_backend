@@ -8,8 +8,8 @@ Contract:
   email, phone, address, date_of_birth, national_id, gender.
 
 Implementation details:
-- Tries to use Docling if available (preferred for robust parsing).
-- Falls back to a light-weight PDF text extraction and regex heuristics.
+- Uses pdfminer.six for robust text extraction when available.
+- Falls back to a light-weight PyPDF2 text extraction and regex heuristics.
 - Never raises on parse errors; returns {} when nothing is found.
 """
 
@@ -20,10 +20,10 @@ import re
 from contextlib import suppress
 from typing import Any
 
-try:  # optional dependency
-    from docling.document import Document  # type: ignore[import-not-found]
+try:  # optional dependency (preferred)
+    from pdfminer.high_level import extract_text  # type: ignore[import-not-found]
 except ImportError:  # pragma: no cover - optional
-    Document = None  # type: ignore[assignment]
+    extract_text = None  # type: ignore[assignment]
 
 try:  # optional fallback
     import PyPDF2  # type: ignore[import-not-found]
@@ -36,10 +36,9 @@ def _extract_text_from_pdf_bytes(pdf_bytes: bytes) -> str:
 
     Returns an empty string if no extractor is available or parsing fails.
     """
-    if Document is not None:
+    if extract_text is not None:
         with suppress(Exception):
-            doc = Document.from_bytes(pdf_bytes)
-            return doc.text or ""
+            return extract_text(io.BytesIO(pdf_bytes)) or ""
 
     if PyPDF2 is not None:
         with suppress(Exception):

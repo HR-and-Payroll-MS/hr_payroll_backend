@@ -31,5 +31,5 @@ dj-rest-auth==5.0.2
 djoser==2.3.1
 
 # Document parsing (CV extraction)
-docling==2.12.0  # https://pypi.org/project/docling/
-PyPDF2==3.0.1  # fallback PDF text extraction if Docling unavailable
+pdfminer.six==20231228  # robust PDF text extraction (no AI)
+PyPDF2==3.0.1  # fallback PDF text extraction
