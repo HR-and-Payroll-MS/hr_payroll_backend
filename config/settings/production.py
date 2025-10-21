@@ -19,7 +19,11 @@ from .base import env
 # https://docs.djangoproject.com/en/dev/ref/settings/#secret-key
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 # https://docs.djangoproject.com/en/dev/ref/settings/#allowed-hosts
-ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["hr-payroll.com"])
+# Include Render wildcard by default
+ALLOWED_HOSTS = env.list(
+    "DJANGO_ALLOWED_HOSTS",
+    default=["hr-payroll.com", ".onrender.com"],
+)
 
 # DATABASES
 # ------------------------------------------------------------------------------
@@ -101,20 +105,26 @@ ACCOUNT_EMAIL_SUBJECT_PREFIX = EMAIL_SUBJECT_PREFIX
 # ADMIN
 # ------------------------------------------------------------------------------
 # Django Admin URL regex.
-ADMIN_URL = env("DJANGO_ADMIN_URL")
+# Default admin URL with env override
+ADMIN_URL = env("DJANGO_ADMIN_URL", default="admin/")
 
 # Anymail
 # ------------------------------------------------------------------------------
-# https://anymail.readthedocs.io/en/stable/installation/#installing-anymail
-INSTALLED_APPS += ["anymail"]
-# https://docs.djangoproject.com/en/dev/ref/settings/#email-backend
-# https://anymail.readthedocs.io/en/stable/installation/#anymail-settings-reference
-# https://anymail.readthedocs.io/en/stable/esps/sendgrid/
-EMAIL_BACKEND = "anymail.backends.sendgrid.EmailBackend"
-ANYMAIL = {
-    "SENDGRID_API_KEY": env("SENDGRID_API_KEY"),
-    "SENDGRID_API_URL": env("SENDGRID_API_URL", default="https://api.sendgrid.com/v3/"),
-}
+# Configure SendGrid if credentials are present; otherwise keep default backend from base
+SENDGRID_API_KEY = env("SENDGRID_API_KEY", default=None)
+if SENDGRID_API_KEY:
+    # https://anymail.readthedocs.io/en/stable/installation/#installing-anymail
+    INSTALLED_APPS += ["anymail"]
+    # https://docs.djangoproject.com/en/dev/ref/settings/#email-backend
+    # https://anymail.readthedocs.io/en/stable/installation/#anymail-settings-reference
+    # https://anymail.readthedocs.io/en/stable/esps/sendgrid/
+    EMAIL_BACKEND = "anymail.backends.sendgrid.EmailBackend"
+    ANYMAIL = {
+        "SENDGRID_API_KEY": SENDGRID_API_KEY,
+        "SENDGRID_API_URL": env(
+            "SENDGRID_API_URL", default="https://api.sendgrid.com/v3/"
+        ),
+    }
 
 
 # LOGGING
@@ -157,7 +167,7 @@ LOGGING = {
 
 # Sentry
 # ------------------------------------------------------------------------------
-SENTRY_DSN = env("SENTRY_DSN")
+SENTRY_DSN = env("SENTRY_DSN", default="")
 SENTRY_LOG_LEVEL = env.int("DJANGO_SENTRY_LOG_LEVEL", logging.INFO)
 
 sentry_logging = LoggingIntegration(
@@ -170,12 +180,13 @@ integrations = [
     CeleryIntegration(),
     RedisIntegration(),
 ]
-sentry_sdk.init(
-    dsn=SENTRY_DSN,
-    integrations=integrations,
-    environment=env("SENTRY_ENVIRONMENT", default="production"),
-    traces_sample_rate=env.float("SENTRY_TRACES_SAMPLE_RATE", default=0.0),
-)
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=integrations,
+        environment=env("SENTRY_ENVIRONMENT", default="production"),
+        traces_sample_rate=env.float("SENTRY_TRACES_SAMPLE_RATE", default=0.0),
+    )
 
 # django-rest-framework
 # -------------------------------------------------------------------------------
