@@ -9,8 +9,15 @@ python /app/manage.py migrate --noinput
 python /app/manage.py collectstatic --noinput
 python /app/manage.py setup_rbac
 
-# Start sshd (runs on port 2222) for Azure interactive access; ignore failure to avoid blocking app
-/usr/sbin/sshd -D &
+# Optionally start sshd (port 2222) for interactive access where supported.
+# On platforms like Render this may fail (non-root, restricted env). Make it non-fatal.
+if [ "${ENABLE_SSHD:-0}" = "1" ]; then
+	if command -v /usr/sbin/sshd >/dev/null 2>&1; then
+		/usr/sbin/sshd -D >/dev/null 2>&1 & || true
+	else
+		echo "sshd not available; skipping" >&2
+	fi
+fi
 
 PORT="${PORT:-5000}"
 exec /usr/bin/tini -- /usr/local/bin/gunicorn config.asgi --bind 0.0.0.0:"${PORT}" --chdir=/app -k uvicorn_worker.UvicornWorker
