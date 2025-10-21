@@ -4,11 +4,22 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
+# Trap for graceful logging on termination
+on_term() {
+  echo "START: Received termination signal. Shutting down." >&2
+}
+trap on_term TERM INT
+
+# Log failing line on any error for better diagnostics
+trap 'echo "ERROR: Command failed at line ${LINENO}. See previous logs for context." >&2' ERR
+
 # Optional verbose shell tracing in logs
 if [ "${ENABLE_DEBUG_LOGS:-0}" = "1" ]; then
 	set -x
 fi
 
+ERRORS=0
+WARNINGS=0
 
 # Ensure we use production settings unless explicitly overridden
 export DJANGO_SETTINGS_MODULE="${DJANGO_SETTINGS_MODULE:-config.settings.production}"
@@ -45,18 +56,56 @@ print("============================")
 PY
 fi
 
-python /app/manage.py check --deploy --fail-level WARNING || true
-python /app/manage.py migrate --noinput
-python /app/manage.py collectstatic --noinput
-python /app/manage.py setup_rbac
+echo "STEP: Django system checks"
+if python /app/manage.py check --deploy --fail-level WARNING; then
+  echo "OK: System checks completed"
+else
+  echo "WARN: System checks reported issues (non-fatal)" >&2
+  WARNINGS=$((WARNINGS+1))
+fi
+
+echo "STEP: Applying migrations"
+if python /app/manage.py migrate --noinput; then
+  echo "OK: Migrations applied"
+else
+  echo "ERROR: Migration step failed" >&2
+  ERRORS=$((ERRORS+1))
+  exit 1
+fi
+
+echo "STEP: Collecting static files"
+if python /app/manage.py collectstatic --noinput; then
+  echo "OK: Static files collected"
+else
+  echo "ERROR: collectstatic failed" >&2
+  ERRORS=$((ERRORS+1))
+  exit 1
+fi
+
+if python /app/manage.py help | grep -q setup_rbac; then
+  echo "STEP: Running setup_rbac"
+  if python /app/manage.py setup_rbac; then
+    echo "OK: setup_rbac completed"
+  else
+    echo "WARN: setup_rbac failed (non-fatal)" >&2
+    WARNINGS=$((WARNINGS+1))
+  fi
+else
+  echo "INFO: setup_rbac command not present"
+fi
 
 # Optionally start sshd (port 2222) for interactive access where supported.
 # On platforms like Render this may fail (non-root, restricted env). Make it non-fatal.
 if [ "${ENABLE_SSHD:-0}" = "1" ]; then
 	if command -v /usr/sbin/sshd >/dev/null 2>&1; then
-		/usr/sbin/sshd -D >/dev/null 2>&1 & || true
+		if /usr/sbin/sshd -D >/dev/null 2>&1 & then
+			echo "OK: sshd started"
+		else
+			echo "WARN: sshd failed to start (non-fatal)" >&2
+			WARNINGS=$((WARNINGS+1))
+		fi
 	else
-		echo "sshd not available; skipping" >&2
+		echo "INFO: sshd not available; skipping"
 	fi
 fi
 
@@ -78,11 +127,14 @@ ERROR_LOG="${GUNICORN_ERROR_LOGFILE:--}"
 KEEPALIVE="${GUNICORN_KEEPALIVE:-5}"
 GRACEFUL_TIMEOUT="${GUNICORN_GRACEFUL_TIMEOUT:-30}"
 
+echo "SUMMARY: warnings=${WARNINGS}, errors=${ERRORS}"
+echo "START: Launching Gunicorn with workers=${WORKERS}, timeout=${TIMEOUT}, bind=0.0.0.0:${PORT}"
+
 exec /usr/bin/tini -- /usr/local/bin/gunicorn \
-	config.asgi \
+	config.asgi:application \
 	--bind 0.0.0.0:"${PORT}" \
 	--chdir=/app \
-	-k uvicorn_worker.UvicornWorker \
+	-k uvicorn.workers.UvicornWorker \
 	--workers "${WORKERS}" \
 	--timeout "${TIMEOUT}" \
 	--graceful-timeout "${GRACEFUL_TIMEOUT}" \

@@ -4,22 +4,52 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
+# Trap TERM/INT and general errors to surface early-exit reasons in Render logs
+on_term() {
+    echo "ENTRYPOINT: Received termination signal. Shutting down." >&2
+}
+trap on_term TERM INT
+trap 'echo "ENTRYPOINT ERROR: Command failed at line ${LINENO}." >&2' ERR
+
+# Optional verbose shell tracing
+if [ "${ENABLE_DEBUG_LOGS:-0}" = "1" ]; then
+    set -x
+fi
+
+# Resolve database connection
 if [ -z "${DATABASE_URL:-}" ]; then
-    if [ -z "${POSTGRES_USER:-}" ]; then
-            base_postgres_image_default_user='postgres'
-            export POSTGRES_USER="${base_postgres_image_default_user}"
+    POSTGRES_USER="${POSTGRES_USER:-postgres}"
+    POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-}"
+    POSTGRES_HOST="${POSTGRES_HOST:-}"
+    POSTGRES_PORT="${POSTGRES_PORT:-5432}"
+    POSTGRES_DB="${POSTGRES_DB:-}"
+
+    if [ -n "${POSTGRES_HOST}" ] && [ -n "${POSTGRES_PORT}" ]; then
+        wait-for-it "${POSTGRES_HOST}:${POSTGRES_PORT}" -t 30
+        >&2 echo 'PostgreSQL is available'
+    else
+        >&2 echo 'Warning: POSTGRES_HOST/POSTGRES_PORT not set; skipping wait-for-it'
     fi
+
+    # Build DATABASE_URL even if password is empty to avoid nounset crashes
+    export POSTGRES_USER POSTGRES_PASSWORD POSTGRES_HOST POSTGRES_PORT POSTGRES_DB
     export DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}"
-    wait-for-it "${POSTGRES_HOST}:${POSTGRES_PORT}" -t 30
-    >&2 echo 'PostgreSQL is available'
+    >&2 echo "ENTRYPOINT: Constructed DATABASE_URL (host=${POSTGRES_HOST} db=${POSTGRES_DB} user=${POSTGRES_USER})"
 else
-    >&2 echo 'Using provided DATABASE_URL'
+    >&2 echo 'ENTRYPOINT: Using provided DATABASE_URL'
+fi
+
+# Basic sanitized diagnostics
+if [ "${STARTUP_DIAGNOSTICS:-1}" = "1" ]; then
+    >&2 echo "ENTRYPOINT: DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-unset}"
 fi
 
 # Execute the container's command (e.g., /start) passed via CMD.
 # Fallback to /start if no args provided.
 if [ "$#" -gt 0 ]; then
+    >&2 echo "ENTRYPOINT: Executing CMD: $*"
     exec "$@"
 else
+    >&2 echo "ENTRYPOINT: Executing default /start"
     exec /start
 fi
