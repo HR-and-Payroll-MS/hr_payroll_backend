@@ -20,4 +20,26 @@ if [ "${ENABLE_SSHD:-0}" = "1" ]; then
 fi
 
 PORT="${PORT:-5000}"
-exec /usr/bin/tini -- /usr/local/bin/gunicorn config.asgi --bind 0.0.0.0:"${PORT}" --chdir=/app -k uvicorn_worker.UvicornWorker
+# Tune Gunicorn for constrained environments (e.g., Render free/low-memory)
+# Use WEB_CONCURRENCY or GUNICORN_WORKERS if provided; default to 2.
+if [ -n "${WEB_CONCURRENCY:-}" ]; then
+	WORKERS="${WEB_CONCURRENCY}"
+else
+	WORKERS="${GUNICORN_WORKERS:-2}"
+fi
+
+TIMEOUT="${GUNICORN_TIMEOUT:-60}"
+MAX_REQUESTS="${GUNICORN_MAX_REQUESTS:-1000}"
+MAX_REQUESTS_JITTER="${GUNICORN_MAX_REQUESTS_JITTER:-100}"
+LOG_LEVEL="${GUNICORN_LOG_LEVEL:-info}"
+
+exec /usr/bin/tini -- /usr/local/bin/gunicorn \
+	config.asgi \
+	--bind 0.0.0.0:"${PORT}" \
+	--chdir=/app \
+	-k uvicorn_worker.UvicornWorker \
+	--workers "${WORKERS}" \
+	--timeout "${TIMEOUT}" \
+	--max-requests "${MAX_REQUESTS}" \
+	--max-requests-jitter "${MAX_REQUESTS_JITTER}" \
+	--log-level "${LOG_LEVEL}"
