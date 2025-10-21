@@ -5,6 +5,9 @@ set -o pipefail
 set -o nounset
 
 
+# Ensure we use production settings unless explicitly overridden
+export DJANGO_SETTINGS_MODULE="${DJANGO_SETTINGS_MODULE:-config.settings.production}"
+
 python /app/manage.py migrate --noinput
 python /app/manage.py collectstatic --noinput
 python /app/manage.py setup_rbac
@@ -32,6 +35,10 @@ TIMEOUT="${GUNICORN_TIMEOUT:-60}"
 MAX_REQUESTS="${GUNICORN_MAX_REQUESTS:-1000}"
 MAX_REQUESTS_JITTER="${GUNICORN_MAX_REQUESTS_JITTER:-100}"
 LOG_LEVEL="${GUNICORN_LOG_LEVEL:-info}"
+ACCESS_LOG="${GUNICORN_ACCESS_LOGFILE:--}"
+ERROR_LOG="${GUNICORN_ERROR_LOGFILE:--}"
+KEEPALIVE="${GUNICORN_KEEPALIVE:-5}"
+GRACEFUL_TIMEOUT="${GUNICORN_GRACEFUL_TIMEOUT:-30}"
 
 exec /usr/bin/tini -- /usr/local/bin/gunicorn \
 	config.asgi \
@@ -40,6 +47,10 @@ exec /usr/bin/tini -- /usr/local/bin/gunicorn \
 	-k uvicorn_worker.UvicornWorker \
 	--workers "${WORKERS}" \
 	--timeout "${TIMEOUT}" \
+	--graceful-timeout "${GRACEFUL_TIMEOUT}" \
+	--keep-alive "${KEEPALIVE}" \
 	--max-requests "${MAX_REQUESTS}" \
 	--max-requests-jitter "${MAX_REQUESTS_JITTER}" \
-	--log-level "${LOG_LEVEL}"
+	--log-level "${LOG_LEVEL}" \
+	--access-logfile "${ACCESS_LOG}" \
+	--error-logfile "${ERROR_LOG}"
