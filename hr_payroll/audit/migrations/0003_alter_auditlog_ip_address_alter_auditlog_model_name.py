@@ -4,12 +4,22 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
+    atomic = False
 
     dependencies = [
         ('audit', '0002_auditlog_structured_fields'),
     ]
 
     operations = [
+        # Backfill existing NULLs to empty strings before making fields non-nullable
+        migrations.RunSQL(
+            sql="UPDATE audit_auditlog SET ip_address = '' WHERE ip_address IS NULL;",
+            reverse_sql="",
+        ),
+        migrations.RunSQL(
+            sql="UPDATE audit_auditlog SET model_name = '' WHERE model_name IS NULL;",
+            reverse_sql="",
+        ),
         migrations.AlterField(
             model_name='auditlog',
             name='ip_address',

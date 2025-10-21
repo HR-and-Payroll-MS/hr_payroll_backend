@@ -494,8 +494,9 @@ class OnboardEmployeeNewSerializer(serializers.Serializer):
         hire_date = validated_data.pop("hire_date", None)
         supervisor = validated_data.pop("supervisor", None)
         position = validated_data.pop("position", None)
-        national_id = validated_data.pop("national_id", "") or None
-        gender = validated_data.pop("gender", None)
+        national_id = validated_data.pop("national_id", "")
+        # Default gender to empty string to satisfy NOT NULL constraint on CharField
+        gender = validated_data.pop("gender", "")
         date_of_birth = validated_data.pop("date_of_birth", None)
         employment_status = validated_data.pop(
             "employment_status", Employee.EmploymentStatus.ACTIVE
@@ -503,8 +504,8 @@ class OnboardEmployeeNewSerializer(serializers.Serializer):
         first_name_emp = validated_data.pop("first_name", "")
         last_name_emp = validated_data.pop("last_name", "")
         employee_email = validated_data.pop("employee_email", "") or None
-        phone = validated_data.pop("phone", "") or None
-        address = validated_data.pop("address", "") or None
+        phone = validated_data.pop("phone", "")
+        address = validated_data.pop("address", "")
         password = validated_data.pop("_generated_password")
 
         user = user_model.objects.create_user(
@@ -611,8 +612,9 @@ class OnboardEmployeeExistingSerializer(serializers.Serializer):
         hire_date = validated_data.pop("hire_date", None)
         supervisor = validated_data.pop("supervisor", None)
         position = validated_data.pop("position", None)
-        national_id = validated_data.pop("national_id", "") or None
-        gender = validated_data.pop("gender", None)
+        national_id = validated_data.pop("national_id", "")
+        # Default gender to empty string to satisfy NOT NULL constraint on CharField
+        gender = validated_data.pop("gender", "")
         date_of_birth = validated_data.pop("date_of_birth", None)
         employment_status = validated_data.pop(
             "employment_status", Employee.EmploymentStatus.ACTIVE
@@ -634,8 +636,8 @@ class OnboardEmployeeExistingSerializer(serializers.Serializer):
         employee_email = validated_data.pop("employee_email", "") or None
         if not employee_email:
             employee_email = getattr(user, "email", None) or None
-        phone = validated_data.pop("phone", "") or None
-        address = validated_data.pop("address", "") or None
+        phone = validated_data.pop("phone", "")
+        address = validated_data.pop("address", "")
         # Prefill from CV if provided
         if cv_file is not None:
             with suppress(Exception):

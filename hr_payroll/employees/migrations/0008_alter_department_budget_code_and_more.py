@@ -4,12 +4,57 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
+    atomic = False
 
     dependencies = [
         ('employees', '0007_employee_names_not_null'),
     ]
 
     operations = [
+        # Backfill NULLs to empty strings for fields we are making NOT NULL
+        migrations.RunSQL(
+            sql="UPDATE employees_employee SET address = '' WHERE address IS NULL;",
+            reverse_sql="",
+        ),
+        migrations.RunSQL(
+            sql="UPDATE employees_employee SET first_name = '' WHERE first_name IS NULL;",
+            reverse_sql="",
+        ),
+        migrations.RunSQL(
+            sql="UPDATE employees_employee SET last_name = '' WHERE last_name IS NULL;",
+            reverse_sql="",
+        ),
+        migrations.RunSQL(
+            sql="UPDATE employees_employee SET phone = '' WHERE phone IS NULL;",
+            reverse_sql="",
+        ),
+        migrations.RunSQL(
+            sql="UPDATE employees_employee SET gender = '' WHERE gender IS NULL;",
+            reverse_sql="",
+        ),
+        migrations.RunSQL(
+            sql="UPDATE employees_department SET budget_code = '' WHERE budget_code IS NULL;",
+            reverse_sql="",
+        ),
+        migrations.RunSQL(
+            sql="UPDATE employees_department SET location = '' WHERE location IS NULL;",
+            reverse_sql="",
+        ),
+        migrations.RunSQL(
+            sql="UPDATE employees_position SET salary_grade = '' WHERE salary_grade IS NULL;",
+            reverse_sql="",
+        ),
+        # For national_id, to satisfy unique + NOT NULL in this migration,
+        # assign a temporary unique value per row. We'll relax uniqueness to
+        # partial in 0009, allowing blanks; we can later clean these if needed.
+        migrations.RunSQL(
+            sql=(
+                "UPDATE employees_employee "
+                "SET national_id = 'AUTO-' || id::text "
+                "WHERE national_id IS NULL;"
+            ),
+            reverse_sql="",
+        ),
         migrations.AlterField(
             model_name='department',
             name='budget_code',

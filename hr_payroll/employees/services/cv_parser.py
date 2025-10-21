@@ -9,7 +9,7 @@ Contract:
 
 Implementation details:
 - Uses pdfminer.six for robust text extraction when available.
-- Falls back to a light-weight PyPDF2 text extraction and regex heuristics.
+- Falls back to a light-weight pypdf text extraction and regex heuristics.
 - Never raises on parse errors; returns {} when nothing is found.
 """
 
@@ -26,9 +26,9 @@ except ImportError:  # pragma: no cover - optional
     extract_text = None  # type: ignore[assignment]
 
 try:  # optional fallback
-    import PyPDF2  # type: ignore[import-not-found]
+    from pypdf import PdfReader  # type: ignore[import-not-found]
 except ImportError:  # pragma: no cover - optional
-    PyPDF2 = None  # type: ignore[assignment]
+    PdfReader = None  # type: ignore[assignment]
 
 
 def _extract_text_from_pdf_bytes(pdf_bytes: bytes) -> str:
@@ -40,9 +40,9 @@ def _extract_text_from_pdf_bytes(pdf_bytes: bytes) -> str:
         with suppress(Exception):
             return extract_text(io.BytesIO(pdf_bytes)) or ""
 
-    if PyPDF2 is not None:
+    if PdfReader is not None:
         with suppress(Exception):
-            reader = PyPDF2.PdfReader(io.BytesIO(pdf_bytes))
+            reader = PdfReader(io.BytesIO(pdf_bytes))
             out: list[str] = []
             for page in getattr(reader, "pages", []) or []:
                 with suppress(Exception):

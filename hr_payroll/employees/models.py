@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Q
 
 
 class Department(models.Model):
@@ -109,7 +110,8 @@ class Employee(models.Model):
     last_name = models.CharField(max_length=80, null=False, blank=True)
     email = models.EmailField(max_length=254, unique=True, null=True, blank=True)
     # Optional identity/contact info
-    national_id = models.CharField(max_length=50, unique=True, blank=True)
+    # Unique only when non-blank (see Meta.constraints)
+    national_id = models.CharField(max_length=50, blank=True)
     phone = models.CharField(max_length=32, blank=True)
     address = models.TextField(blank=True)
     # Soft delete / active flag
@@ -120,6 +122,14 @@ class Employee(models.Model):
 
     class Meta:
         ordering = ["user__username"]
+        constraints = [
+            # Enforce uniqueness for national_id only when non-blank
+            models.UniqueConstraint(
+                fields=["national_id"],
+                name="uniq_employee_national_id_nonblank",
+                condition=~Q(national_id=""),
+            )
+        ]
 
     def __str__(self) -> str:  # pragma: no cover - trivial
         return f"Employee({self.user})"
