@@ -4,10 +4,48 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
+# Optional verbose shell tracing in logs
+if [ "${ENABLE_DEBUG_LOGS:-0}" = "1" ]; then
+	set -x
+fi
+
 
 # Ensure we use production settings unless explicitly overridden
 export DJANGO_SETTINGS_MODULE="${DJANGO_SETTINGS_MODULE:-config.settings.production}"
 
+# Startup diagnostics (sanitized); disable by setting STARTUP_DIAGNOSTICS=0
+if [ "${STARTUP_DIAGNOSTICS:-1}" = "1" ]; then
+python - <<'PY'
+import os
+from urllib.parse import urlparse
+print("=== Startup diagnostics ===")
+print("DJANGO_SETTINGS_MODULE:", os.environ.get("DJANGO_SETTINGS_MODULE"))
+sk = os.environ.get("DJANGO_SECRET_KEY", "")
+print("SECRET_KEY set:", bool(sk), "length:", len(sk) if sk else 0)
+db_url = os.environ.get("DATABASE_URL")
+if db_url:
+	p = urlparse(db_url)
+	print(f"DATABASE: scheme={p.scheme} host={p.hostname} port={p.port} name={p.path.lstrip('/')} user={p.username}")
+else:
+	print("DATABASE_URL not set")
+redis_url = os.environ.get("REDIS_URL")
+if redis_url:
+	r = urlparse(redis_url)
+	print(f"REDIS: scheme={r.scheme} host={r.hostname} port={r.port} db={r.path.lstrip('/')}")
+else:
+	print("REDIS_URL not set")
+try:
+	from django.conf import settings
+	print("ALLOWED_HOSTS:", getattr(settings, 'ALLOWED_HOSTS', []))
+	print("DEBUG:", getattr(settings, 'DEBUG', None))
+	print("ADMIN_URL:", getattr(settings, 'ADMIN_URL', 'admin/'))
+except Exception as e:
+	print("Could not import Django settings:", repr(e))
+print("============================")
+PY
+fi
+
+python /app/manage.py check --deploy --fail-level WARNING || true
 python /app/manage.py migrate --noinput
 python /app/manage.py collectstatic --noinput
 python /app/manage.py setup_rbac
