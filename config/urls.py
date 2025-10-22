@@ -6,8 +6,13 @@ from django.urls import include
 from django.urls import path
 from django.views import defaults as default_views
 from django.views.generic import TemplateView
+from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema_view
 from drf_spectacular.views import SpectacularAPIView
 from drf_spectacular.views import SpectacularSwaggerView
+from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.views import TokenRefreshView
+from rest_framework_simplejwt.views import TokenVerifyView
 
 from .health import health as health_view
 
@@ -49,9 +54,32 @@ urlpatterns += [
         "api/v1/auth/",
         include(("dj_rest_auth.urls", "dj_rest_auth"), namespace="dj_rest_auth_v1"),
     ),
-    # v1 Djoser (users + JWT)
+    # v1 Djoser (users)
     path("api/v1/auth/", include("djoser.urls")),
-    path("api/v1/auth/", include("djoser.urls.jwt")),
+    # v1 JWT endpoints (explicit to control schema tags)
+]
+
+
+# Annotated JWT views for proper schema tag grouping
+@extend_schema_view(post=extend_schema(tags=["JWT Authentication"]))
+class JWTCreateView(TokenObtainPairView):
+    pass
+
+
+@extend_schema_view(post=extend_schema(tags=["JWT Authentication"]))
+class JWTRefreshView(TokenRefreshView):
+    pass
+
+
+@extend_schema_view(post=extend_schema(tags=["JWT Authentication"]))
+class JWTVerifyView(TokenVerifyView):
+    pass
+
+
+urlpatterns += [
+    path("api/v1/auth/jwt/create/", JWTCreateView.as_view(), name="jwt-create"),
+    path("api/v1/auth/jwt/refresh/", JWTRefreshView.as_view(), name="jwt-refresh"),
+    path("api/v1/auth/jwt/verify/", JWTVerifyView.as_view(), name="jwt-verify"),
 ]
 
 if settings.DEBUG:

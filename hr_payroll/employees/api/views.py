@@ -1,3 +1,6 @@
+import logging
+import os
+import secrets
 from contextlib import suppress
 
 from django.conf import settings
@@ -6,6 +9,7 @@ from django.utils import timezone
 from drf_spectacular.utils import OpenApiExample
 from drf_spectacular.utils import OpenApiResponse
 from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema_view
 from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -29,7 +33,17 @@ from hr_payroll.employees.models import EmployeeDocument
 from hr_payroll.employees.models import Position
 from hr_payroll.employees.services.cv_parser import parse_cv as do_parse
 
+logger = logging.getLogger(__name__)
 
+
+@extend_schema_view(
+    list=extend_schema(tags=["Departments"]),
+    retrieve=extend_schema(tags=["Departments"]),
+    create=extend_schema(tags=["Departments"]),
+    update=extend_schema(tags=["Departments"]),
+    partial_update=extend_schema(tags=["Departments"]),
+    destroy=extend_schema(tags=["Departments"]),
+)
 class DepartmentViewSet(viewsets.ModelViewSet[Department]):
     queryset = Department.objects.all()
     serializer_class = DepartmentSerializer
@@ -51,6 +65,10 @@ class DepartmentViewSet(viewsets.ModelViewSet[Department]):
         return qs if include_inactive else qs.filter(is_active=True)
 
 
+@extend_schema_view(
+    list=extend_schema(tags=["Employees"]),
+    retrieve=extend_schema(tags=["Employees"]),
+)
 class EmployeeViewSet(viewsets.ReadOnlyModelViewSet[Employee]):
     queryset = Employee.objects.select_related("user", "department")
     serializer_class = EmployeeSerializer
@@ -58,11 +76,66 @@ class EmployeeViewSet(viewsets.ReadOnlyModelViewSet[Employee]):
     permission_classes = [IsAdminOrManagerCanWrite]
 
     def get_serializer_class(self):
+        if getattr(self, "action", None) == "parse_cv":
+            return CVParseUploadSerializer
         if getattr(self, "action", None) == "onboard_new":
             return OnboardEmployeeNewSerializer
         if getattr(self, "action", None) == "onboard_existing":
             return OnboardEmployeeExistingSerializer
         return super().get_serializer_class()
+
+    def get_serializer(self, *args, **kwargs):  # type: ignore[override]
+        # Use default serializer construction; dynamic initial values are
+        # provided via context from get_serializer_context()
+        return super().get_serializer(*args, **kwargs)
+
+    def get_serializer_context(self):  # type: ignore[override]
+        ctx = super().get_serializer_context()
+        # Provide prefill values to the serializer for browsable API GET form
+        if (
+            getattr(self, "action", None) == "onboard_new"
+            and getattr(self.request, "method", "").upper() == "GET"
+        ):
+            token = self.request.query_params.get("prefill_token")
+            if token:
+                data = cache.get(f"onboarding:prefill:{token}") or {}
+                if isinstance(data, dict):
+                    initial = self._build_prefill_initial(data)
+                    if initial:
+                        cv_dbg = (
+                            getattr(settings, "DEBUG", False)
+                            or os.environ.get("ENABLE_CV_DEBUG") == "1"
+                        )
+                        if cv_dbg:
+                            logger.info(
+                                "Onboard(new) prefill initial keys: %s",
+                                sorted(initial.keys()),
+                            )
+                        ctx["prefill_initial"] = initial
+        return ctx
+
+    @staticmethod
+    def _build_prefill_initial(data: dict) -> dict:
+        """Map cached prefill data to serializer initial values.
+
+        Accepts a dict with potential keys from CV parsing and returns
+        a dict suitable for serializer initial values.
+        """
+        mapping = {
+            "first_name": "first_name",
+            "last_name": "last_name",
+            "full_name": "full_name",
+            "email": "employee_email",
+            "phone": "phone",
+            "date_of_birth": "date_of_birth",
+            "address": "address",
+        }
+        initial: dict = {}
+        for src, dest in mapping.items():
+            val = data.get(src)
+            if val:
+                initial[dest] = val
+        return initial
 
     def get_queryset(self):  # type: ignore[override]
         qs = super().get_queryset()
@@ -134,7 +207,39 @@ class EmployeeViewSet(viewsets.ReadOnlyModelViewSet[Employee]):
         # Ensure a dict is always returned
         if not isinstance(extracted, dict):
             extracted = {}
-        return Response(extracted, status=status.HTTP_200_OK)
+        # Store extracted data in cache with a short TTL for prefill
+        token = secrets.token_urlsafe(16)
+        ttl_minutes = getattr(settings, "ONBOARDING_PREFILL_TTL_MINUTES", 10)
+        cache_key = f"onboarding:prefill:{token}"
+        cache.set(cache_key, extracted, timeout=ttl_minutes * 60)
+
+        # Redirect logic: if HTML renderer, or the client asked for redirect via
+        # query param (?redirect=1), or the Accept header prefers text/html.
+        next_path = f"/api/v1/employees/onboard/new/?prefill_token={token}"
+        wants_redirect = False
+        renderer = getattr(request, "accepted_renderer", None)
+        if renderer is not None and getattr(renderer, "format", "") == "html":
+            wants_redirect = True
+        if request.query_params.get("redirect") in {"1", "true", "True"}:
+            wants_redirect = True
+        accept = request.headers.get("accept", "")
+        if "text/html" in accept:
+            wants_redirect = True
+
+        if wants_redirect:
+            resp = Response(status=status.HTTP_303_SEE_OTHER)
+            resp["Location"] = next_path
+            return resp
+
+        # Otherwise, return the token and next URL along with extracted data
+        return Response(
+            {
+                "prefill_token": token,
+                "next": next_path,
+                "extracted": extracted,
+            },
+            status=status.HTTP_200_OK,
+        )
 
     @extend_schema(
         summary="Onboard a brand-new employee (create User + Employee)",
@@ -191,7 +296,7 @@ class EmployeeViewSet(viewsets.ReadOnlyModelViewSet[Employee]):
             ),
         },
     )
-    @action(methods=["post"], detail=False, url_path="onboard/new")
+    @action(methods=["get", "post"], detail=False, url_path="onboard/new")
     def onboard_new(self, request):
         # Only elevated can onboard
         u = request.user
@@ -202,6 +307,17 @@ class EmployeeViewSet(viewsets.ReadOnlyModelViewSet[Employee]):
         if not is_elevated:
             msg = "Only Admin or Manager can onboard employees."
             raise PermissionDenied(msg)
+        # If GET, prefill the form for browsable API using a token
+        # stored by parse_cv
+        if request.method.lower() == "get":
+            # Browsable API will render the form with initial values
+            # provided by get_serializer
+            self.get_serializer()  # trigger serializer construction with initial
+            return Response(
+                {"detail": "Submit the form to create the employee."},
+                status=status.HTTP_200_OK,
+            )
+
         serializer = OnboardEmployeeNewSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         employee = serializer.save()
@@ -454,6 +570,14 @@ class EmployeeViewSet(viewsets.ReadOnlyModelViewSet[Employee]):
         return Response(results, status=status.HTTP_200_OK)
 
 
+@extend_schema_view(
+    list=extend_schema(tags=["Employee Documents"]),
+    retrieve=extend_schema(tags=["Employee Documents"]),
+    create=extend_schema(tags=["Employee Documents"]),
+    update=extend_schema(tags=["Employee Documents"]),
+    partial_update=extend_schema(tags=["Employee Documents"]),
+    destroy=extend_schema(tags=["Employee Documents"]),
+)
 class EmployeeDocumentViewSet(viewsets.ModelViewSet[EmployeeDocument]):
     queryset = EmployeeDocument.objects.select_related("employee", "employee__user")
     serializer_class = EmployeeDocumentSerializer

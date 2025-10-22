@@ -385,6 +385,9 @@ DJOSER = {
         "current_user": ["rest_framework.permissions.IsAuthenticated"],
         # Allow authenticated users to change their own password
         "set_password": ["rest_framework.permissions.IsAuthenticated"],
+        # Restrict username reset workflow to admins only to avoid user enumeration or unwanted emails
+        "username_reset": ["rest_framework.permissions.IsAdminUser"],
+        "username_reset_confirm": ["rest_framework.permissions.IsAdminUser"],
     },
 }
 
@@ -414,3 +417,13 @@ WEBPACK_LOADER = {
 }
 # Your stuff...
 # ------------------------------------------------------------------------------
+
+# LLM / AI integration (provider-agnostic; defaults to disabled)
+# Toggle resume post-processing mapping in CV parser
+CV_PARSER_LLM_ENABLED = env.bool("ENABLE_CV_LLM", default=False)
+# Generic provider and model (currently supports 'gemini')
+LLM_PROVIDER = env("LLM_PROVIDER", default="gemini")
+LLM_MODEL = env("LLM_MODEL", default="gemini-1.5-flash")
+LLM_TIMEOUT = env.float("LLM_TIMEOUT", default=15.0)
+# Provider secrets (optional; required when enabling Gemini)
+GEMINI_API_KEY = env("GEMINI_API_KEY", default=None)

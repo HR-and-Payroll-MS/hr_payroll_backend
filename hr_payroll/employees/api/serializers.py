@@ -452,6 +452,46 @@ class OnboardEmployeeNewSerializer(serializers.Serializer):
     # Optional CV upload as raw bytes (when used via multipart/form-data)
     cv_file = serializers.FileField(required=False, allow_empty_file=False)
 
+    def get_initial(self):  # type: ignore[override]
+        """Provide dynamic initial values for the browsable API form.
+
+        Reads a prefill dict from context["prefill_initial"] populated by the
+        view when a prefill_token is present, then applies those values to the
+        serializer's initial where fields are not already set.
+        """
+        initial = super().get_initial()
+        prefill = (
+            self.context.get("prefill_initial") if hasattr(self, "context") else None
+        )
+        if isinstance(prefill, dict) and prefill:
+
+            def set_if_missing(field: str, value):
+                if value in (None, ""):
+                    return
+                if initial.get(field) in (None, ""):
+                    initial[field] = value
+
+            set_if_missing("first_name", prefill.get("first_name"))
+            set_if_missing("last_name", prefill.get("last_name"))
+            # Map email -> employee_email (employee's contact email)
+            set_if_missing(
+                "employee_email", prefill.get("employee_email") or prefill.get("email")
+            )
+            set_if_missing("phone", prefill.get("phone"))
+            set_if_missing("date_of_birth", prefill.get("date_of_birth"))
+            set_if_missing("address", prefill.get("address"))
+            # If only full_name was provided, split as a convenience
+            if not initial.get("first_name") and not initial.get("last_name"):
+                full_name = prefill.get("full_name")
+                if isinstance(full_name, str) and full_name.strip():
+                    parts = full_name.strip().split()
+                    if parts:
+                        initial["first_name"] = parts[0]
+                        initial["last_name"] = (
+                            " ".join(parts[1:]) if len(parts) > 1 else ""
+                        )
+        return initial
+
     def validate(self, attrs):
         # Reject attempts to supply forbidden fields (credentials are auto-generated)
         forbidden = [
