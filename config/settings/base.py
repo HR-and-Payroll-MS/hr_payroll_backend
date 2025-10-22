@@ -370,6 +370,7 @@ DJOSER = {
     "SEND_ACTIVATION_EMAIL": False,
     "ACTIVATION_URL": "auth/activate/{uid}/{token}",
     "PASSWORD_RESET_CONFIRM_URL": "auth/password/reset/confirm/{uid}/{token}",
+    "USERNAME_RESET_CONFIRM_URL": "auth/username/reset/confirm/{uid}/{token}",
     "SERIALIZERS": {
         "user": "hr_payroll.users.api.serializers.UserSerializer",
         "current_user": "hr_payroll.users.api.serializers.UserSerializer",
@@ -398,7 +399,8 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
     "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAdminUser"],
     "SERVE_AUTHENTICATION": ["rest_framework.authentication.SessionAuthentication"],
-    "SCHEMA_PATH_PREFIX": "/api/",
+    # Strip /api/v1 prefix so tags/grouping derive from the resource, not the version.
+    "SCHEMA_PATH_PREFIX": "/api/v1/",
 }
 # django-webpack-loader
 # ------------------------------------------------------------------------------
