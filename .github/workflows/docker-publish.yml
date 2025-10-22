@@ -3,6 +3,7 @@ name: Docker Publish
 on:
   push:
     branches: ["master", "main"]
+    tags: ["v*"]
     paths-ignore:
       - "docs/**"
       - ".github/workflows/**.md"
@@ -29,9 +30,20 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Extract short SHA
+      - name: Compute image tags
         id: vars
-        run: echo "sha_short=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+        env:
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+        run: |
+          echo "sha_short=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+          TAGS="${IMAGE_NAME}:latest\n${IMAGE_NAME}:${GITHUB_SHA::7}"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            # Use the git tag (e.g., v1.1.6) as a Docker tag too
+            TAGS="${TAGS}\n${IMAGE_NAME}:${GITHUB_REF_NAME}"
+          fi
+          echo "tags<<EOF" >> $GITHUB_OUTPUT
+          echo -e "${TAGS}" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Build and push Django image
         uses: docker/build-push-action@v6
@@ -39,13 +51,12 @@ jobs:
           context: .
           file: compose/production/django/Dockerfile
           push: true
-          tags: |
-            ${{ env.IMAGE_NAME }}:latest
-            ${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.sha_short }}
+          tags: ${{ steps.vars.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Summary
         run: |
-          echo "Pushed tags: latest, ${{ steps.vars.outputs.sha_short }}"
+          echo "Pushed tags:"
+          echo "${{ steps.vars.outputs.tags }}"
           echo "Image: ${{ env.IMAGE_NAME }}"
