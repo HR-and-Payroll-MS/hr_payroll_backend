@@ -288,6 +288,20 @@ class CVParseUploadSerializer(serializers.Serializer):
 
     cv_file = serializers.FileField(required=True, allow_empty_file=False)
 
+    MAX_SIZE = 5 * 1024 * 1024
+    ALLOWED_EXT = {".pdf"}
+
+    def validate_cv_file(self, f):
+        name = getattr(f, "name", "") or ""
+        if not any(name.lower().endswith(ext) for ext in self.ALLOWED_EXT):
+            msg = "Only PDF files are supported."
+            raise serializers.ValidationError(msg)
+        size = getattr(f, "size", None)
+        if size is not None and size > self.MAX_SIZE:
+            msg = "File too large (max 5MB)."
+            raise serializers.ValidationError(msg)
+        return f
+
 
 class CVParsedDataSerializer(serializers.Serializer):
     """Schema for parsed CV data returned to prefill forms."""
