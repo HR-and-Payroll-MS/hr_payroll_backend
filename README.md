@@ -167,3 +167,21 @@ The generator is collision-safe (will increment the sequence until a unique user
 If both first and last name are missing, it falls back to pattern: `uuser001`, `uuser002`, etc.
 
 These values can be tuned without code changes by setting the corresponding environment variables.
+
+## Two-step onboarding with CV prefill
+
+Recommended flow for Managers/Admins:
+
+1) Upload CV to extract fields
+    - Endpoint: `POST /api/v1/employees/cv/parse/`
+    - Body: `multipart/form-data` with `cv_file` (PDF)
+    - Response: JSON with best-effort fields like `first_name`, `last_name`, `email`, `phone`, `date_of_birth`, etc.
+
+2) Review/adjust and submit onboarding form
+    - For a new employee: `POST /api/v1/employees/onboard/new/`
+    - For an existing user: `POST /api/v1/employees/onboard/existing/`
+    - Copy the extracted values into the form, edit as needed, then submit to create the record.
+
+Notes:
+ - The legacy ability to attach `cv_file` directly to onboarding requests remains for backward compatibility, but the two-step approach gives better UX and control.
+ - In local development, set `ENABLE_CV_DEBUG=1` or run with `DEBUG=True` to see extracted contents in the server logs.

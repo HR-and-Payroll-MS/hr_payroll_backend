@@ -1,7 +1,6 @@
 # ruff: noqa: ERA001, E501
 """Base settings to build other settings files upon."""
 
-import os
 import ssl
 from datetime import timedelta
 from pathlib import Path
@@ -385,18 +384,6 @@ DJOSER = {
         "current_user": ["rest_framework.permissions.IsAuthenticated"],
         # Allow authenticated users to change their own password
         "set_password": ["rest_framework.permissions.IsAuthenticated"],
-        # Manager/Admin only for username, activation, and password reset flows
-        "set_username": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
-        "reset_username": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
-        "reset_username_confirm": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
-        # Some Djoser versions use the alternate naming convention 'username_reset' / 'username_reset_confirm'
-        # so we include both to ensure permissions are enforced before hitting email rendering.
-        "username_reset": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
-        "username_reset_confirm": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
-        "activation": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
-        "resend_activation": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
-        "reset_password": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
-        "reset_password_confirm": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
     },
 }
 
@@ -412,63 +399,7 @@ SPECTACULAR_SETTINGS = {
     "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAdminUser"],
     "SERVE_AUTHENTICATION": ["rest_framework.authentication.SessionAuthentication"],
     "SCHEMA_PATH_PREFIX": "/api/",
-    # Apply custom grouping of endpoints into logical feature tags
-    "POSTPROCESSING_HOOKS": [
-        "config.schema.group_tags",
-    ],
-    # Provide explicit descriptions so Swagger UI shows helpful summaries.
-    # Names must match those appended in config.schema.ALL_TAGS
-    "TAGS": [
-        {
-            "name": "Employees",
-            "description": "Operations for creating, viewing, and managing employee records.",
-        },
-        {
-            "name": "Employee Documents",
-            "description": "Upload and manage documents associated with employees (IDs, certifications, etc.).",
-        },
-        {
-            "name": "Departments",
-            "description": "CRUD operations and metadata for organizational departments.",
-        },
-        {
-            "name": "Users",
-            "description": "User profile management separate from authentication endpoints.",
-        },
-        {
-            "name": "Authentication",
-            "description": "Registration, login, JWT tokens, password management, and related auth flows.",
-        },
-        {
-            "name": "JWT Authentication",
-            "description": "Issue, refresh, and verify JSON Web Tokens (Djoser + SimpleJWT).",
-        },
-        {
-            "name": "Session Auth",
-            "description": "Session / dj-rest-auth based login, logout, and password change/reset flows.",
-        },
-        {
-            "name": "User Management",
-            "description": "User CRUD, activation, username & password management (Djoser).",
-        },
-    ],
 }
-# Djoser expects a global URL template for username reset confirmations.
-# Even though we restrict this flow to Managers/Admins, define it to avoid AttributeError
-# during permission tests (Djoser builds the context before sending emails when permitted).
-USERNAME_RESET_CONFIRM_URL = "auth/username/reset/confirm/{uid}/{token}"
-# Onboarding username/email generation settings
-# NOTE: DEFAULT_ONBOARDING_EMAIL_DOMAIN is deprecated in favor of ONBOARDING_EMAIL_DOMAIN
-ONBOARDING_EMAIL_DOMAIN = os.environ.get("ONBOARDING_EMAIL_DOMAIN", "hr_payroll.com")
-ONBOARDING_LAST_NAME_LENGTH = int(
-    os.environ.get("ONBOARDING_LAST_NAME_LENGTH", "6")
-)  # truncate last name to keep IDs short
-ONBOARDING_SEQUENCE_PAD = int(
-    os.environ.get("ONBOARDING_SEQUENCE_PAD", "3")
-)  # zero pad sequence numbers (e.g. 001)
-ONBOARDING_CREDENTIAL_TTL_MINUTES = int(
-    os.environ.get("ONBOARDING_CREDENTIAL_TTL_MINUTES", "30")
-)  # minutes credentials (initial password) retrievable before regen required
 # django-webpack-loader
 # ------------------------------------------------------------------------------
 WEBPACK_LOADER = {

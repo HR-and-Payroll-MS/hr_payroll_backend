@@ -1,3 +1,5 @@
+from contextlib import suppress
+
 from django.conf import settings
 from django.core.cache import cache
 from django.utils import timezone
@@ -12,6 +14,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from hr_payroll.employees.api.permissions import IsAdminOrManagerCanWrite
+from hr_payroll.employees.api.serializers import CVParsedDataSerializer
+from hr_payroll.employees.api.serializers import CVParseUploadSerializer
 from hr_payroll.employees.api.serializers import DepartmentSerializer
 from hr_payroll.employees.api.serializers import EmployeeDocumentSerializer
 from hr_payroll.employees.api.serializers import EmployeeSerializer
@@ -23,6 +27,7 @@ from hr_payroll.employees.models import Department
 from hr_payroll.employees.models import Employee
 from hr_payroll.employees.models import EmployeeDocument
 from hr_payroll.employees.models import Position
+from hr_payroll.employees.services.cv_parser import parse_cv as do_parse
 
 
 class DepartmentViewSet(viewsets.ModelViewSet[Department]):
@@ -77,6 +82,59 @@ class EmployeeViewSet(viewsets.ReadOnlyModelViewSet[Employee]):
         return qs.filter(user=u)
 
     # Creation is supported only via explicit onboarding endpoints below
+
+    @extend_schema(
+        summary="Parse a CV (PDF) and return extracted fields",
+        description=(
+            "Upload a CV as multipart/form-data with 'cv_file'. The service returns "
+            "a best-effort extraction (first/last name, email, phone, date of birth, "
+            "etc.) to prefill the onboarding form."
+        ),
+        request=CVParseUploadSerializer,
+        responses={200: OpenApiResponse(response=CVParsedDataSerializer)},
+        examples=[
+            OpenApiExample(
+                "Sample request",
+                value={"cv_file": "<PDF binary>"},
+                request_only=True,
+            ),
+            OpenApiExample(
+                "Sample response",
+                value={
+                    "first_name": "Jane",
+                    "last_name": "Doe",
+                    "email": "jane.doe@example.com",
+                    "phone": "+15551234567",
+                    "date_of_birth": "1990-06-15",
+                },
+                response_only=True,
+            ),
+        ],
+    )
+    @action(methods=["post"], detail=False, url_path="cv/parse")
+    def parse_cv(self, request):
+        # Only Admin/Manager should use parsing for onboarding
+        u = request.user
+        is_elevated = getattr(u, "is_staff", False) or (
+            getattr(u, "groups", None)
+            and u.groups.filter(name__in=["Admin", "Manager"]).exists()
+        )  # type: ignore[attr-defined]
+        if not is_elevated:
+            msg = "Only Admin or Manager can parse CVs for onboarding."
+            raise PermissionDenied(msg)
+        ser = CVParseUploadSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        f = ser.validated_data["cv_file"]
+        content = f.read()
+        # Reset pointer in case caller wants to reuse; not required here
+        with suppress(Exception):
+            f.seek(0)
+
+        extracted = do_parse(content, getattr(f, "name", None))
+        # Ensure a dict is always returned
+        if not isinstance(extracted, dict):
+            extracted = {}
+        return Response(extracted, status=status.HTTP_200_OK)
 
     @extend_schema(
         summary="Onboard a brand-new employee (create User + Employee)",

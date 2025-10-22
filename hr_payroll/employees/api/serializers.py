@@ -1,3 +1,5 @@
+import logging
+import os
 import secrets
 import string
 from collections import OrderedDict
@@ -16,6 +18,8 @@ from hr_payroll.employees.models import Employee
 from hr_payroll.employees.models import EmployeeDocument
 from hr_payroll.employees.models import Position
 from hr_payroll.employees.services.cv_parser import parse_cv
+
+logger = logging.getLogger(__name__)
 
 
 class NullablePKRelatedField(serializers.PrimaryKeyRelatedField):
@@ -279,6 +283,26 @@ class EmployeeDocumentSerializer(serializers.ModelSerializer):
         return f
 
 
+class CVParseUploadSerializer(serializers.Serializer):
+    """Upload-only serializer for CV parsing endpoint."""
+
+    cv_file = serializers.FileField(required=True, allow_empty_file=False)
+
+
+class CVParsedDataSerializer(serializers.Serializer):
+    """Schema for parsed CV data returned to prefill forms."""
+
+    full_name = serializers.CharField(required=False)
+    first_name = serializers.CharField(required=False)
+    last_name = serializers.CharField(required=False)
+    email = serializers.EmailField(required=False)
+    phone = serializers.CharField(required=False)
+    address = serializers.CharField(required=False)
+    date_of_birth = serializers.CharField(required=False)
+    national_id = serializers.CharField(required=False)
+    gender = serializers.CharField(required=False)
+
+
 def _generate_unique_username_email(first_name: str, last_name: str) -> tuple[str, str]:
     """Generate a unique, compact username & email.
 
@@ -463,6 +487,13 @@ class OnboardEmployeeNewSerializer(serializers.Serializer):
                 extracted = parse_cv(content, getattr(cv_file, "name", None))
                 with suppress(Exception):
                     cv_file.seek(0)
+                # Debug log the extracted payload for local development
+                cv_dbg = (
+                    getattr(settings, "DEBUG", False)
+                    or os.environ.get("ENABLE_CV_DEBUG") == "1"
+                )
+                if cv_dbg:
+                    logger.info("Onboard(new): CV extracted: %s", extracted)
                 # Fill only if not provided explicitly
                 for src_key, dst_key in (
                     ("first_name", "first_name"),
@@ -604,7 +635,7 @@ class OnboardEmployeeExistingSerializer(serializers.Serializer):
             raise serializers.ValidationError(msg)
         return user
 
-    def create(self, validated_data):  # noqa: C901 - acceptable orchestration here
+    def create(self, validated_data):  # noqa: C901, PLR0912, PLR0915 - acceptable orchestration here
         user = validated_data.pop("user")
         cv_file = validated_data.pop("cv_file", None)
         department = validated_data.pop("department", None)
@@ -645,6 +676,12 @@ class OnboardEmployeeExistingSerializer(serializers.Serializer):
                 extracted = parse_cv(content, getattr(cv_file, "name", None))
                 with suppress(Exception):
                     cv_file.seek(0)
+                cv_dbg = (
+                    getattr(settings, "DEBUG", False)
+                    or os.environ.get("ENABLE_CV_DEBUG") == "1"
+                )
+                if cv_dbg:
+                    logger.info("Onboard(existing): CV extracted: %s", extracted)
                 if not first_name_emp and extracted.get("first_name"):
                     first_name_emp = extracted["first_name"]
                 if not last_name_emp and extracted.get("last_name"):
