@@ -3,8 +3,10 @@ import os
 from celery import Celery
 from celery.signals import setup_logging
 
-# set the default Django settings module for the 'celery' program.
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.local")
+# Ensure Celery uses production settings by default in deployed environments.
+# Tests and local dev explicitly set DJANGO_SETTINGS_MODULE (e.g. pytest uses
+# config.settings.test via --ds), so setdefault won't override those.
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.production")
 
 app = Celery("hr_payroll")
 
