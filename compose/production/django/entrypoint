@@ -25,15 +25,27 @@ if [ -z "${DATABASE_URL:-}" ]; then
     POSTGRES_DB="${POSTGRES_DB:-}"
 
     if [ -n "${POSTGRES_HOST}" ] && [ -n "${POSTGRES_PORT}" ]; then
-        wait-for-it "${POSTGRES_HOST}:${POSTGRES_PORT}" -t 30
-        >&2 echo 'PostgreSQL is available'
+        # Allow configurable timeout and make this wait non-fatal for remote DBs
+        WAIT_FOR_DB_TIMEOUT="${WAIT_FOR_DB_TIMEOUT:-90}"
+        if wait-for-it "${POSTGRES_HOST}:${POSTGRES_PORT}" -t "${WAIT_FOR_DB_TIMEOUT}"; then
+            >&2 echo 'PostgreSQL is available'
+        else
+            >&2 echo "Warning: wait-for-it timed out after ${WAIT_FOR_DB_TIMEOUT}s for ${POSTGRES_HOST}:${POSTGRES_PORT}; continuing startup"
+        fi
     else
         >&2 echo 'Warning: POSTGRES_HOST/POSTGRES_PORT not set; skipping wait-for-it'
     fi
 
     # Build DATABASE_URL even if password is empty to avoid nounset crashes
     export POSTGRES_USER POSTGRES_PASSWORD POSTGRES_HOST POSTGRES_PORT POSTGRES_DB
-    export DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}"
+    # Optionally append sslmode (recommended for managed Postgres like Supabase)
+    POSTGRES_SSLMODE="${POSTGRES_SSLMODE:-}"
+    DB_URL_BASE="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}"
+    if [ -n "${POSTGRES_SSLMODE}" ]; then
+        export DATABASE_URL="${DB_URL_BASE}?sslmode=${POSTGRES_SSLMODE}"
+    else
+        export DATABASE_URL="${DB_URL_BASE}"
+    fi
     >&2 echo "ENTRYPOINT: Constructed DATABASE_URL (host=${POSTGRES_HOST} db=${POSTGRES_DB} user=${POSTGRES_USER})"
 else
     >&2 echo 'ENTRYPOINT: Using provided DATABASE_URL'
