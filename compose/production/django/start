@@ -65,12 +65,23 @@ else
 fi
 
 echo "STEP: Applying migrations"
-if python /app/manage.py migrate --noinput; then
-  echo "OK: Migrations applied"
+MIGRATE_RETRIES="${MIGRATE_RETRIES:-10}"
+MIGRATE_DELAY="${MIGRATE_DELAY:-5}"
+MIGRATE_OK=0
+for i in $(seq 1 "${MIGRATE_RETRIES}"); do
+	if python /app/manage.py migrate --noinput; then
+		MIGRATE_OK=1
+		break
+	fi
+	echo "WARN: migrate attempt ${i}/${MIGRATE_RETRIES} failed; retrying in ${MIGRATE_DELAY}s" >&2
+	sleep "${MIGRATE_DELAY}"
+done
+if [ "${MIGRATE_OK}" = "1" ]; then
+	echo "OK: Migrations applied"
 else
-  echo "ERROR: Migration step failed" >&2
-  ERRORS=$((ERRORS+1))
-  exit 1
+	echo "ERROR: Migration step failed after ${MIGRATE_RETRIES} attempts" >&2
+	ERRORS=$((ERRORS+1))
+	exit 1
 fi
 
 echo "STEP: Collecting static files"
