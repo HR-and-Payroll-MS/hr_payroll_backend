@@ -5,6 +5,7 @@ import ssl
 from datetime import timedelta
 from pathlib import Path
 
+import dj_database_url
 import environ
 
 BASE_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
@@ -47,7 +48,17 @@ LOCALE_PATHS = [str(BASE_DIR / "locale")]
 # DATABASES
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#databases
-DATABASES = {"default": env.db("DATABASE_URL")}
+# Prefer dj-database-url for robust parsing and pooled connections
+# Allows override via CONN_MAX_AGE; defaults to 600s but set 0 when using PgBouncer
+DATABASES = {
+    "default": dj_database_url.config(
+        default=env(
+            "DATABASE_URL",
+            default="postgresql://postgres:postgres@localhost:5432/mysite",
+        ),
+        conn_max_age=env.int("CONN_MAX_AGE", default=600),
+    )
+}
 DATABASES["default"]["ATOMIC_REQUESTS"] = True
 # https://docs.djangoproject.com/en/stable/ref/settings/#std:setting-DEFAULT_AUTO_FIELD
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

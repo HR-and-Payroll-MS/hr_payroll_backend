@@ -35,3 +35,6 @@ pdfminer.six==20231228  # robust PDF text extraction (no AI)
 pypdf==5.0.1  # fallback PDF text extraction (replaces deprecated PyPDF2)
 pdf2image==1.17.0  # rasterize PDF pages for OCR fallback
 pytesseract==0.3.13  # Tesseract OCR bindings
+
+# Database URL parser
+dj-database-url==2.3.0  # https://github.com/jazzband/dj-database-url
