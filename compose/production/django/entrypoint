@@ -27,7 +27,9 @@ if [ -z "${DATABASE_URL:-}" ]; then
     if [ -n "${POSTGRES_HOST}" ] && [ -n "${POSTGRES_PORT}" ]; then
         # Allow configurable timeout and make this wait non-fatal for remote DBs
         WAIT_FOR_DB_TIMEOUT="${WAIT_FOR_DB_TIMEOUT:-90}"
-        if wait-for-it "${POSTGRES_HOST}:${POSTGRES_PORT}" -t "${WAIT_FOR_DB_TIMEOUT}"; then
+        if [ "${SKIP_DB_WAIT:-0}" = "1" ]; then
+            >&2 echo "ENTRYPOINT: SKIP_DB_WAIT=1 set; not waiting for ${POSTGRES_HOST}:${POSTGRES_PORT}"
+        elif wait-for-it "${POSTGRES_HOST}:${POSTGRES_PORT}" -t "${WAIT_FOR_DB_TIMEOUT}"; then
             >&2 echo 'PostgreSQL is available'
         else
             >&2 echo "Warning: wait-for-it timed out after ${WAIT_FOR_DB_TIMEOUT}s for ${POSTGRES_HOST}:${POSTGRES_PORT}; continuing startup"
