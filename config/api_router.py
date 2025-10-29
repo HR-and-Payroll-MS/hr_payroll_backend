@@ -5,7 +5,6 @@ from rest_framework.routers import SimpleRouter
 from hr_payroll.employees.api.views import DepartmentViewSet
 from hr_payroll.employees.api.views import EmployeeDocumentViewSet
 from hr_payroll.employees.api.views import EmployeeViewSet
-from hr_payroll.employees.api.views import PositionViewSet
 from hr_payroll.users.api.views import UserViewSet
 
 router = DefaultRouter() if settings.DEBUG else SimpleRouter()
@@ -14,7 +13,6 @@ router.register("users", UserViewSet)
 router.register("departments", DepartmentViewSet)
 router.register("employees", EmployeeViewSet)
 router.register("employee-documents", EmployeeDocumentViewSet)
-router.register("positions", PositionViewSet)
 
 
 app_name = "api"
