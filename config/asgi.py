@@ -19,8 +19,16 @@ from django.core.asgi import get_asgi_application
 BASE_DIR = Path(__file__).resolve(strict=True).parent.parent
 sys.path.append(str(BASE_DIR / "hr_payroll"))
 
-# If DJANGO_SETTINGS_MODULE is unset, prefer production settings in deployed images
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.production")
+# If DJANGO_SETTINGS_MODULE is unset, select a sensible default based on BUILD_ENV
+# Default to local settings for the local dev image, production otherwise.
+if "DJANGO_SETTINGS_MODULE" not in os.environ:
+    build_env = os.environ.get("BUILD_ENV", "production").lower()
+    default_settings = (
+        "config.settings.local"
+        if build_env == "local"
+        else "config.settings.production"
+    )
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", default_settings)
 
 # This application object is used by any ASGI server configured to use this file.
 django_application = get_asgi_application()

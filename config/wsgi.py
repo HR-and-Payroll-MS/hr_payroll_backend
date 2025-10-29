@@ -24,7 +24,15 @@ from django.core.wsgi import get_wsgi_application
 # hr_payroll directory.
 BASE_DIR = Path(__file__).resolve(strict=True).parent.parent
 sys.path.append(str(BASE_DIR / "hr_payroll"))
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.production")
+# If DJANGO_SETTINGS_MODULE is unset, select a sensible default based on BUILD_ENV
+if "DJANGO_SETTINGS_MODULE" not in os.environ:
+    build_env = os.environ.get("BUILD_ENV", "production").lower()
+    default_settings = (
+        "config.settings.local"
+        if build_env == "local"
+        else "config.settings.production"
+    )
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", default_settings)
 
 # This application object is used by any WSGI server configured to use this
 # file. This includes Django's development server, if the WSGI_APPLICATION

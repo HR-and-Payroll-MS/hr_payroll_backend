@@ -5,8 +5,9 @@ set -o pipefail
 set -o nounset
 
 
-python manage.py migrate
 export DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-config.settings.local}
+echo "START: DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE}"
+python manage.py migrate
 exec uvicorn config.asgi:application \
 	--host 0.0.0.0 \
 	--reload \
