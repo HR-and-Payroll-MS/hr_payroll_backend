@@ -122,14 +122,15 @@ fi
 
 PORT="${PORT:-5000}"
 # Tune Gunicorn for constrained environments (e.g., Render free/low-memory)
-# Use WEB_CONCURRENCY or GUNICORN_WORKERS if provided; default to 2.
+# Use WEB_CONCURRENCY or GUNICORN_WORKERS if provided; default to 1 for safety.
 if [ -n "${WEB_CONCURRENCY:-}" ]; then
 	WORKERS="${WEB_CONCURRENCY}"
 else
-	WORKERS="${GUNICORN_WORKERS:-2}"
+	WORKERS="${GUNICORN_WORKERS:-1}"
 fi
 
-TIMEOUT="${GUNICORN_TIMEOUT:-60}"
+# Allow slower cold starts on shared platforms
+TIMEOUT="${GUNICORN_TIMEOUT:-120}"
 MAX_REQUESTS="${GUNICORN_MAX_REQUESTS:-1000}"
 MAX_REQUESTS_JITTER="${GUNICORN_MAX_REQUESTS_JITTER:-100}"
 LOG_LEVEL="${GUNICORN_LOG_LEVEL:-info}"
@@ -139,7 +140,7 @@ KEEPALIVE="${GUNICORN_KEEPALIVE:-5}"
 GRACEFUL_TIMEOUT="${GUNICORN_GRACEFUL_TIMEOUT:-30}"
 
 echo "SUMMARY: warnings=${WARNINGS}, errors=${ERRORS}"
-echo "START: Launching Gunicorn with workers=${WORKERS}, timeout=${TIMEOUT}, bind=0.0.0.0:${PORT}"
+echo "START: Launching Gunicorn with workers=${WORKERS}, timeout=${TIMEOUT}, bind=0.0.0.0:${PORT}, log-level=${LOG_LEVEL}"
 
 exec /usr/bin/tini -- /usr/local/bin/gunicorn \
 	config.asgi:application \
@@ -154,4 +155,6 @@ exec /usr/bin/tini -- /usr/local/bin/gunicorn \
 	--max-requests-jitter "${MAX_REQUESTS_JITTER}" \
 	--log-level "${LOG_LEVEL}" \
 	--access-logfile "${ACCESS_LOG}" \
-	--error-logfile "${ERROR_LOG}"
+	--error-logfile "${ERROR_LOG}" \
+	--worker-tmp-dir /dev/shm \
+	--capture-output
