@@ -16,8 +16,8 @@ from rest_framework import serializers
 from hr_payroll.employees.models import Department
 from hr_payroll.employees.models import Employee
 from hr_payroll.employees.models import EmployeeDocument
-from hr_payroll.employees.models import Position
 from hr_payroll.employees.services.cv_parser import parse_cv
+from hr_payroll.users.models import UserProfile
 
 logger = logging.getLogger(__name__)
 
@@ -116,23 +116,16 @@ class UserNestedSerializer(serializers.ModelSerializer):
         fields = ["id", "username", "email", "first_name", "last_name", "is_active"]
 
 
-class PositionSerializer(serializers.ModelSerializer):
-    department = serializers.PrimaryKeyRelatedField(
-        queryset=Department.objects.all(), allow_null=True, required=False
-    )
-
+class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Position
+        model = UserProfile
         fields = [
-            "id",
-            "title",
-            "department",
-            "salary_grade",
-            "description",
-            "created_at",
-            "updated_at",
+            "gender",
+            "date_of_birth",
+            "national_id",
+            "phone",
+            "address",
         ]
-        read_only_fields = ["created_at", "updated_at"]
 
 
 class EmployeeSerializer(serializers.ModelSerializer):
@@ -155,12 +148,7 @@ class EmployeeSerializer(serializers.ModelSerializer):
         required=False,
         write_only=True,
     )
-    position = NullablePKRelatedField(
-        queryset=Position.objects.all(),
-        allow_null=True,
-        required=False,
-        write_only=True,
-    )
+    # Position removed; use title string field only
 
     class Meta:
         model = Employee
@@ -171,16 +159,8 @@ class EmployeeSerializer(serializers.ModelSerializer):
             "title",
             "hire_date",
             "supervisor",
-            "position",
-            "national_id",
-            "gender",
-            "date_of_birth",
+            # personal fields moved to user.profile
             "employment_status",
-            "first_name",
-            "last_name",
-            "email",
-            "phone",
-            "address",
             "is_active",
             "created_at",
             "updated_at",
@@ -211,12 +191,14 @@ class EmployeeSerializer(serializers.ModelSerializer):
             }
         else:
             base["supervisor"] = None
-        # Replace position id with nested position
-        pos = getattr(instance, "position", None)
-        if pos is not None:
-            base["position"] = PositionSerializer(pos).data
+        # Append user profile (personal fields) as nested read-only
+        if user_obj is not None:
+            profile = getattr(user_obj, "profile", None)
+            base["profile"] = (
+                UserProfileSerializer(profile).data if profile is not None else None
+            )
         else:
-            base["position"] = None
+            base["profile"] = None
         return base
 
     def __init__(self, *args, **kwargs):
@@ -433,13 +415,8 @@ class OnboardEmployeeNewSerializer(serializers.Serializer):
     supervisor = NullablePKRelatedField(
         queryset=Employee.objects.all(), required=False, allow_null=True
     )
-    position = NullablePKRelatedField(
-        queryset=Position.objects.all(), required=False, allow_null=True
-    )
     national_id = serializers.CharField(max_length=50, required=False, allow_blank=True)
-    gender = serializers.ChoiceField(
-        choices=Employee.Gender.choices, required=False, allow_blank=False
-    )
+    gender = serializers.ChoiceField(choices=UserProfile.Gender.choices, required=False)
     date_of_birth = serializers.DateField(required=False, allow_null=True)
     employment_status = serializers.ChoiceField(
         choices=Employee.EmploymentStatus.choices, required=False
@@ -578,7 +555,6 @@ class OnboardEmployeeNewSerializer(serializers.Serializer):
         title = validated_data.pop("title", "")
         hire_date = validated_data.pop("hire_date", None)
         supervisor = validated_data.pop("supervisor", None)
-        position = validated_data.pop("position", None)
         national_id = validated_data.pop("national_id", "")
         # Default gender to empty string to satisfy NOT NULL constraint on CharField
         gender = validated_data.pop("gender", "")
@@ -593,9 +569,11 @@ class OnboardEmployeeNewSerializer(serializers.Serializer):
         address = validated_data.pop("address", "")
         password = validated_data.pop("_generated_password")
 
+        # Use provided employee_email as account email if present, otherwise generated
+        account_email = employee_email or validated_data.get("email")
         user = user_model.objects.create_user(
             username=validated_data.pop("username"),
-            email=validated_data.get("email"),
+            email=account_email,
             first_name=first_name_emp,
             last_name=last_name_emp,
         )
@@ -604,13 +582,22 @@ class OnboardEmployeeNewSerializer(serializers.Serializer):
         user.save()
 
         # Ensure email is marked verified and primary in allauth
-        email_value = validated_data.get("email")
+        email_value = account_email
         if email_value:
             EmailAddress.objects.update_or_create(
                 user=user,
                 email=email_value,
                 defaults={"verified": True, "primary": True},
             )
+        # Create profile with personal info
+        UserProfile.objects.create(
+            user=user,
+            gender=gender or "",
+            date_of_birth=date_of_birth,
+            national_id=national_id,
+            phone=phone,
+            address=address,
+        )
 
         employee = Employee.objects.create(
             user=user,
@@ -618,17 +605,7 @@ class OnboardEmployeeNewSerializer(serializers.Serializer):
             title=title,
             hire_date=hire_date,
             supervisor=supervisor,
-            position=position,
-            national_id=national_id,
-            gender=gender,
-            date_of_birth=date_of_birth,
             employment_status=employment_status,
-            first_name=first_name_emp,
-            last_name=last_name_emp,
-            email=employee_email,
-            phone=phone,
-            address=address,
-            # is_active is now auto-synced from employment_status
         )
         # Persist uploaded CV as EmployeeDocument if provided
         if cv_file is not None:
@@ -657,13 +634,8 @@ class OnboardEmployeeExistingSerializer(serializers.Serializer):
     supervisor = NullablePKRelatedField(
         queryset=Employee.objects.all(), required=False, allow_null=True
     )
-    position = NullablePKRelatedField(
-        queryset=Position.objects.all(), required=False, allow_null=True
-    )
     national_id = serializers.CharField(max_length=50, required=False, allow_blank=True)
-    gender = serializers.ChoiceField(
-        choices=Employee.Gender.choices, required=False, allow_blank=False
-    )
+    gender = serializers.ChoiceField(choices=UserProfile.Gender.choices, required=False)
     date_of_birth = serializers.DateField(required=False, allow_null=True)
     employment_status = serializers.ChoiceField(
         choices=Employee.EmploymentStatus.choices, required=False
@@ -696,9 +668,7 @@ class OnboardEmployeeExistingSerializer(serializers.Serializer):
         title = validated_data.pop("title", "")
         hire_date = validated_data.pop("hire_date", None)
         supervisor = validated_data.pop("supervisor", None)
-        position = validated_data.pop("position", None)
         national_id = validated_data.pop("national_id", "")
-        # Default gender to empty string to satisfy NOT NULL constraint on CharField
         gender = validated_data.pop("gender", "")
         date_of_birth = validated_data.pop("date_of_birth", None)
         employment_status = validated_data.pop(
@@ -747,23 +717,36 @@ class OnboardEmployeeExistingSerializer(serializers.Serializer):
                 if not date_of_birth and extracted.get("date_of_birth"):
                     date_of_birth = extracted["date_of_birth"]
 
+        # Update user's basic identity and optional email
+        if first_name_emp:
+            user.first_name = first_name_emp
+        if last_name_emp:
+            user.last_name = last_name_emp
+        if employee_email and not getattr(user, "email", None):
+            user.email = employee_email
+        user.save()
+
+        # Ensure/Update profile with personal information
+        profile, _ = UserProfile.objects.get_or_create(user=user)
+        if gender:
+            profile.gender = gender
+        if date_of_birth:
+            profile.date_of_birth = date_of_birth
+        if national_id:
+            profile.national_id = national_id
+        if phone:
+            profile.phone = phone
+        if address:
+            profile.address = address
+        profile.save()
+
         employee = Employee.objects.create(
             user=user,
             department=department,
             title=title,
             hire_date=hire_date,
             supervisor=supervisor,
-            position=position,
-            national_id=national_id,
-            gender=gender,
-            date_of_birth=date_of_birth,
             employment_status=employment_status,
-            first_name=first_name_emp,
-            last_name=last_name_emp,
-            email=employee_email,
-            phone=phone,
-            address=address,
-            # is_active is now auto-synced from employment_status
         )
         if cv_file is not None:
             with suppress(Exception):

@@ -1,7 +1,6 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models import Q
 
 
 class Department(models.Model):
@@ -29,25 +28,7 @@ class Department(models.Model):
         return self.name
 
 
-class Position(models.Model):
-    title = models.CharField(max_length=120)
-    department = models.ForeignKey(
-        Department,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="positions",
-    )
-    salary_grade = models.CharField(max_length=20, blank=True)
-    description = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        ordering = ["title"]
-
-    def __str__(self) -> str:  # pragma: no cover - trivial
-        return self.title
+# Position model removed: roles are represented via Employee.title only.
 
 
 class Employee(models.Model):
@@ -75,23 +56,7 @@ class Employee(models.Model):
         blank=True,
         related_name="subordinates",
     )
-    # Organizational normalization
-    position = models.ForeignKey(
-        Position,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="employees",
-    )
-
-    # Identity/HR profile
-    class Gender(models.TextChoices):
-        MALE = "male", "Male"
-        FEMALE = "female", "Female"
-        OTHER = "other", "Other"
-
-    gender = models.CharField(max_length=10, choices=Gender.choices, blank=True)
-    date_of_birth = models.DateField(null=True, blank=True)
+    # Position removed; keep job title string for simplicity
 
     class EmploymentStatus(models.TextChoices):
         ACTIVE = "active", "Active"
@@ -105,15 +70,7 @@ class Employee(models.Model):
         choices=EmploymentStatus.choices,
         default=EmploymentStatus.ACTIVE,
     )
-    # Separate HR name fields (auth remains on User)
-    first_name = models.CharField(max_length=80, null=False, blank=True)
-    last_name = models.CharField(max_length=80, null=False, blank=True)
-    email = models.EmailField(max_length=254, unique=True, null=True, blank=True)
-    # Optional identity/contact info
-    # Unique only when non-blank (see Meta.constraints)
-    national_id = models.CharField(max_length=50, blank=True)
-    phone = models.CharField(max_length=32, blank=True)
-    address = models.TextField(blank=True)
+    # Personal identity/contact fields moved to users.UserProfile
     # Soft delete / active flag
     is_active = models.BooleanField(default=True)
     # Audit timestamps
@@ -122,14 +79,7 @@ class Employee(models.Model):
 
     class Meta:
         ordering = ["user__username"]
-        constraints = [
-            # Enforce uniqueness for national_id only when non-blank
-            models.UniqueConstraint(
-                fields=["national_id"],
-                name="uniq_employee_national_id_nonblank",
-                condition=~Q(national_id=""),
-            )
-        ]
+        constraints = []
 
     def __str__(self) -> str:  # pragma: no cover - trivial
         return f"Employee({self.user})"

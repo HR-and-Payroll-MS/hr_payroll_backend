@@ -39,3 +39,40 @@ class User(AbstractUser):
 
         """
         return reverse("users:detail", kwargs={"username": self.username})
+
+
+class UserProfile(models.Model):
+    """Per-user profile with personal details.
+
+    Keeps non-employment personal fields out of Employee.
+    """
+
+    class Gender(models.TextChoices):
+        MALE = "male", "Male"
+        FEMALE = "female", "Female"
+
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="profile",
+    )
+    gender = models.CharField(max_length=10, choices=Gender.choices, blank=True)
+    date_of_birth = models.DateField(null=True, blank=True)
+    # Unique only when non-blank (see constraint)
+    national_id = models.CharField(max_length=50, blank=True)
+    phone = models.CharField(max_length=32, blank=True)
+    address = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["national_id"],
+                name="uniq_userprofile_national_id_nonblank",
+                condition=~models.Q(national_id=""),
+            )
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover - trivial
+        return f"Profile({self.user})"

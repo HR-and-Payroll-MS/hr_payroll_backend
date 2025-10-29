@@ -25,12 +25,10 @@ from hr_payroll.employees.api.serializers import EmployeeDocumentSerializer
 from hr_payroll.employees.api.serializers import EmployeeSerializer
 from hr_payroll.employees.api.serializers import OnboardEmployeeExistingSerializer
 from hr_payroll.employees.api.serializers import OnboardEmployeeNewSerializer
-from hr_payroll.employees.api.serializers import PositionSerializer
 from hr_payroll.employees.api.serializers import _generate_secure_password
 from hr_payroll.employees.models import Department
 from hr_payroll.employees.models import Employee
 from hr_payroll.employees.models import EmployeeDocument
-from hr_payroll.employees.models import Position
 from hr_payroll.employees.services.cv_parser import parse_cv as do_parse
 
 logger = logging.getLogger(__name__)
@@ -610,7 +608,7 @@ class EmployeeDocumentViewSet(viewsets.ModelViewSet[EmployeeDocument]):
         serializer.save()
 
 
-class PositionViewSet(viewsets.ModelViewSet[Position]):
-    queryset = Position.objects.select_related("department")
-    serializer_class = PositionSerializer
+class PositionViewSet(viewsets.ViewSet):
+    """Deprecated: Position removed. Endpoint intentionally disabled."""
+
     permission_classes = [IsAuthenticated & IsAdminOrManagerCanWrite]
