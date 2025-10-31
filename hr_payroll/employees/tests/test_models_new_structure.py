@@ -135,8 +135,8 @@ from hr_payroll.employees.models import Employee
 
 
 @pytest.mark.django_db
-def test_employee_profile_and_general_fields_create(user_factory):
-    user = user_factory()
+def test_employee_profile_and_general_fields_create(user):
+    user = user
     e = Employee.objects.create(
         user=user,
         full_name="Pristia Candra Nelson",
@@ -160,8 +160,8 @@ def test_employee_profile_and_general_fields_create(user_factory):
 
 
 @pytest.mark.django_db
-def test_service_years_property(user_factory):
-    user = user_factory()
+def test_service_years_property(user):
+    user = user
     join = timezone.now().date() - dt.timedelta(days=365 * 3 + 30 * 7)
     e = Employee.objects.create(user=user, join_date=join)
     # Expect a non-empty human readable value like "3 Years" or "3 Years 7 Months"
@@ -169,8 +169,8 @@ def test_service_years_property(user_factory):
 
 
 @pytest.mark.django_db
-def test_job_history_timeline(user_factory):
-    user = user_factory()
+def test_job_history_timeline(user):
+    user = user
     e = Employee.objects.create(user=user, title="UI/UX Designer")
     # Lazy import to avoid circular if models not yet migrated
     from hr_payroll.employees.models import JobHistory
@@ -195,8 +195,8 @@ def test_job_history_timeline(user_factory):
 
 
 @pytest.mark.django_db
-def test_contract_timeline(user_factory):
-    user = user_factory()
+def test_contract_timeline(user):
+    user = user
     e = Employee.objects.create(user=user)
     from hr_payroll.employees.models import Contract
 

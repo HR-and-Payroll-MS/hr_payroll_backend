@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 
 
 class Department(models.Model):
@@ -45,10 +46,37 @@ class Employee(models.Model):
         related_name="employees",
         db_index=True,
     )
+    # Profile / display fields
+    photo = models.ImageField(upload_to="employees/photos/", null=True, blank=True)
+    full_name = models.CharField(max_length=255, blank=True)
+    position = models.CharField(max_length=100, blank=True)
+
+    # Separate status badge for UI; independent from employment_status below
+    class Status(models.TextChoices):
+        ACTIVE = "ACTIVE", "Active"
+        INACTIVE = "INACTIVE", "Inactive"
+
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.ACTIVE
+    )
+    email = models.EmailField(blank=True)
+    phone = models.CharField(max_length=20, blank=True)
+    time_zone = models.CharField(max_length=50, blank=True)
+    office = models.CharField(max_length=100, blank=True)
+    line_manager = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="managed_employees",
+    )
     # Keep code attribute name 'title' for backward compatibility;
     # align DB column to 'job_title' to match documentation.
     title = models.CharField(max_length=150, blank=True, db_column="job_title")
     hire_date = models.DateField(null=True, blank=True)
+    # Identifiers and dates used by new UI
+    employee_id = models.CharField(max_length=50, unique=True, null=True, blank=True)
+    join_date = models.DateField(null=True, blank=True)
     supervisor = models.ForeignKey(
         "self",
         on_delete=models.SET_NULL,
@@ -57,6 +85,30 @@ class Employee(models.Model):
         related_name="subordinates",
     )
     # Position removed; keep job title string for simplicity
+
+    # General editable personal info fields (kept on Employee per spec)
+    class Gender(models.TextChoices):
+        MALE = "male", "Male"
+        FEMALE = "female", "Female"
+
+    gender = models.CharField(max_length=10, choices=Gender.choices, blank=True)
+    date_of_birth = models.DateField(null=True, blank=True)
+    email_address = models.EmailField(blank=True)
+    phone_number = models.CharField(max_length=20, blank=True)
+    nationality = models.CharField(max_length=100, blank=True)
+    health_care = models.CharField(max_length=100, blank=True)
+
+    class MaritalStatus(models.TextChoices):
+        SINGLE = "single", "Single"
+        MARRIED = "married", "Married"
+        DIVORCED = "divorced", "Divorced"
+        WIDOWED = "widowed", "Widowed"
+
+    marital_status = models.CharField(
+        max_length=20, choices=MaritalStatus.choices, blank=True
+    )
+    personal_tax_id = models.CharField(max_length=50, blank=True)
+    social_insurance = models.CharField(max_length=100, blank=True)
 
     class EmploymentStatus(models.TextChoices):
         ACTIVE = "active", "Active"
@@ -98,6 +150,40 @@ class Employee(models.Model):
         self.is_active = self.employment_status not in inactive_statuses
         super().save(*args, **kwargs)
 
+    # Computed properties for service years
+    @property
+    def service_year(self) -> int:
+        """Whole years of service based on join_date or hire_date."""
+        start = self.join_date or self.hire_date
+        if not start:
+            return 0
+        today = timezone.now().date()
+        years = (
+            today.year
+            - start.year
+            - ((today.month, today.day) < (start.month, start.day))
+        )
+        return max(years, 0)
+
+    @property
+    def service_years(self) -> str:
+        """Human readable service duration, e.g., '3 Years 7 Months'."""
+        start = self.join_date or self.hire_date
+        if not start:
+            return ""
+        today = timezone.now().date()
+        # compute months diff
+        months = (today.year - start.year) * 12 + (today.month - start.month)
+        if today.day < start.day:
+            months -= 1
+        years, rem_months = divmod(max(months, 0), 12)
+        parts = []
+        if years:
+            parts.append(f"{years} Year" + ("s" if years != 1 else ""))
+        if rem_months:
+            parts.append(f"{rem_months} Month" + ("s" if rem_months != 1 else ""))
+        return " ".join(parts) or "0 Months"
+
 
 def employee_upload_to(instance: "EmployeeDocument", filename: str) -> str:
     emp_pk = getattr(getattr(instance, "employee", None), "pk", "unknown")
@@ -136,3 +222,51 @@ class EmployeeDocument(models.Model):
                 break
         else:
             raise ValidationError({"file": "Unsupported file type."})
+
+
+class JobHistory(models.Model):
+    employee = models.ForeignKey(
+        Employee, on_delete=models.CASCADE, related_name="job_history"
+    )
+    effective_date = models.DateField()
+    job_title = models.CharField(max_length=100)
+    position_type = models.CharField(max_length=50, blank=True)
+
+    class EmploymentType(models.TextChoices):
+        FULLTIME = "fulltime", "Fulltime"
+        PARTTIME = "parttime", "Part-time"
+        CONTRACT = "contract", "Contract"
+
+    employment_type = models.CharField(
+        max_length=20, choices=EmploymentType.choices, blank=True
+    )
+    line_manager = models.ForeignKey(
+        Employee,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="line_managed_histories",
+    )
+
+    class Meta:
+        ordering = ["effective_date", "pk"]
+
+    def __str__(self) -> str:  # pragma: no cover - trivial
+        return f"{self.job_title} @ {self.effective_date}"
+
+
+class Contract(models.Model):
+    employee = models.ForeignKey(
+        Employee, on_delete=models.CASCADE, related_name="contracts"
+    )
+    contract_number = models.CharField(max_length=50)
+    contract_name = models.CharField(max_length=100)
+    contract_type = models.CharField(max_length=50)
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["start_date", "pk"]
+
+    def __str__(self) -> str:  # pragma: no cover - trivial
+        return f"{self.contract_name} ({self.contract_number})"

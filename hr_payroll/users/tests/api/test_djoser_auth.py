@@ -1,9 +1,15 @@
+import pytest
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 
+@pytest.mark.skipif(
+    not getattr(settings, "DJOSER_ENABLED", False),
+    reason="Djoser endpoints disabled in settings",
+)
 class TestDjoserJWTFlow(APITestCase):
     def test_register_login_refresh_and_me(self):
         # 0) Prepare: create a Manager and authenticate (registration restricted)

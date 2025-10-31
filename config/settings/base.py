@@ -92,7 +92,7 @@ THIRD_PARTY_APPS = [
     "allauth.socialaccount",
     "django_celery_beat",
     "rest_framework",
-    "rest_framework.authtoken",
+    "rest_framework.authtoken",  # Present to satisfy dj-rest-auth imports; no token endpoints exposed
     "corsheaders",
     "drf_spectacular",
     "webpack_loader",
@@ -150,6 +150,11 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
+
+# Feature flags
+# ------------------------------------------------------------------------------
+# Toggle to expose Djoser endpoints (kept for compatibility but disabled by default)
+DJOSER_ENABLED = env.bool("DJOSER_ENABLED", default=False)
 
 # MIDDLEWARE
 # ------------------------------------------------------------------------------
@@ -355,7 +360,6 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
-        "rest_framework.authentication.TokenAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
@@ -363,6 +367,13 @@ REST_FRAMEWORK = {
 
 # dj-rest-auth: use JWT
 REST_USE_JWT = True
+# Disable DRF Token model entirely (we use JWT)
+TOKEN_MODEL = None
+REST_AUTH_TOKEN_MODEL = None
+# In some versions, dj-rest-auth reads this from the REST_AUTH dict
+REST_AUTH = {
+    "TOKEN_MODEL": None,
+}
 
 # SimpleJWT defaults
 SIMPLE_JWT = {
@@ -372,6 +383,16 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": True,
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
+
+# dj-rest-auth cookie-based JWT (HttpOnly cookies for browsers)
+# Access/refresh cookies will be set by dj-rest-auth login/refresh endpoints when REST_USE_JWT=True
+JWT_AUTH_COOKIE = env("JWT_AUTH_COOKIE", default="access_token")
+JWT_AUTH_REFRESH_COOKIE = env("JWT_AUTH_REFRESH_COOKIE", default="refresh_token")
+JWT_AUTH_COOKIE_SAMESITE = env("JWT_AUTH_COOKIE_SAMESITE", default="Lax")
+# In production this should be True to send cookies only over HTTPS
+JWT_AUTH_COOKIE_SECURE = env.bool("JWT_AUTH_COOKIE_SECURE", default=not DEBUG)
+# Enforce CSRF protection when using cookies for JWT
+JWT_AUTH_COOKIE_USE_CSRF = env.bool("JWT_AUTH_COOKIE_USE_CSRF", default=True)
 
 # djoser configuration
 DJOSER = {
@@ -404,6 +425,15 @@ DJOSER = {
 
 # django-cors-headers - https://github.com/adamchainz/django-cors-headers#setup
 CORS_URLS_REGEX = r"^/api/.*$"
+CORS_ALLOW_CREDENTIALS = True
+
+# CSRF settings suitable for cookie-based auth in browsers
+CSRF_COOKIE_SAMESITE = env("CSRF_COOKIE_SAMESITE", default="Lax")
+# In production this should be True
+CSRF_COOKIE_SECURE = env.bool("CSRF_COOKIE_SECURE", default=not DEBUG)
+# Configure trusted origins for CSRF from env (comma-separated)
+_csrf_origins = env("CSRF_TRUSTED_ORIGINS", default="")
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins.split(",") if o.strip()]
 
 # By Default swagger ui is available only to admin user(s). You can change permission classes to change that
 # See more configuration options at https://drf-spectacular.readthedocs.io/en/latest/settings.html#settings

@@ -1,4 +1,5 @@
 import pytest
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from rest_framework import status
@@ -54,6 +55,10 @@ def test_manager_lists_all_users(manager, employee, user_model):
     assert {"mgrrole", "regular", "otheruser"}.issubset(usernames)
 
 
+@pytest.mark.skipif(
+    not getattr(settings, "DJOSER_ENABLED", False),
+    reason="Djoser endpoints disabled in settings",
+)
 def test_regular_user_cannot_reset_username(employee):
     client = APIClient()
     client.force_authenticate(user=employee)

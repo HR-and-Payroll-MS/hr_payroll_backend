@@ -14,6 +14,8 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.views import TokenVerifyView
 
+from hr_payroll.users.api.auth_views import CookieOnlyJWTRefreshView
+
 from .health import health as health_view
 
 urlpatterns = [
@@ -49,13 +51,21 @@ urlpatterns += [
         SpectacularSwaggerView.as_view(url_name="api-schema-v1"),
         name="api-docs-v1",
     ),
-    # v1 auth (dj-rest-auth)
+    # v1 auth (dj-rest-auth) - curated to exclude token-based endpoints
     path(
         "api/v1/auth/",
-        include(("dj_rest_auth.urls", "dj_rest_auth"), namespace="dj_rest_auth_v1"),
+        include(
+            ("hr_payroll.users.api.auth_urls", "dj_rest_auth"),
+            namespace="dj_rest_auth_v1",
+        ),
     ),
-    # v1 Djoser (users)
-    path("api/v1/auth/", include("djoser.urls")),
+    # v1 Djoser (users) behind feature flag
+    # Enable via DJOSER_ENABLED=True in settings/env
+    *(
+        [path("api/v1/auth/", include("djoser.urls"))]
+        if getattr(settings, "DJOSER_ENABLED", False)
+        else []
+    ),
     # v1 JWT endpoints (explicit to control schema tags)
 ]
 
@@ -77,8 +87,13 @@ class JWTVerifyView(TokenVerifyView):
 
 
 urlpatterns += [
+    # JWT endpoints (login handled in curated auth urls above)
     path("api/v1/auth/jwt/create/", JWTCreateView.as_view(), name="jwt-create"),
-    path("api/v1/auth/jwt/refresh/", JWTRefreshView.as_view(), name="jwt-refresh"),
+    path(
+        "api/v1/auth/jwt/refresh/",
+        CookieOnlyJWTRefreshView.as_view(),
+        name="jwt-refresh",
+    ),
     path("api/v1/auth/jwt/verify/", JWTVerifyView.as_view(), name="jwt-verify"),
 ]
 
