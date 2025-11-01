@@ -105,7 +105,10 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS = [
     "hr_payroll.users",
     "hr_payroll.audit",
+    # domain apps
+    "hr_payroll.org",
     "hr_payroll.employees",
+    "hr_payroll.payroll",
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
@@ -363,6 +366,9 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    # pagination & filtering defaults
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 25,
 }
 
 # dj-rest-auth: use JWT
@@ -446,6 +452,9 @@ SPECTACULAR_SETTINGS = {
     # Strip /api/v1 prefix so tags/grouping derive from the resource, not the version.
     "SCHEMA_PATH_PREFIX": "/api/v1/",
 }
+# HR policy toggles
+# Require explicit approval for department manager assignments (future flow).
+LINEMANAGER_REQUIRE_APPROVAL = env.bool("LINEMANAGER_REQUIRE_APPROVAL", default=False)
 # django-webpack-loader
 # ------------------------------------------------------------------------------
 WEBPACK_LOADER = {
