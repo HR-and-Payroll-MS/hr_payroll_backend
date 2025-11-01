@@ -42,37 +42,25 @@ class User(AbstractUser):
 
 
 class UserProfile(models.Model):
-    """Per-user profile with personal details.
-
-    Keeps non-employment personal fields out of Employee.
-    """
-
-    class Gender(models.TextChoices):
-        MALE = "male", "Male"
-        FEMALE = "female", "Female"
-
     user = models.OneToOneField(
-        User,
-        on_delete=models.CASCADE,
-        related_name="profile",
+        User, on_delete=models.CASCADE, related_name="profile"
     )
-    gender = models.CharField(max_length=10, choices=Gender.choices, blank=True)
+    # Contact and locale
+    phone = models.CharField(max_length=50, blank=True)
+    time_zone = models.CharField(max_length=50, blank=True)
+
+    # General personal information
+    gender = models.CharField(max_length=30, blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
-    # Unique only when non-blank (see constraint)
-    national_id = models.CharField(max_length=50, blank=True)
-    phone = models.CharField(max_length=32, blank=True)
-    address = models.TextField(blank=True)
+    nationality = models.CharField(max_length=100, blank=True)
+    marital_status = models.CharField(max_length=50, blank=True)
+    personal_tax_id = models.CharField(max_length=100, blank=True)
+    social_insurance = models.CharField(max_length=100, blank=True)
+
+    # Audit timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["national_id"],
-                name="uniq_userprofile_national_id_nonblank",
-                condition=~models.Q(national_id=""),
-            )
-        ]
-
     def __str__(self) -> str:  # pragma: no cover - trivial
-        return f"Profile({self.user})"
+        return f"Profile({self.user.username})"
+
