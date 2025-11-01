@@ -24,6 +24,8 @@ class UserViewSet(RetrieveModelMixin, ListModelMixin, UpdateModelMixin, GenericV
     serializer_class = UserSerializer
     queryset = User.objects.all()
     lookup_field = "username"
+    # Keep legacy API contract: return a plain list (no pagination) for /api/v1/users/
+    pagination_class = None
 
     def get_queryset(self, *args, **kwargs):  # type: ignore[override]
         user = self.request.user
