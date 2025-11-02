@@ -109,6 +109,7 @@ LOCAL_APPS = [
     "hr_payroll.org",
     "hr_payroll.employees",
     "hr_payroll.payroll",
+    "hr_payroll.attendance",
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
@@ -477,3 +478,9 @@ LLM_MODEL = env("LLM_MODEL", default="gemini-1.5-flash")
 LLM_TIMEOUT = env.float("LLM_TIMEOUT", default=15.0)
 # Provider secrets (optional; required when enabling Gemini)
 GEMINI_API_KEY = env("GEMINI_API_KEY", default=None)
+
+# Attendance module defaults
+ATTENDANCE_EDIT_DAYS = env.int("ATTENDANCE_EDIT_DAYS", default=31)
+ATTENDANCE_DEFAULT_SCHEDULE_HOURS = env.int(
+    "ATTENDANCE_DEFAULT_SCHEDULE_HOURS", default=8
+)

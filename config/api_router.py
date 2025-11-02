@@ -2,6 +2,7 @@ from django.conf import settings
 from rest_framework.routers import DefaultRouter
 from rest_framework.routers import SimpleRouter
 
+from hr_payroll.attendance.api.views import AttendanceViewSet
 from hr_payroll.employees.api.views import ContractViewSet
 from hr_payroll.employees.api.views import EmployeeDocumentViewSet
 from hr_payroll.employees.api.views import EmployeeViewSet
@@ -20,6 +21,7 @@ router.register("employee-documents", EmployeeDocumentViewSet)
 router.register("job-histories", JobHistoryViewSet)
 router.register("contracts", ContractViewSet)
 router.register("compensations", CompensationViewSet)
+router.register("attendances", AttendanceViewSet)
 # Nested employee-scoped routes for cohesion
 # while keeping top-level routes for backward compatibility
 router.register(
@@ -47,6 +49,11 @@ router.register(
     r"employees/(?P<employee_id>[^/.]+)/documents",
     EmployeeDocumentViewSet,
     basename="employee-document",
+)
+router.register(
+    r"employees/(?P<employee_id>[^/.]+)/attendances",
+    AttendanceViewSet,
+    basename="employee-attendance",
 )
 
 
