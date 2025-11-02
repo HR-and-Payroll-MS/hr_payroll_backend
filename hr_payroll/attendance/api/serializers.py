@@ -7,6 +7,7 @@ from hr_payroll.attendance.models import AttendanceAdjustment
 class AttendanceSerializer(serializers.ModelSerializer):
     logged_time = serializers.SerializerMethodField(read_only=True)
     deficit = serializers.SerializerMethodField(read_only=True)
+    overtime = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Attendance
@@ -22,10 +23,18 @@ class AttendanceSerializer(serializers.ModelSerializer):
             "logged_time",
             "paid_time",
             "deficit",
+            "overtime",
+            "overtime_seconds",
             "notes",
             "status",
         ]
-        read_only_fields = ["logged_time", "deficit", "status"]
+        read_only_fields = [
+            "logged_time",
+            "deficit",
+            "overtime",
+            "overtime_seconds",
+            "status",
+        ]
 
     def get_logged_time(self, obj):
         lt = obj.logged_time
@@ -43,6 +52,17 @@ class AttendanceSerializer(serializers.ModelSerializer):
             return None
         total_seconds = int(d.total_seconds())
         sign = "-" if total_seconds < 0 else "+"
+        total_seconds = abs(total_seconds)
+        hours, rem = divmod(total_seconds, 3600)
+        minutes, seconds = divmod(rem, 60)
+        return f"{sign}{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+    def get_overtime(self, obj):
+        ot = getattr(obj, "overtime", None)
+        if ot is None:
+            return None
+        total_seconds = int(ot.total_seconds())
+        sign = "+" if total_seconds >= 0 else "-"
         total_seconds = abs(total_seconds)
         hours, rem = divmod(total_seconds, 3600)
         minutes, seconds = divmod(rem, 60)

@@ -35,6 +35,9 @@ class Attendance(models.Model):
     status = models.CharField(
         max_length=16, choices=Status.choices, default=Status.PENDING
     )
+    # Denormalized cache for daily overtime/deficit in seconds.
+    # Positive => overtime, Negative => deficit, 0 => exactly scheduled.
+    overtime_seconds = models.IntegerField(default=0)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -59,6 +62,15 @@ class Attendance(models.Model):
         scheduled = timezone.timedelta(hours=int(self.work_schedule_hours))
         paid = self.paid_time or timezone.timedelta(0)
         return scheduled - paid
+
+    @property
+    def overtime(self):
+        """Paid time minus scheduled time (positive = overtime, negative = deficit)."""
+        d = self.deficit
+        if d is None:
+            return None
+        seconds = -int(d.total_seconds())
+        return timezone.timedelta(seconds=seconds)
 
 
 class AttendanceAdjustment(models.Model):
