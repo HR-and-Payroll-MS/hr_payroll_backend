@@ -16,6 +16,12 @@ class Compensation(models.Model):
     class Meta:
         ordering = ["-created_at"]
 
+    def __str__(self) -> str:  # pragma: no cover - representation
+        return (
+            f"Compensation(id={self.id}, employee_id={self.employee_id}, "
+            f"total={self.total_compensation})"
+        )
+
     def recalc_total(self) -> Decimal:
         total = sum((c.amount for c in self.components.all()), Decimal("0.00"))
         self.total_compensation = total
@@ -42,3 +48,9 @@ class SalaryComponent(models.Model):
 
     class Meta:
         ordering = ["id"]
+
+    def __str__(self) -> str:  # pragma: no cover - representation
+        return (
+            f"SalaryComponent(id={self.id}, compensation_id={self.compensation_id}, "
+            f"kind={self.kind}, amount={self.amount}, label={self.label!r})"
+        )

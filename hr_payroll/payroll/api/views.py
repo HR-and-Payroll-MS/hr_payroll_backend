@@ -2,10 +2,13 @@ from drf_spectacular.utils import extend_schema
 from drf_spectacular.utils import extend_schema_view
 from rest_framework import viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAdminUser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from hr_payroll.employees.models import Employee
 from hr_payroll.payroll.models import Compensation
 from hr_payroll.payroll.models import SalaryComponent
 
@@ -62,14 +65,13 @@ class CompensationViewSet(viewsets.ModelViewSet):
         # Bind employee automatically when using nested route; otherwise use payload
         employee_id = self.kwargs.get("employee_id")
         if employee_id:
-            try:
-                instance = serializer.save(employee_id=employee_id)
-            except Exception:  # If FK invalid, return a clean 404
-                from rest_framework.exceptions import NotFound
-
-                raise NotFound("Employee not found.")
+            # Validate the employee exists to avoid blind exception handling
+            if not Employee.objects.filter(pk=employee_id).exists():
+                msg = "Employee not found."
+                raise NotFound(msg)
+            serializer.save(employee_id=employee_id)
         else:
-            instance = serializer.save()
+            serializer.save()
 
     @action(
         detail=True,
@@ -79,13 +81,12 @@ class CompensationViewSet(viewsets.ModelViewSet):
     )
     def apply_to_employee(self, request, pk=None):
         """
-        Clone this compensation's components into a NEW compensation for the target employee.
+        Clone this compensation's components into a new compensation for the
+        target employee.
+
         Body: { "employee": "<employee_id>" }
         Returns the created Compensation payload.
         """
-        from rest_framework.exceptions import NotFound
-        from rest_framework.exceptions import ValidationError
-
         target_employee = request.data.get("employee")
         if not target_employee:
             raise ValidationError({"employee": "This field is required."})
@@ -93,7 +94,8 @@ class CompensationViewSet(viewsets.ModelViewSet):
         try:
             source = self.get_queryset().get(pk=pk)
         except Compensation.DoesNotExist:
-            raise NotFound("Compensation not found.")
+            msg = "Compensation not found."
+            raise NotFound(msg) from None
 
         # Create a new compensation for the target employee and copy components
         new_comp = Compensation.objects.create(employee_id=target_employee)
@@ -164,16 +166,16 @@ class SalaryComponentViewSet(viewsets.ModelViewSet):
         return serializer
 
     def perform_create(self, serializer):
-        # Enforce double nesting and ownership: the compensation must belong to the employee
+        # Enforce double nesting and ownership: the compensation must belong
+        # to the employee
         comp_id = self.kwargs.get("compensation_id")
         emp_id = self.kwargs.get("employee_id")
         if comp_id and emp_id:
-            from rest_framework.exceptions import NotFound
-
             try:
                 comp = Compensation.objects.get(pk=comp_id, employee_id=emp_id)
             except Compensation.DoesNotExist:
-                raise NotFound("Compensation not found for this employee.")
+                msg = "Compensation not found for this employee."
+                raise NotFound(msg) from None
             instance = serializer.save(compensation=comp)
         else:
             # Fallback for non-nested calls (shouldn't be routed anymore)

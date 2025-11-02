@@ -1,4 +1,7 @@
-from datetime import timedelta
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from datetime import timedelta
 
 from dj_rest_auth.views import LoginView
 from django.conf import settings

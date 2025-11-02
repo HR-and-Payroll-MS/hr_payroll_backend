@@ -42,9 +42,7 @@ class User(AbstractUser):
 
 
 class UserProfile(models.Model):
-    user = models.OneToOneField(
-        User, on_delete=models.CASCADE, related_name="profile"
-    )
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
     # Contact and locale
     phone = models.CharField(max_length=50, blank=True)
     time_zone = models.CharField(max_length=50, blank=True)
@@ -63,4 +61,3 @@ class UserProfile(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover - trivial
         return f"Profile({self.user.username})"
-

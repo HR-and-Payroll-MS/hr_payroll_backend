@@ -1,8 +1,9 @@
 """Permission classes for Employees API."""
 
+from typing import Any
+
 from rest_framework.permissions import SAFE_METHODS
 from rest_framework.permissions import BasePermission
-from typing import Any
 
 
 def _user_in_groups(user, names: list[str]) -> bool:
@@ -47,13 +48,13 @@ class IsSelfEmployeeOrElevated(BasePermission):
 
 
 class IsAdminOrHROrLineManagerScopedWrite(BasePermission):
-    """Allow writes for Admin/HR globally; allow Line Managers only for their scope.
+    """Allow writes for Admin/HR globally; Line Managers only within scope.
 
     Scope definition:
-    - If the target is an Employee: permitted when request.user's Employee is either
-      the target's department.manager OR the target's line_manager.
-    - If the target has an 'employee' attribute (e.g., JobHistory, Contract, EmployeeDocument):
-      apply the same rule to target.employee.
+    - If target is an Employee: permit when request.user.employee is the
+      department manager or the target's line manager.
+    - If target has an 'employee' attribute (JobHistory, Contract,
+      EmployeeDocument): apply the same rule to target.employee.
     """
 
     def has_permission(self, request, view) -> bool:
@@ -68,7 +69,7 @@ class IsAdminOrHROrLineManagerScopedWrite(BasePermission):
         # For line managers, object-level checks will decide; allow to proceed
         return _user_in_groups(u, ["Line Manager"])  # may be narrowed by object check
 
-    def has_object_permission(self, request, view, obj: Any) -> bool:  # noqa: C901
+    def has_object_permission(self, request, view, obj: Any) -> bool:  # noqa: PLR0911
         if request.method in SAFE_METHODS:
             return True
         u = getattr(request, "user", None)
@@ -92,11 +93,12 @@ class IsAdminOrHROrLineManagerScopedWrite(BasePermission):
         # If still unknown, deny
         if target_emp is None:
             return False
-        # Allow if line manager directly
-        if getattr(target_emp, "line_manager_id", None) == getattr(req_emp, "id", None):
-            return True
-        # Allow if department manager
+        # Allow if line manager directly or department manager
+        is_line_manager = getattr(target_emp, "line_manager_id", None) == getattr(
+            req_emp, "id", None
+        )
         dept = getattr(target_emp, "department", None)
-        if dept and getattr(dept, "manager_id", None) == getattr(req_emp, "id", None):
-            return True
-        return False
+        is_dept_manager = bool(
+            dept and getattr(dept, "manager_id", None) == getattr(req_emp, "id", None)
+        )
+        return bool(is_line_manager or is_dept_manager)

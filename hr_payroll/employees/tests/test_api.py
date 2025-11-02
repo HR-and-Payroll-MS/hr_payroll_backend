@@ -1,4 +1,3 @@
 import pytest
 
-
-pytestmark = pytest.mark.skip(reason="employees app removed; tests skipped to start clean")
+pytestmark = pytest.mark.skip(reason="employees app disabled; tests skipped")
