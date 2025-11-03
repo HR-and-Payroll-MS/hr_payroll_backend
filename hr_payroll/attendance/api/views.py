@@ -7,6 +7,7 @@ from django.utils.dateparse import parse_duration
 from drf_spectacular.utils import OpenApiParameter
 from drf_spectacular.utils import OpenApiTypes
 from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema_view
 from rest_framework import mixins
 from rest_framework import status
 from rest_framework.decorators import action
@@ -22,6 +23,14 @@ from hr_payroll.employees.api.permissions import IsAdminOrHROrLineManagerScopedW
 from hr_payroll.employees.models import Employee
 
 
+@extend_schema_view(
+    list=extend_schema(tags=["Attendance"]),
+    retrieve=extend_schema(tags=["Attendance"]),
+    create=extend_schema(tags=["Attendance"]),
+    update=extend_schema(tags=["Attendance"]),
+    partial_update=extend_schema(tags=["Attendance"]),
+    destroy=extend_schema(tags=["Attendance"]),
+)
 class AttendanceViewSet(
     mixins.ListModelMixin,
     mixins.CreateModelMixin,
@@ -139,6 +148,7 @@ class AttendanceViewSet(
         return qs
 
     @action(detail=True, methods=["post"], url_path="clock-out")
+    @extend_schema(tags=["Attendance"])
     def clock_out(self, request, pk=None):
         """Set clock_out time and optional location."""
         inst = self.get_object()
@@ -182,6 +192,7 @@ class AttendanceViewSet(
         url_path="adjust-paid-time",
         permission_classes=[IsAuthenticated, IsAdminOrHROrLineManagerScopedWrite],
     )
+    @extend_schema(tags=["Attendance"])
     def adjust_paid_time(self, request, pk=None):
         """Adjust paid_time and create an adjustment audit record."""
         inst = self.get_object()
@@ -233,6 +244,7 @@ class AttendanceViewSet(
         url_path="approve",
         permission_classes=[IsAuthenticated, IsAdminOrHROrLineManagerScopedWrite],
     )
+    @extend_schema(tags=["Attendance"])
     def approve(self, request, pk=None):
         """Approve an attendance record (HR/Admin/Line Manager within scope)."""
         inst = self.get_object()
@@ -247,6 +259,7 @@ class AttendanceViewSet(
         url_path="revoke-approval",
         permission_classes=[IsAuthenticated, IsAdminOrHROrLineManagerScopedWrite],
     )
+    @extend_schema(tags=["Attendance"])
     def revoke_approval(self, request, pk=None):
         """Revoke approval and set back to PENDING."""
         inst = self.get_object()
@@ -257,6 +270,7 @@ class AttendanceViewSet(
 
     @action(detail=False, methods=["get"], url_path="my/summary")
     @extend_schema(
+        tags=["Attendance"],
         parameters=[
             OpenApiParameter(
                 name="start_date",
@@ -277,7 +291,7 @@ class AttendanceViewSet(
                 location=OpenApiParameter.QUERY,
                 description="Filter by approval status",
             ),
-        ]
+        ],
     )
     def my_summary(self, request):
         """Aggregate my attendance for a date range: logged, paid, overtime/deficit."""
@@ -336,6 +350,7 @@ class AttendanceViewSet(
         permission_classes=[IsAuthenticated, IsAdminOrHROrLineManagerScopedWrite],
     )
     @extend_schema(
+        tags=["Attendance"],
         parameters=[
             OpenApiParameter(
                 name="start_date",
@@ -362,7 +377,7 @@ class AttendanceViewSet(
                 location=OpenApiParameter.QUERY,
                 description="Filter by employee office (icontains)",
             ),
-        ]
+        ],
     )
     def team_summary(self, request):
         """Aggregate team attendance.

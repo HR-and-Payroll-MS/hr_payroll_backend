@@ -15,42 +15,16 @@ from hr_payroll.users.api.views import UserViewSet
 router = DefaultRouter() if settings.DEBUG else SimpleRouter()
 
 
-# Hidden variants: keep routes available for backward compatibility but hide in schema
-class _HiddenInSchemaMixin:
-    # DRF: setting schema=None excludes endpoints from OpenAPI generation
-    schema = None
-
-
-class HiddenAttendanceViewSet(_HiddenInSchemaMixin, AttendanceViewSet):
-    pass
-
-
-class HiddenEmployeeDocumentViewSet(_HiddenInSchemaMixin, EmployeeDocumentViewSet):
-    pass
-
-
-class HiddenJobHistoryViewSet(_HiddenInSchemaMixin, JobHistoryViewSet):
-    pass
-
-
-class HiddenContractViewSet(_HiddenInSchemaMixin, ContractViewSet):
-    pass
-
-
-class HiddenCompensationViewSet(_HiddenInSchemaMixin, CompensationViewSet):
-    pass
-
-
 router.register("users", UserViewSet)
 router.register("employees", EmployeeViewSet)
 router.register("departments", DepartmentViewSet)
-router.register("employee-documents", HiddenEmployeeDocumentViewSet)
-router.register("job-histories", HiddenJobHistoryViewSet)
-router.register("contracts", HiddenContractViewSet)
-router.register("compensations", HiddenCompensationViewSet)
-router.register("attendances", HiddenAttendanceViewSet)
-# Nested employee-scoped routes for cohesion
-# while keeping top-level routes for backward compatibility
+# Keep only canonical top-level endpoints.
+# Remove redundant top-level CRUD for nested resources.
+# Retain top-level 'attendances' to expose collection actions
+# (my/summary, team/summary).
+router.register("attendances", AttendanceViewSet)
+# Nested employee-scoped routes for cohesion while keeping
+# top-level routes for backward compatibility.
 router.register(
     r"employees/(?P<employee_id>[^/.]+)/job-histories",
     JobHistoryViewSet,
@@ -77,11 +51,8 @@ router.register(
     EmployeeDocumentViewSet,
     basename="employee-document",
 )
-router.register(
-    r"employees/(?P<employee_id>[^/.]+)/attendances",
-    AttendanceViewSet,
-    basename="employee-attendance",
-)
+# Remove nested attendances to avoid duplication; rely on top-level with
+# filters.
 
 
 app_name = "api"
