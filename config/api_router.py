@@ -14,14 +14,41 @@ from hr_payroll.users.api.views import UserViewSet
 
 router = DefaultRouter() if settings.DEBUG else SimpleRouter()
 
+
+# Hidden variants: keep routes available for backward compatibility but hide in schema
+class _HiddenInSchemaMixin:
+    # DRF: setting schema=None excludes endpoints from OpenAPI generation
+    schema = None
+
+
+class HiddenAttendanceViewSet(_HiddenInSchemaMixin, AttendanceViewSet):
+    pass
+
+
+class HiddenEmployeeDocumentViewSet(_HiddenInSchemaMixin, EmployeeDocumentViewSet):
+    pass
+
+
+class HiddenJobHistoryViewSet(_HiddenInSchemaMixin, JobHistoryViewSet):
+    pass
+
+
+class HiddenContractViewSet(_HiddenInSchemaMixin, ContractViewSet):
+    pass
+
+
+class HiddenCompensationViewSet(_HiddenInSchemaMixin, CompensationViewSet):
+    pass
+
+
 router.register("users", UserViewSet)
 router.register("employees", EmployeeViewSet)
 router.register("departments", DepartmentViewSet)
-router.register("employee-documents", EmployeeDocumentViewSet)
-router.register("job-histories", JobHistoryViewSet)
-router.register("contracts", ContractViewSet)
-router.register("compensations", CompensationViewSet)
-router.register("attendances", AttendanceViewSet)
+router.register("employee-documents", HiddenEmployeeDocumentViewSet)
+router.register("job-histories", HiddenJobHistoryViewSet)
+router.register("contracts", HiddenContractViewSet)
+router.register("compensations", HiddenCompensationViewSet)
+router.register("attendances", HiddenAttendanceViewSet)
 # Nested employee-scoped routes for cohesion
 # while keeping top-level routes for backward compatibility
 router.register(
