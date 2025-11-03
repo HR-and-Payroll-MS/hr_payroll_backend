@@ -95,8 +95,21 @@ class AttendanceViewSet(
             ),
         ]
     )
-    def get_queryset(self):
+    def get_queryset(self):  # noqa: C901
         qs = super().get_queryset()
+        # Scope: regular employees only see their own attendance
+        u = getattr(self.request, "user", None)
+        if u and getattr(u, "is_authenticated", False):
+            groups = getattr(u, "groups", None)
+            is_hr = bool(getattr(u, "is_staff", False)) or bool(
+                groups and groups.filter(name__in=["Admin", "Manager"]).exists()
+            )
+            is_lm = bool(groups and groups.filter(name="Line Manager").exists())
+            if not (is_hr or is_lm):
+                emp = getattr(u, "employee", None)
+                if not emp:
+                    return qs.none()
+                qs = qs.filter(employee=emp)
         employee = self.kwargs.get("employee_id") or self.request.query_params.get(
             "employee"
         )
@@ -129,6 +142,21 @@ class AttendanceViewSet(
     def clock_out(self, request, pk=None):
         """Set clock_out time and optional location."""
         inst = self.get_object()
+        # Non-elevated users can only modify their own record
+        u = request.user
+        groups = getattr(u, "groups", None)
+        is_hr = bool(getattr(u, "is_staff", False)) or bool(
+            groups and groups.filter(name__in=["Admin", "Manager"]).exists()
+        )
+        is_line_manager = bool(groups and groups.filter(name="Line Manager").exists())
+        if not (is_hr or is_line_manager):
+            if getattr(getattr(u, "employee", None), "id", None) != getattr(
+                inst, "employee_id", None
+            ):
+                return Response(
+                    {"detail": "Forbidden"},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
         clock_out = request.data.get("clock_out")
         clock_out_location = request.data.get("clock_out_location")
         if not clock_out:
@@ -157,6 +185,7 @@ class AttendanceViewSet(
     def adjust_paid_time(self, request, pk=None):
         """Adjust paid_time and create an adjustment audit record."""
         inst = self.get_object()
+        # Permission class already restricts to HR/Admin/Line Manager scoped writes
         new_paid = request.data.get("paid_time")
         notes = request.data.get("notes", "")
         if new_paid is None:

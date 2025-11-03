@@ -64,6 +64,22 @@ class EmployeeViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = super().get_queryset()
         request = self.request
+        # Scope: regular employees only see themselves
+        u = getattr(request, "user", None)
+        if u and getattr(u, "is_authenticated", False):
+            groups = getattr(u, "groups", None)
+            is_hr = bool(getattr(u, "is_staff", False)) or bool(
+                groups and groups.filter(name__in=["Admin", "Manager"]).exists()
+            )
+            is_line_manager = bool(
+                groups and groups.filter(name="Line Manager").exists()
+            )
+            if not (is_hr or is_line_manager):
+                emp = getattr(u, "employee", None)
+                # If user has no employee profile, return empty set
+                if not emp:
+                    return qs.none()
+                qs = qs.filter(pk=getattr(emp, "pk", None))
         dept = request.query_params.get("department")
         status = request.query_params.get("status")
         q = request.query_params.get("q")
@@ -258,6 +274,21 @@ class EmployeeDocumentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        # Scope: regular employees only see their documents
+        u = getattr(self.request, "user", None)
+        if u and getattr(u, "is_authenticated", False):
+            groups = getattr(u, "groups", None)
+            is_hr = bool(getattr(u, "is_staff", False)) or bool(
+                groups and groups.filter(name__in=["Admin", "Manager"]).exists()
+            )
+            is_line_manager = bool(
+                groups and groups.filter(name="Line Manager").exists()
+            )
+            if not (is_hr or is_line_manager):
+                emp = getattr(u, "employee", None)
+                if not emp:
+                    return qs.none()
+                qs = qs.filter(employee=emp)
         emp_id = self.kwargs.get("employee_id") or self.request.query_params.get(
             "employee"
         )
@@ -304,6 +335,21 @@ class JobHistoryViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        # Scope: regular employees only see their own history
+        u = getattr(self.request, "user", None)
+        if u and getattr(u, "is_authenticated", False):
+            groups = getattr(u, "groups", None)
+            is_hr = bool(getattr(u, "is_staff", False)) or bool(
+                groups and groups.filter(name__in=["Admin", "Manager"]).exists()
+            )
+            is_line_manager = bool(
+                groups and groups.filter(name="Line Manager").exists()
+            )
+            if not (is_hr or is_line_manager):
+                emp = getattr(u, "employee", None)
+                if not emp:
+                    return qs.none()
+                qs = qs.filter(employee=emp)
         employee_id = self.kwargs.get("employee_id") or self.request.query_params.get(
             "employee"
         )
@@ -348,6 +394,21 @@ class ContractViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        # Scope: regular employees only see their contracts
+        u = getattr(self.request, "user", None)
+        if u and getattr(u, "is_authenticated", False):
+            groups = getattr(u, "groups", None)
+            is_hr = bool(getattr(u, "is_staff", False)) or bool(
+                groups and groups.filter(name__in=["Admin", "Manager"]).exists()
+            )
+            is_line_manager = bool(
+                groups and groups.filter(name="Line Manager").exists()
+            )
+            if not (is_hr or is_line_manager):
+                emp = getattr(u, "employee", None)
+                if not emp:
+                    return qs.none()
+                qs = qs.filter(employee=emp)
         employee_id = self.kwargs.get("employee_id") or self.request.query_params.get(
             "employee"
         )
