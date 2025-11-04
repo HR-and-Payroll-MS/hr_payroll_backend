@@ -15,13 +15,12 @@ class IsAdminOrManagerCanWrite(BasePermission):
     def has_permission(self, request, view):
         if request.method in SAFE_METHODS:
             return request.user and request.user.is_authenticated
-        # write methods
         u = request.user
         if not (u and getattr(u, "is_authenticated", False)):
             return False
         is_elevated = bool(getattr(u, "is_staff", False))
         if not is_elevated:
-            is_elevated = _user_in_groups(u, ["Admin", "Manager"])  # HR Manager
+            is_elevated = _user_in_groups(u, ["Admin", "Manager"])
         return is_elevated
 
 
@@ -32,14 +31,11 @@ class IsSelfEmployeeOrElevated(BasePermission):
         u = request.user
         if not (u and getattr(u, "is_authenticated", False)):
             return False
-        # Elevated users can write
         is_elevated = bool(getattr(u, "is_staff", False))
         if not is_elevated:
-            is_elevated = _user_in_groups(u, ["Admin", "Manager"])  # HR Manager
+            is_elevated = _user_in_groups(u, ["Admin", "Manager"])
         if is_elevated:
             return True
-        # Non-elevated: only allow modifications to own resources
-        # Works for Employee (has user_id) and EmployeeDocument (has employee.user_id)
         if hasattr(obj, "user_id"):
             return getattr(obj, "user_id", None) == getattr(u, "id", None)
         if hasattr(obj, "employee") and hasattr(obj.employee, "user_id"):
@@ -58,7 +54,6 @@ class IsAdminOrHROrLineManagerScopedWrite(BasePermission):
     """
 
     def has_permission(self, request, view) -> bool:
-        # Read always allowed for authenticated users; writes guarded below
         if request.method in SAFE_METHODS:
             return bool(getattr(request.user, "is_authenticated", False))
         u = getattr(request, "user", None)
@@ -66,8 +61,8 @@ class IsAdminOrHROrLineManagerScopedWrite(BasePermission):
             return False
         if getattr(u, "is_staff", False) or _user_in_groups(u, ["Admin", "Manager"]):
             return True
-        # For line managers, object-level checks will decide; allow to proceed
-        return _user_in_groups(u, ["Line Manager"])  # may be narrowed by object check
+
+        return _user_in_groups(u, ["Line Manager"])
 
     def has_object_permission(self, request, view, obj: Any) -> bool:  # noqa: PLR0911
         if request.method in SAFE_METHODS:
@@ -75,25 +70,20 @@ class IsAdminOrHROrLineManagerScopedWrite(BasePermission):
         u = getattr(request, "user", None)
         if not (u and getattr(u, "is_authenticated", False)):
             return False
-        # Admin/HR bypass
         if getattr(u, "is_staff", False) or _user_in_groups(u, ["Admin", "Manager"]):
             return True
         if not _user_in_groups(u, ["Line Manager"]):
             return False
-        # Resolve request user's employee record
         req_emp = getattr(u, "employee", None)
         if req_emp is None:
             return False
-        # Determine target employee
         target_emp = None
         if hasattr(obj, "user_id") and hasattr(obj, "department_id"):
             target_emp = obj
         elif hasattr(obj, "employee"):
             target_emp = getattr(obj, "employee", None)
-        # If still unknown, deny
         if target_emp is None:
             return False
-        # Allow if line manager directly or department manager
         is_line_manager = getattr(target_emp, "line_manager_id", None) == getattr(
             req_emp, "id", None
         )

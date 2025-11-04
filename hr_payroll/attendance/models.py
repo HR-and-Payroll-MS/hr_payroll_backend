@@ -35,8 +35,6 @@ class Attendance(models.Model):
     status = models.CharField(
         max_length=16, choices=Status.choices, default=Status.PENDING
     )
-    # Denormalized cache for daily overtime/deficit in seconds.
-    # Positive => overtime, Negative => deficit, 0 => exactly scheduled.
     overtime_seconds = models.IntegerField(default=0)
 
     created_at = models.DateTimeField(auto_now_add=True)

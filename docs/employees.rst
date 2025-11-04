@@ -10,13 +10,16 @@ Models
 
 API Endpoints
 ----------------------------------------------------------------------
-
+Top-level:
 - Departments: ``/api/v1/departments/`` (Admin/Manager write; authenticated read)
 - Employees: ``/api/v1/employees/``
   - Regular employees see only their own record; Admin/Manager see all
   - Create via one of two manager-only onboarding endpoints (see below)
-- Employee Documents: ``/api/v1/employee-documents/``
-  - Regular employees can upload only for themselves; elevated users may upload for anyone
+
+Nested under employees:
+- Documents: ``/api/v1/employees/{employee_id}/documents/``
+- Contracts: ``/api/v1/employees/{employee_id}/contracts/``
+- Job Histories: ``/api/v1/employees/{employee_id}/job-histories/``
 
 Onboarding (Manager/Admin only)
 ----------------------------------------------------------------------
@@ -60,10 +63,11 @@ Employee responses embed related objects:
       }
     }
 
-Credential Recovery
-----------------------------------------------------------------------
-Temporary retrieval and regeneration of credentials is documented in
-:doc:`credential_recovery`.
+Credentials delivery note
+-----------------------------------------------------------------------
+Credentials (username/email/password) are only returned during onboarding
+of a brand-new user and are not stored in cleartext. Store them securely on
+the client side at that time.
 
 Integration note for frontend
 ------------------------------

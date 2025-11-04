@@ -13,17 +13,32 @@ versioning and simplify documentation.
 
 Routers
 ----------------------------------------------------------------------
-
+Top-level:
 - Users: ``/api/v1/users/``
 - Departments: ``/api/v1/departments/``
 - Employees: ``/api/v1/employees/``
-- Employee Documents: ``/api/v1/employee-documents/``
+- Attendances: ``/api/v1/attendances/``
+
+Nested under employees:
+- Documents: ``/api/v1/employees/{employee_id}/documents/``
+- Contracts: ``/api/v1/employees/{employee_id}/contracts/``
+- Job Histories: ``/api/v1/employees/{employee_id}/job-histories/``
+- Compensations: ``/api/v1/employees/{employee_id}/compensations/``
+- Salary Components: ``/api/v1/employees/{employee_id}/compensations/{compensation_id}/salary-components/``
 
 OpenAPI & Docs
 ----------------------------------------------------------------------
 
 - Schema: ``/api/v1/schema/``
 - Swagger UI: ``/api/v1/docs/`` (admin-only by default)
+
+Tag groups (overview):
+- Authentication
+- Users
+- Departments
+- Employees, Employees • Documents, Employees • Contracts, Employees • Job Histories
+- Payroll • Compensations, Payroll • Salary Components
+- Attendance • Records, Attendance • Summaries
 
 Versioning Policy
 ----------------------------------------------------------------------

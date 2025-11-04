@@ -195,7 +195,6 @@ class EmployeeSerializer(serializers.ModelSerializer):
 
     # Payroll aggregations from latest Compensation
     def _latest_comp(self, obj: Employee):
-        # Access reverse relation from payroll without importing its models
         return (
             getattr(obj, "compensations", None).order_by("-created_at").first()
             if hasattr(obj, "compensations")
@@ -233,7 +232,6 @@ class EmployeeSerializer(serializers.ModelSerializer):
 
 
 class EmployeeWriteSerializer(serializers.ModelSerializer):
-    # Write-focused fields; nested collections are read-only for now
     department_id = serializers.PrimaryKeyRelatedField(
         source="department",
         queryset=Department.objects.all(),
@@ -267,7 +265,6 @@ class EmployeeWriteSerializer(serializers.ModelSerializer):
 class OnboardExistingSerializer(serializers.Serializer):
     """Payload for onboarding an existing User into an Employee record."""
 
-    # Select an existing user (without an Employee) to onboard
     user = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.filter(employee__isnull=True),
         help_text="User id of an existing user without an Employee record",
@@ -283,8 +280,6 @@ class OnboardExistingSerializer(serializers.Serializer):
 
 
 class EmployeeCreateSerializer(serializers.ModelSerializer):
-    # Create-focused serializer: excludes line_manager selection; it will be
-    # derived from Department.manager automatically on create.
     user = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.filter(employee__isnull=True),
         help_text="User id of an existing user without an Employee record",

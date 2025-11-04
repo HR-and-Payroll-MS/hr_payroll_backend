@@ -75,7 +75,6 @@ Excerpt of response (fields unrelated to credentials elided):
 
 Notes:
 - The ``credentials`` block is omitted if generation was not needed (e.g., existing user onboarding).
-- Credentials are also cached (see :doc:`credential_recovery`).
 
 Existing User Promotion
 ----------------------------------------------------------------------

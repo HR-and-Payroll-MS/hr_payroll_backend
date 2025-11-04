@@ -40,7 +40,6 @@ class AttendanceSerializer(serializers.ModelSerializer):
         lt = obj.logged_time
         if lt is None:
             return None
-        # represent as ISO-style HH:MM:SS for client friendliness
         total_seconds = int(lt.total_seconds())
         hours, rem = divmod(total_seconds, 3600)
         minutes, seconds = divmod(rem, 60)

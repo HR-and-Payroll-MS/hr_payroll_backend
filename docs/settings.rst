@@ -1,8 +1,7 @@
 Settings Reference
 ======================================================================
 
-This page documents custom settings that influence onboarding and credential
-recovery behavior.
+This page documents custom settings that influence onboarding behavior.
 
 Onboarding & Credential Generation
 ----------------------------------------------------------------------
@@ -19,10 +18,8 @@ Onboarding & Credential Generation
   Zero-pad width for the numeric sequence ensuring uniqueness.
   Default: ``3`` (e.g., ``001``)
 
-``ONBOARDING_CREDENTIAL_TTL_MINUTES``
-  Minutes credentials remain retrievable via the *initial credentials* endpoint
-  before returning 404. Regeneration will create a fresh cache entry.
-  Default: ``30``
+.. note::
+  Credentials are returned only at onboarding time and are not stored.
 
 Password Generation
 ----------------------------------------------------------------------

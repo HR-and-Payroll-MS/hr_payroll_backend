@@ -52,7 +52,6 @@ class AttendanceViewSet(
     permission_classes = [IsAuthenticated]
 
     def get_permissions(self):
-        # Allow Manager/Admin to approve/adjust; others limited by default perms
         if self.request and self.request.method in {"POST", "PUT", "PATCH", "DELETE"}:
             return [IsAuthenticated()]
         return super().get_permissions()
@@ -106,7 +105,6 @@ class AttendanceViewSet(
     )
     def get_queryset(self):  # noqa: C901
         qs = super().get_queryset()
-        # Scope: regular employees only see their own attendance
         u = getattr(self.request, "user", None)
         if u and getattr(u, "is_authenticated", False):
             groups = getattr(u, "groups", None)
@@ -152,7 +150,6 @@ class AttendanceViewSet(
     def clock_out(self, request, pk=None):
         """Set clock_out time and optional location."""
         inst = self.get_object()
-        # Non-elevated users can only modify their own record
         u = request.user
         groups = getattr(u, "groups", None)
         is_hr = bool(getattr(u, "is_staff", False)) or bool(
@@ -196,7 +193,6 @@ class AttendanceViewSet(
     def adjust_paid_time(self, request, pk=None):
         """Adjust paid_time and create an adjustment audit record."""
         inst = self.get_object()
-        # Permission class already restricts to HR/Admin/Line Manager scoped writes
         new_paid = request.data.get("paid_time")
         notes = request.data.get("notes", "")
         if new_paid is None:
@@ -211,12 +207,9 @@ class AttendanceViewSet(
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             new_paid = dur
-        # keep previous
         prev = inst.paid_time
         inst.paid_time = new_paid
-        # Changing paid_time should reset approval; require re-approval
         inst.status = Attendance.Status.PENDING
-        # Update denormalized overtime cache too
         scheduled = timezone.timedelta(hours=int(inst.work_schedule_hours))
         ot = (inst.paid_time or timezone.timedelta(0)) - scheduled
         inst.overtime_seconds = int(ot.total_seconds())
@@ -311,7 +304,6 @@ class AttendanceViewSet(
         qs = Attendance.objects.filter(employee=emp, date__gte=start, date__lte=end)
         if status_param:
             qs = qs.filter(status=status_param)
-        # Aggregate in Python to avoid DB-specific interval math
         total_logged = timezone.timedelta(0)
         total_paid = timezone.timedelta(0)
         total_scheduled = timezone.timedelta(0)
@@ -398,7 +390,6 @@ class AttendanceViewSet(
         status_param = request.query_params.get("status")
         office = request.query_params.get("office")
 
-        # Determine scope: HR/Admin can see all; Line Manager limited to direct reports
         is_hr = getattr(u, "is_staff", False) or (
             getattr(u, "groups", None)
             and u.groups.filter(name__in=["Admin", "Manager"]).exists()
@@ -422,8 +413,6 @@ class AttendanceViewSet(
         )
         if status_param:
             qs = qs.filter(status=status_param)
-
-        # Aggregate per employee
 
         totals = defaultdict(
             lambda: {

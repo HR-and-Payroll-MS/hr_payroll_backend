@@ -64,7 +64,6 @@ class EmployeeViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = super().get_queryset()
         request = self.request
-        # Scope: regular employees only see themselves
         u = getattr(request, "user", None)
         if u and getattr(u, "is_authenticated", False):
             groups = getattr(u, "groups", None)
@@ -76,7 +75,6 @@ class EmployeeViewSet(viewsets.ModelViewSet):
             )
             if not (is_hr or is_line_manager):
                 emp = getattr(u, "employee", None)
-                # If user has no employee profile, return empty set
                 if not emp:
                     return qs.none()
                 qs = qs.filter(pk=getattr(emp, "pk", None))
@@ -129,10 +127,9 @@ class EmployeeViewSet(viewsets.ModelViewSet):
     )
     def onboard_existing(self, request):
         """Create an Employee for an existing user (by id or username)."""
-        # GET: return a compact schema helpful for clients
+
         if request.method == "GET":
             ser = self.get_serializer()
-            # Build a small, stable description: field -> {required, type, help_text}
             desc = {}
             for name, field in ser.fields.items():
                 desc[name] = {
@@ -141,29 +138,23 @@ class EmployeeViewSet(viewsets.ModelViewSet):
                     "help_text": getattr(field, "help_text", ""),
                 }
             return Response({"fields": desc})
-        # Validate payload with serializer to render proper form in browsable API
         payload_ser = self.get_serializer(data=request.data)
         payload_ser.is_valid(raise_exception=True)
         vd = payload_ser.validated_data
-        # With PrimaryKeyRelatedField the serializer will return the User instance
         user = vd.get("user")
 
-        # Prevent duplicates (serializer filters users without employees; double-check)
         if hasattr(user, "employee"):
             return Response(
                 {"user": ["Employee already exists for this user."]}, status=400
             )
 
-        # Create base Employee for this user
         emp = Employee.objects.create(user=user)
 
-        # Map optional fields into the write serializer (no line manager selection)
         write_data = {}
         for key in ("title", "employee_id"):
             if key in vd:
                 write_data[key] = vd[key]
 
-        # Resolve department and auto-assign line manager from Department.manager
         dept = vd.get("department")
         lm = getattr(dept, "manager", None) if dept else None
         write_ser = EmployeeWriteSerializer(
@@ -175,8 +166,6 @@ class EmployeeViewSet(viewsets.ModelViewSet):
         return Response(read.data, status=201)
 
     def perform_create(self, serializer):
-        # For normal employee creation (POST /employees), derive line_manager
-        # from department.manager
         dept = serializer.validated_data.get("department")
         lm = getattr(dept, "manager", None) if dept else None
         serializer.save(line_manager=lm)
@@ -203,7 +192,7 @@ class EmployeeViewSet(viewsets.ModelViewSet):
                 | Q(last_name__icontains=q)
                 | Q(email__icontains=q)
             )
-        # limit results (default 20, max MAX_LIMIT)
+
         limit = request.query_params.get("limit")
         limit_int = 20
         if limit:
@@ -267,14 +256,12 @@ class EmployeeDocumentViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_permissions(self):
-        # Allow create/update by Admin/HR or the employee themselves (scoped)
         if self.request and self.request.method in {"POST", "PUT", "PATCH", "DELETE"}:
             return [IsSelfEmployeeOrElevated()]
         return super().get_permissions()
 
     def get_queryset(self):
         qs = super().get_queryset()
-        # Scope: regular employees only see their documents
         u = getattr(self.request, "user", None)
         if u and getattr(u, "is_authenticated", False):
             groups = getattr(u, "groups", None)
