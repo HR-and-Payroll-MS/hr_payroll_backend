@@ -95,6 +95,24 @@ urlpatterns += [
         name="jwt-refresh",
     ),
     path("api/v1/auth/jwt/verify/", JWTVerifyView.as_view(), name="jwt-verify"),
+    # Body-based JWT endpoints for SPAs / djoser-style usage (keep prefix to avoid
+    # colliding with cookie-only flows). These accept/return tokens in JSON
+    # body and are suitable when the frontend manages tokens itself.
+    path(
+        "api/v1/auth/djoser/jwt/create/",
+        TokenObtainPairView.as_view(),
+        name="djoser-jwt-create",
+    ),
+    path(
+        "api/v1/auth/djoser/jwt/refresh/",
+        TokenRefreshView.as_view(),
+        name="djoser-jwt-refresh",
+    ),
+    path(
+        "api/v1/auth/djoser/jwt/verify/",
+        TokenVerifyView.as_view(),
+        name="djoser-jwt-verify",
+    ),
 ]
 
 if settings.DEBUG:
