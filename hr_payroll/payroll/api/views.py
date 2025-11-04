@@ -17,12 +17,12 @@ from .serializers import SalaryComponentSerializer
 
 
 @extend_schema_view(
-    list=extend_schema(tags=["Payroll"]),
-    retrieve=extend_schema(tags=["Payroll"]),
-    create=extend_schema(tags=["Payroll"]),
-    update=extend_schema(tags=["Payroll"]),
-    partial_update=extend_schema(tags=["Payroll"]),
-    destroy=extend_schema(tags=["Payroll"]),
+    list=extend_schema(tags=["Payroll • Compensations"]),
+    retrieve=extend_schema(tags=["Payroll • Compensations"]),
+    create=extend_schema(tags=["Payroll • Compensations"]),
+    update=extend_schema(tags=["Payroll • Compensations"]),
+    partial_update=extend_schema(tags=["Payroll • Compensations"]),
+    destroy=extend_schema(tags=["Payroll • Compensations"]),
 )
 class CompensationViewSet(viewsets.ModelViewSet):
     queryset = Compensation.objects.select_related("employee").prefetch_related(
@@ -117,12 +117,12 @@ class CompensationViewSet(viewsets.ModelViewSet):
 
 
 @extend_schema_view(
-    list=extend_schema(tags=["Payroll"]),
-    retrieve=extend_schema(tags=["Payroll"]),
-    create=extend_schema(tags=["Payroll"]),
-    update=extend_schema(tags=["Payroll"]),
-    partial_update=extend_schema(tags=["Payroll"]),
-    destroy=extend_schema(tags=["Payroll"]),
+    list=extend_schema(tags=["Payroll • Salary Components"]),
+    retrieve=extend_schema(tags=["Payroll • Salary Components"]),
+    create=extend_schema(tags=["Payroll • Salary Components"]),
+    update=extend_schema(tags=["Payroll • Salary Components"]),
+    partial_update=extend_schema(tags=["Payroll • Salary Components"]),
+    destroy=extend_schema(tags=["Payroll • Salary Components"]),
 )
 class SalaryComponentViewSet(viewsets.ModelViewSet):
     queryset = SalaryComponent.objects.select_related("compensation")

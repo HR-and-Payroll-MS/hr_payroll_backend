@@ -71,17 +71,17 @@ urlpatterns += [
 
 
 # Annotated JWT views for proper schema tag grouping
-@extend_schema_view(post=extend_schema(tags=["JWT Authentication"]))
+@extend_schema_view(post=extend_schema(tags=["Authentication"]))
 class JWTCreateView(TokenObtainPairView):
     pass
 
 
-@extend_schema_view(post=extend_schema(tags=["JWT Authentication"]))
+@extend_schema_view(post=extend_schema(tags=["Authentication"]))
 class JWTRefreshView(TokenRefreshView):
     pass
 
 
-@extend_schema_view(post=extend_schema(tags=["JWT Authentication"]))
+@extend_schema_view(post=extend_schema(tags=["Authentication"]))
 class JWTVerifyView(TokenVerifyView):
     pass
 

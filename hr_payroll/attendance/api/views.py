@@ -24,12 +24,12 @@ from hr_payroll.employees.models import Employee
 
 
 @extend_schema_view(
-    list=extend_schema(tags=["Attendance"]),
-    retrieve=extend_schema(tags=["Attendance"]),
-    create=extend_schema(tags=["Attendance"]),
-    update=extend_schema(tags=["Attendance"]),
-    partial_update=extend_schema(tags=["Attendance"]),
-    destroy=extend_schema(tags=["Attendance"]),
+    list=extend_schema(tags=["Attendance • Records"]),
+    retrieve=extend_schema(tags=["Attendance • Records"]),
+    create=extend_schema(tags=["Attendance • Records"]),
+    update=extend_schema(tags=["Attendance • Records"]),
+    partial_update=extend_schema(tags=["Attendance • Records"]),
+    destroy=extend_schema(tags=["Attendance • Records"]),
 )
 class AttendanceViewSet(
     mixins.ListModelMixin,
@@ -148,7 +148,7 @@ class AttendanceViewSet(
         return qs
 
     @action(detail=True, methods=["post"], url_path="clock-out")
-    @extend_schema(tags=["Attendance"])
+    @extend_schema(tags=["Attendance • Records"])
     def clock_out(self, request, pk=None):
         """Set clock_out time and optional location."""
         inst = self.get_object()
@@ -192,7 +192,7 @@ class AttendanceViewSet(
         url_path="adjust-paid-time",
         permission_classes=[IsAuthenticated, IsAdminOrHROrLineManagerScopedWrite],
     )
-    @extend_schema(tags=["Attendance"])
+    @extend_schema(tags=["Attendance • Records"])
     def adjust_paid_time(self, request, pk=None):
         """Adjust paid_time and create an adjustment audit record."""
         inst = self.get_object()
@@ -244,7 +244,7 @@ class AttendanceViewSet(
         url_path="approve",
         permission_classes=[IsAuthenticated, IsAdminOrHROrLineManagerScopedWrite],
     )
-    @extend_schema(tags=["Attendance"])
+    @extend_schema(tags=["Attendance • Records"])
     def approve(self, request, pk=None):
         """Approve an attendance record (HR/Admin/Line Manager within scope)."""
         inst = self.get_object()
@@ -259,7 +259,7 @@ class AttendanceViewSet(
         url_path="revoke-approval",
         permission_classes=[IsAuthenticated, IsAdminOrHROrLineManagerScopedWrite],
     )
-    @extend_schema(tags=["Attendance"])
+    @extend_schema(tags=["Attendance • Records"])
     def revoke_approval(self, request, pk=None):
         """Revoke approval and set back to PENDING."""
         inst = self.get_object()
@@ -270,7 +270,7 @@ class AttendanceViewSet(
 
     @action(detail=False, methods=["get"], url_path="my/summary")
     @extend_schema(
-        tags=["Attendance"],
+        tags=["Attendance • Summaries"],
         parameters=[
             OpenApiParameter(
                 name="start_date",
@@ -350,7 +350,7 @@ class AttendanceViewSet(
         permission_classes=[IsAuthenticated, IsAdminOrHROrLineManagerScopedWrite],
     )
     @extend_schema(
-        tags=["Attendance"],
+        tags=["Attendance • Summaries"],
         parameters=[
             OpenApiParameter(
                 name="start_date",

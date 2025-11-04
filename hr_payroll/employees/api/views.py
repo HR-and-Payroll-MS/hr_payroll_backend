@@ -258,8 +258,8 @@ class EmployeeViewSet(viewsets.ModelViewSet):
 
 
 @extend_schema_view(
-    list=extend_schema(tags=["Employee Documents"]),
-    retrieve=extend_schema(tags=["Employee Documents"]),
+    list=extend_schema(tags=["Employees • Documents"]),
+    retrieve=extend_schema(tags=["Employees • Documents"]),
 )
 class EmployeeDocumentViewSet(viewsets.ModelViewSet):
     queryset = EmployeeDocument.objects.select_related("employee").all()
@@ -310,12 +310,12 @@ class EmployeeDocumentViewSet(viewsets.ModelViewSet):
 
 
 @extend_schema_view(
-    list=extend_schema(tags=["Employees"]),
-    retrieve=extend_schema(tags=["Employees"]),
-    create=extend_schema(tags=["Employees"]),
-    update=extend_schema(tags=["Employees"]),
-    partial_update=extend_schema(tags=["Employees"]),
-    destroy=extend_schema(tags=["Employees"]),
+    list=extend_schema(tags=["Employees • Job Histories"]),
+    retrieve=extend_schema(tags=["Employees • Job Histories"]),
+    create=extend_schema(tags=["Employees • Job Histories"]),
+    update=extend_schema(tags=["Employees • Job Histories"]),
+    partial_update=extend_schema(tags=["Employees • Job Histories"]),
+    destroy=extend_schema(tags=["Employees • Job Histories"]),
 )
 class JobHistoryViewSet(viewsets.ModelViewSet):
     """CRUD for JobHistory records (employment events)."""
@@ -371,12 +371,12 @@ class JobHistoryViewSet(viewsets.ModelViewSet):
 
 
 @extend_schema_view(
-    list=extend_schema(tags=["Employees"]),
-    retrieve=extend_schema(tags=["Employees"]),
-    create=extend_schema(tags=["Employees"]),
-    update=extend_schema(tags=["Employees"]),
-    partial_update=extend_schema(tags=["Employees"]),
-    destroy=extend_schema(tags=["Employees"]),
+    list=extend_schema(tags=["Employees • Contracts"]),
+    retrieve=extend_schema(tags=["Employees • Contracts"]),
+    create=extend_schema(tags=["Employees • Contracts"]),
+    update=extend_schema(tags=["Employees • Contracts"]),
+    partial_update=extend_schema(tags=["Employees • Contracts"]),
+    destroy=extend_schema(tags=["Employees • Contracts"]),
 )
 class ContractViewSet(viewsets.ModelViewSet):
     """CRUD for Contracts attached to employees."""
