@@ -1,18 +1,29 @@
+from django.db.models import Sum
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.utils import extend_schema_view
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound
 from rest_framework.exceptions import ValidationError
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAdminUser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from hr_payroll.employees.models import Employee
+from hr_payroll.payroll.models import BankDetail
 from hr_payroll.payroll.models import Compensation
+from hr_payroll.payroll.models import Dependent
+from hr_payroll.payroll.models import PayrollCycle
+from hr_payroll.payroll.models import PayrollRecord
 from hr_payroll.payroll.models import SalaryComponent
+from hr_payroll.payroll.services import generate_payroll_for_cycle
 
+from .serializers import BankDetailSerializer
 from .serializers import CompensationSerializer
+from .serializers import DependentSerializer
+from .serializers import PayrollCycleSerializer
+from .serializers import PayrollRecordSerializer
 from .serializers import SalaryComponentSerializer
 
 
@@ -191,3 +202,186 @@ class SalaryComponentViewSet(viewsets.ModelViewSet):
         comp = instance.compensation
         super().perform_destroy(instance)
         comp.recalc_total()
+
+
+@extend_schema_view(
+    list=extend_schema(tags=["Payroll • Cycles"]),
+    retrieve=extend_schema(tags=["Payroll • Cycles"]),
+    create=extend_schema(tags=["Payroll • Cycles"]),
+    update=extend_schema(tags=["Payroll • Cycles"]),
+    partial_update=extend_schema(tags=["Payroll • Cycles"]),
+    destroy=extend_schema(tags=["Payroll • Cycles"]),
+)
+class PayrollCycleViewSet(viewsets.ModelViewSet):
+    queryset = PayrollCycle.objects.all().prefetch_related("eligible_employees")
+    serializer_class = PayrollCycleSerializer
+    permission_classes = [IsAdminUser]
+
+    def perform_create(self, serializer):
+        # Basic validation: period_start must be <= period_end
+        period_start = serializer.validated_data.get("period_start")
+        period_end = serializer.validated_data.get("period_end")
+        if period_start and period_end and period_start > period_end:
+            raise ValidationError({"period_end": "period_end must be >= period_start"})
+        serializer.save()
+
+
+@extend_schema_view(
+    list=extend_schema(tags=["Payroll • Records"]),
+    retrieve=extend_schema(tags=["Payroll • Records"]),
+    create=extend_schema(tags=["Payroll • Records"]),
+    update=extend_schema(tags=["Payroll • Records"]),
+    partial_update=extend_schema(tags=["Payroll • Records"]),
+    destroy=extend_schema(tags=["Payroll • Records"]),
+)
+class PayrollRecordViewSet(viewsets.ModelViewSet):
+    queryset = PayrollRecord.objects.select_related("employee", "cycle")
+    serializer_class = PayrollRecordSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        # Admins can write, employees can read their own records
+        if self.request and self.request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+            return [IsAdminUser()]
+        return super().get_permissions()
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        # Employee self-views: filter by employee if nested
+        employee = self.kwargs.get("employee_id") or self.request.query_params.get(
+            "employee"
+        )
+        if employee:
+            qs = qs.filter(employee_id=employee)
+        return qs
+
+    @action(detail=False, methods=["post"], permission_classes=[IsAdminUser])
+    def run_cycle(self, request):
+        """Trigger payroll generation for a given cycle.
+
+        Body: { "cycle": "<cycle_id>" }
+        Returns: summary counts
+        """
+        cycle_id = request.data.get("cycle")
+        if not cycle_id:
+            raise ValidationError({"cycle": "This field is required."})
+        result = generate_payroll_for_cycle(cycle_id)
+        return Response(result)
+
+
+class PayrollReportViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(tags=["Payroll • Reports"])
+    def list(self, request):
+        """Return a paginated payroll report (aggregated per employee) for a date range.
+
+        Query params: start, end, page, page_size
+        """
+        start = request.query_params.get("start")
+        end = request.query_params.get("end")
+        qs = PayrollRecord.objects.filter(deleted_at__isnull=True)
+        if start:
+            qs = qs.filter(period_start__gte=start)
+        if end:
+            qs = qs.filter(period_end__lte=end)
+        # Aggregate per employee
+        agg = (
+            qs.values("employee_id")
+            .annotate(
+                total_comp=Sum("total_compensation"),
+                salary=Sum("salary"),
+                actual=Sum("actual"),
+                recurring=Sum("recurring"),
+                one_off=Sum("one_off"),
+                offset=Sum("offset"),
+                ot=Sum("ot"),
+            )
+            .order_by("-total_comp")
+        )
+        # Simple pagination
+        paginator = PageNumberPagination()
+        paged = paginator.paginate_queryset(list(agg), request)
+        return paginator.get_paginated_response(paged)
+
+
+@extend_schema_view(
+    list=extend_schema(tags=["Employees • Bank Details"]),
+    retrieve=extend_schema(tags=["Employees • Bank Details"]),
+    create=extend_schema(tags=["Employees • Bank Details"]),
+    update=extend_schema(tags=["Employees • Bank Details"]),
+    partial_update=extend_schema(tags=["Employees • Bank Details"]),
+    destroy=extend_schema(tags=["Employees • Bank Details"]),
+)
+class BankDetailViewSet(viewsets.ModelViewSet):
+    queryset = BankDetail.objects.select_related("employee")
+    serializer_class = BankDetailSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        if self.request and self.request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+            return [IsAdminUser()]
+        return super().get_permissions()
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        employee = self.kwargs.get("employee_id") or self.request.query_params.get(
+            "employee"
+        )
+        if employee:
+            qs = qs.filter(employee_id=employee)
+        return qs
+
+    def get_serializer(self, *args, **kwargs):
+        serializer = super().get_serializer(*args, **kwargs)
+        if (
+            self.request
+            and self.request.method in {"POST", "PUT", "PATCH"}
+            and self.kwargs.get("employee_id")
+        ):
+            target = getattr(serializer, "child", None) or serializer
+            if hasattr(target, "fields") and "employee" in target.fields:
+                target.fields["employee"].required = False
+                target.fields["employee"].read_only = True
+        return serializer
+
+
+@extend_schema_view(
+    list=extend_schema(tags=["Employees • Dependents"]),
+    retrieve=extend_schema(tags=["Employees • Dependents"]),
+    create=extend_schema(tags=["Employees • Dependents"]),
+    update=extend_schema(tags=["Employees • Dependents"]),
+    partial_update=extend_schema(tags=["Employees • Dependents"]),
+    destroy=extend_schema(tags=["Employees • Dependents"]),
+)
+class DependentViewSet(viewsets.ModelViewSet):
+    queryset = Dependent.objects.select_related("employee")
+    serializer_class = DependentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        if self.request and self.request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+            return [IsAdminUser()]
+        return super().get_permissions()
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        employee = self.kwargs.get("employee_id") or self.request.query_params.get(
+            "employee"
+        )
+        if employee:
+            qs = qs.filter(employee_id=employee)
+        return qs
+
+    def get_serializer(self, *args, **kwargs):
+        serializer = super().get_serializer(*args, **kwargs)
+        if (
+            self.request
+            and self.request.method in {"POST", "PUT", "PATCH"}
+            and self.kwargs.get("employee_id")
+        ):
+            target = getattr(serializer, "child", None) or serializer
+            if hasattr(target, "fields") and "employee" in target.fields:
+                target.fields["employee"].required = False
+                target.fields["employee"].read_only = True
+        return serializer

@@ -8,7 +8,12 @@ from hr_payroll.employees.api.views import EmployeeDocumentViewSet
 from hr_payroll.employees.api.views import EmployeeViewSet
 from hr_payroll.employees.api.views import JobHistoryViewSet
 from hr_payroll.org.api.views import DepartmentViewSet
+from hr_payroll.payroll.api.views import BankDetailViewSet
 from hr_payroll.payroll.api.views import CompensationViewSet
+from hr_payroll.payroll.api.views import DependentViewSet
+from hr_payroll.payroll.api.views import PayrollCycleViewSet
+from hr_payroll.payroll.api.views import PayrollRecordViewSet
+from hr_payroll.payroll.api.views import PayrollReportViewSet
 from hr_payroll.payroll.api.views import SalaryComponentViewSet
 from hr_payroll.users.api.views import UserViewSet
 
@@ -51,6 +56,19 @@ router.register(
     EmployeeDocumentViewSet,
     basename="employee-document",
 )
+router.register(
+    r"employees/(?P<employee_id>[^/.]+)/bank-details",
+    BankDetailViewSet,
+    basename="employee-bankdetail",
+)
+router.register(
+    r"employees/(?P<employee_id>[^/.]+)/dependents",
+    DependentViewSet,
+    basename="employee-dependent",
+)
+router.register(r"payroll/cycles", PayrollCycleViewSet, basename="payroll-cycle")
+router.register(r"payroll/records", PayrollRecordViewSet, basename="payroll-record")
+router.register(r"payroll/reports", PayrollReportViewSet, basename="payroll-report")
 # Remove nested attendances to avoid duplication; rely on top-level with
 # filters.
 
