@@ -1,113 +1,285 @@
-from typing import Any
-
-from django.db.models import Sum
+from allauth.account.models import EmailAddress
+from django.conf import settings
+from django.db import models
+from django.utils.crypto import get_random_string
 from rest_framework import serializers
 
 from hr_payroll.employees.models import Contract
 from hr_payroll.employees.models import Employee
-from hr_payroll.employees.models import EmployeeDocument
 from hr_payroll.employees.models import JobHistory
 from hr_payroll.org.models import Department
+from hr_payroll.payroll.models import BankDetail
+from hr_payroll.payroll.models import Compensation
+from hr_payroll.payroll.models import Dependent
+from hr_payroll.payroll.models import SalaryComponent
 from hr_payroll.users.models import User
+from hr_payroll.users.models import UserProfile
 
 
-class LineManagerMiniSerializer(serializers.ModelSerializer):
-    id = serializers.SerializerMethodField()
-    full_name = serializers.CharField(read_only=True)
-    photo = serializers.ImageField(allow_null=True, required=False)
-
-    class Meta:
-        model = Employee
-        fields = ["id", "full_name", "photo"]
-
-    def get_id(self, obj: Employee) -> str:
-        return str(obj.pk)
-
-
-class JobHistorySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = JobHistory
-        fields = [
-            "id",
-            "effective_date",
-            "job_title",
-            "position_type",
-            "employment_type",
+class SalaryComponentInputSerializer(serializers.Serializer):
+    kind = serializers.ChoiceField(
+        choices=[
+            ("base", "Base"),
+            ("recurring", "Recurring"),
+            ("one_off", "One-off"),
+            ("offset", "Offset"),
         ]
+    )
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    label = serializers.CharField(required=False, allow_blank=True)
 
 
-class ContractSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Contract
-        fields = [
-            "id",
-            "contract_number",
-            "contract_name",
-            "contract_type",
-            "start_date",
-            "end_date",
-        ]
+class EmployeeRegistrationSerializer(serializers.Serializer):
+    # Users (General Tab)
+    first_name = serializers.CharField()
+    last_name = serializers.CharField()
+    gender = serializers.CharField(required=False, allow_blank=True)
+    date_of_birth = serializers.DateField(required=False, allow_null=True)
+    phone = serializers.CharField(required=False, allow_blank=True)
+    nationality = serializers.CharField(required=False, allow_blank=True)
+    health_care = serializers.CharField(required=False, allow_blank=True)
+    marital_status = serializers.CharField(required=False, allow_blank=True)
+    personal_tax_id = serializers.CharField(required=False, allow_blank=True)
+    social_insurance = serializers.CharField(required=False, allow_blank=True)
+    photo = serializers.ImageField(required=False, allow_null=True)
+
+    # Employees (Job Tab)
+    department_id = serializers.PrimaryKeyRelatedField(
+        queryset=Department.objects.all(), required=False, allow_null=True
+    )
+    office = serializers.CharField(required=False, allow_blank=True)
+    time_zone = serializers.CharField(required=False, allow_blank=True)
+    title = serializers.CharField(required=False, allow_blank=True)
+    join_date = serializers.DateField(required=False, allow_null=True)
+    last_working_date = serializers.DateField(required=False, allow_null=True)
+
+    # Initial job history (first/current)
+    job_effective_date = serializers.DateField(required=False, allow_null=True)
+    job_position_type = serializers.CharField(required=False, allow_blank=True)
+    job_employment_type = serializers.CharField(required=False, allow_blank=True)
+
+    # Current contract
+    contract_number = serializers.CharField(required=False, allow_blank=True)
+    contract_name = serializers.CharField(required=False, allow_blank=True)
+    contract_type = serializers.CharField(required=False, allow_blank=True)
+    contract_start_date = serializers.DateField(required=False, allow_null=True)
+    contract_end_date = serializers.DateField(required=False, allow_null=True)
+
+    # Compensation components
+    components = SalaryComponentInputSerializer(many=True, required=False)
+
+    # Dependents list
+    dependents = serializers.ListSerializer(
+        child=serializers.DictField(), required=False
+    )
+
+    # Bank detail (optional)
+    bank_name = serializers.CharField(required=False, allow_blank=True)
+    branch = serializers.CharField(required=False, allow_blank=True)
+    swift_bic = serializers.CharField(required=False, allow_blank=True)
+    account_name = serializers.CharField(required=False, allow_blank=True)
+    account_number = serializers.CharField(required=False, allow_blank=True)
+    iban = serializers.CharField(required=False, allow_blank=True)
+
+    def _generate_username(self, first_name: str, last_name: str) -> str:
+        """Generate a unique username with a short salt to avoid collisions.
+
+        Pattern: <first>.<last>-<salt>, lowercased, spaces removed. Salt is 4 chars.
+        """
+        base = (first_name + "." + last_name).lower().replace(" ", "") or "user"
+        # Keep only url-safe chars
+        base = "".join(ch for ch in base if ch.isalnum() or ch in {".", "-", "_"})
+        while True:
+            salt = get_random_string(
+                4, allowed_chars="abcdefghijklmnopqrstuvwxyz0123456789"
+            )
+            candidate = f"{base}-{salt}"
+            if not User.objects.filter(username=candidate).exists():
+                return candidate
+
+    def _email_domain(self) -> str:
+        # Use a valid default domain; allow override from settings
+        return getattr(settings, "GENERATED_EMAIL_DOMAIN", "example.com")
+
+    def _generate_password(self) -> str:
+        charset = (
+            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()"
+        )
+        return get_random_string(12, charset)
+
+    def _generate_employee_id(self) -> str:
+        # Very simple sequential pattern: E-<zero-padded>
+        last = Employee.objects.order_by("-id").first()
+        nxt = (last.id + 1) if last else 1
+        return f"E-{nxt:05d}"
+
+    def create(self, validated):
+        # Create User with generated username/email/password
+        first = validated.get("first_name", "").strip()
+        last = validated.get("last_name", "").strip()
+        if not first or not last:
+            raise serializers.ValidationError(
+                {"first_name": ["Required"], "last_name": ["Required"]}
+            )
+
+        username = self._generate_username(first, last)
+        email = f"{username}@{self._email_domain()}"
+        raw_password = self._generate_password()
+        user = User.objects.create_user(
+            username=username,
+            email=email,
+            password=raw_password,
+            first_name=first,
+            last_name=last,
+        )
+
+        # Create or update UserProfile
+        UserProfile.objects.create(
+            user=user,
+            phone=validated.get("phone", ""),
+            time_zone=validated.get("time_zone", ""),
+            gender=validated.get("gender", ""),
+            date_of_birth=validated.get("date_of_birth"),
+            nationality=validated.get("nationality", ""),
+            marital_status=validated.get("marital_status", ""),
+            personal_tax_id=validated.get("personal_tax_id", ""),
+            social_insurance=validated.get("social_insurance", ""),
+        )
+
+        # Create Employee
+        emp = Employee.objects.create(
+            user=user,
+            title=validated.get("title", ""),
+            department=validated.get("department_id"),
+            time_zone=validated.get("time_zone", ""),
+            office=validated.get("office", ""),
+            join_date=validated.get("join_date"),
+            last_working_date=validated.get("last_working_date"),
+            is_active=True,
+            health_care=validated.get("health_care", ""),
+        )
+        # set photo if present
+        if validated.get("photo") is not None:
+            emp.photo = validated.get("photo")
+            emp.save(update_fields=["photo"])
+
+        # Generate employee_id after we have pk
+        emp.employee_id = self._generate_employee_id()
+        emp.save(update_fields=["employee_id"])
+
+        # Job history
+        if validated.get("job_effective_date"):
+            JobHistory.objects.create(
+                employee=emp,
+                effective_date=validated.get("job_effective_date"),
+                job_title=validated.get("title", ""),
+                position_type=validated.get("job_position_type", ""),
+                employment_type=validated.get("job_employment_type", ""),
+                line_manager=None,
+            )
+
+        # Contract creation
+        if validated.get("contract_number") and validated.get("contract_start_date"):
+            Contract.objects.create(
+                employee=emp,
+                contract_number=validated.get("contract_number"),
+                contract_name=validated.get("contract_name", ""),
+                contract_type=validated.get("contract_type", ""),
+                start_date=validated.get("contract_start_date"),
+                end_date=validated.get("contract_end_date"),
+            )
+
+        # Compensation components
+        comps = validated.get("components") or []
+        if comps:
+            comp = Compensation.objects.create(employee=emp)
+            for c in comps:
+                SalaryComponent.objects.create(
+                    compensation=comp,
+                    kind=c["kind"],
+                    amount=c["amount"],
+                    label=c.get("label", ""),
+                )
+            comp.recalc_total()
+
+        # Dependents
+        for d in validated.get("dependents", []) or []:
+            name = d.get("name")
+            if not name:
+                continue
+            Dependent.objects.create(
+                employee=emp,
+                name=name,
+                relationship=d.get("relationship", ""),
+                date_of_birth=d.get("date_of_birth"),
+            )
+
+        # Bank detail
+        if validated.get("bank_name") or validated.get("account_number"):
+            BankDetail.objects.create(
+                employee=emp,
+                bank_name=validated.get("bank_name", ""),
+                branch=validated.get("branch", ""),
+                swift_bic=validated.get("swift_bic", ""),
+                account_name=validated.get("account_name", ""),
+                account_number=validated.get("account_number", ""),
+                iban=validated.get("iban", ""),
+            )
+
+        # Mark email as verified and primary in allauth
+        EmailAddress.objects.get_or_create(
+            user=user, email=email, defaults={"verified": True, "primary": True}
+        )
+
+        # Record credentials on serializer for response
+        self.created_credentials = {
+            "username": username,
+            "email": email,
+            "password": raw_password,
+        }
+        return emp
 
 
-class EmployeeDocumentSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = EmployeeDocument
-        fields = ["id", "file", "name", "uploaded_at"]
-
-
-class DepartmentSerializer(serializers.ModelSerializer):
+class EmployeeReadSerializer(serializers.ModelSerializer):
+    # Enriched read: pull data from related models to match UI detail
     id = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Department
-        fields = ["id", "name", "description", "location", "budget_code"]
-
-    def get_id(self, obj: Department) -> str:
-        return str(obj.pk)
-
-
-class EmployeeSerializer(serializers.ModelSerializer):
-    id = serializers.SerializerMethodField()
-    photo = serializers.ImageField(allow_null=True, required=False)
-    full_name = serializers.CharField(read_only=True)
-    position = serializers.CharField(read_only=True)
-    status = serializers.SerializerMethodField()
-    email = serializers.CharField(read_only=True)
-    phone = serializers.CharField(read_only=True)
-    timezone = serializers.SerializerMethodField()
-    department = serializers.SerializerMethodField()
-    line_manager = LineManagerMiniSerializer(read_only=True)
-
-    # General (from user's profile)
-    gender = serializers.SerializerMethodField()
-    date_of_birth = serializers.SerializerMethodField()
-    nationality = serializers.SerializerMethodField()
-    health_care = serializers.SerializerMethodField()
-    marital_status = serializers.SerializerMethodField()
-    personal_tax_id = serializers.SerializerMethodField()
-    social_insurance = serializers.SerializerMethodField()
-
-    # Job
-    service_years = serializers.SerializerMethodField()
-    job_history = JobHistorySerializer(many=True, read_only=True)
-    contracts = ContractSerializer(many=True, read_only=True)
-
-    # Payroll
+    full_name = serializers.CharField(source="user.name", read_only=True)
+    email = serializers.EmailField(source="user.email", read_only=True)
+    phone = serializers.CharField(source="user.profile.phone", read_only=True)
+    timezone = serializers.CharField(source="time_zone", read_only=True)
+    department = serializers.CharField(source="department.name", read_only=True)
     employment_type = serializers.SerializerMethodField()
     job_title = serializers.CharField(source="title", read_only=True)
+    status = serializers.SerializerMethodField()
+    position = serializers.CharField(source="title", read_only=True)
+    gender = serializers.CharField(source="user.profile.gender", read_only=True)
+    date_of_birth = serializers.DateField(
+        source="user.profile.date_of_birth", read_only=True
+    )
+    nationality = serializers.CharField(
+        source="user.profile.nationality", read_only=True
+    )
+    marital_status = serializers.CharField(
+        source="user.profile.marital_status", read_only=True
+    )
+    personal_tax_id = serializers.CharField(
+        source="user.profile.personal_tax_id", read_only=True
+    )
+    social_insurance = serializers.CharField(
+        source="user.profile.social_insurance", read_only=True
+    )
     total_compensation = serializers.SerializerMethodField()
     salary = serializers.SerializerMethodField()
     recurring = serializers.SerializerMethodField()
     one_off = serializers.SerializerMethodField()
     offset = serializers.SerializerMethodField()
-
-    # Documents
-    documents = EmployeeDocumentSerializer(many=True, read_only=True)
+    job_history = serializers.SerializerMethodField()
+    contracts = serializers.SerializerMethodField()
+    documents = serializers.SerializerMethodField()
 
     class Meta:
         model = Employee
         fields = [
-            # Base
             "id",
             "photo",
             "full_name",
@@ -119,7 +291,6 @@ class EmployeeSerializer(serializers.ModelSerializer):
             "department",
             "office",
             "line_manager",
-            # General
             "gender",
             "date_of_birth",
             "nationality",
@@ -127,13 +298,11 @@ class EmployeeSerializer(serializers.ModelSerializer):
             "marital_status",
             "personal_tax_id",
             "social_insurance",
-            # Job
             "employee_id",
             "join_date",
             "service_years",
             "job_history",
             "contracts",
-            # Payroll
             "employment_type",
             "job_title",
             "last_working_date",
@@ -142,177 +311,117 @@ class EmployeeSerializer(serializers.ModelSerializer):
             "recurring",
             "one_off",
             "offset",
-            # Documents
             "documents",
         ]
 
-    # Base fields
-    def get_id(self, obj: Employee) -> str:
+    # Derived and passthrough helpers
+    def get_id(self, obj):
         return str(obj.pk)
 
-    def get_status(self, obj: Employee) -> str:
-        return "ACTIVE" if obj.is_active else "INACTIVE"
+    @property
+    def _latest_comp(self):
+        def _inner(emp):
+            return (
+                getattr(emp, "compensations", None).order_by("-created_at").first()
+                if hasattr(emp, "compensations")
+                else None
+            )
 
-    def get_timezone(self, obj: Employee) -> str:
-        tz = obj.time_zone or getattr(
-            getattr(obj.user, "profile", None), "time_zone", ""
-        )
-        return tz or ""
+        return _inner
 
-    def get_department(self, obj: Employee) -> str:
-        return obj.department.name if obj.department else ""
+    def get_total_compensation(self, obj):
+        comp = self._latest_comp(obj)
+        return f"{getattr(comp, 'total_compensation', 0) or 0:.2f}" if comp else "0.00"
 
-    # General fields
-    def _profile_value(self, obj: Employee, attr: str) -> Any:
-        profile = getattr(obj.user, "profile", None)
-        return getattr(profile, attr, None) if profile else None
-
-    def get_gender(self, obj: Employee) -> str:
-        return self._profile_value(obj, "gender") or ""
-
-    def get_date_of_birth(self, obj: Employee) -> str:
-        dob = self._profile_value(obj, "date_of_birth")
-        return dob.isoformat() if dob else ""
-
-    def get_nationality(self, obj: Employee) -> str:
-        return self._profile_value(obj, "nationality") or ""
-
-    def get_health_care(self, obj: Employee) -> str:
-        return getattr(obj, "health_care", "") or ""
-
-    def get_marital_status(self, obj: Employee) -> str:
-        return self._profile_value(obj, "marital_status") or ""
-
-    def get_personal_tax_id(self, obj: Employee) -> str:
-        return self._profile_value(obj, "personal_tax_id") or ""
-
-    def get_social_insurance(self, obj: Employee) -> str:
-        return self._profile_value(obj, "social_insurance") or ""
-
-    # Job fields
-    def get_service_years(self, obj: Employee) -> str:
-        return obj.service_years
-
-    # Payroll aggregations from latest Compensation
-    def _latest_comp(self, obj: Employee):
-        return (
-            getattr(obj, "compensations", None).order_by("-created_at").first()
-            if hasattr(obj, "compensations")
-            else None
-        )
-
-    def _sum_components(self, comp, kind: str) -> str:
-        if not comp:
-            return "0.00"
-        qs = comp.components.filter(kind=kind)
-        total = qs.aggregate(s=Sum("amount")).get("s") or 0
-        return f"{total:.2f}"
-
-    def get_total_compensation(self, obj: Employee) -> str:
+    def _sum_components(self, obj, kind: str) -> str:
         comp = self._latest_comp(obj)
         if not comp:
             return "0.00"
-        return f"{comp.total_compensation:.2f}"
+        total = (
+            comp.components.filter(kind=kind)
+            .aggregate(models.Sum("amount"))
+            .get("amount__sum")
+            or 0
+        )
+        return f"{total:.2f}"
 
-    def get_salary(self, obj: Employee) -> str:
-        return self._sum_components(self._latest_comp(obj), "base")
+    def get_salary(self, obj):
+        return self._sum_components(obj, "base")
 
-    def get_recurring(self, obj: Employee) -> str:
-        return self._sum_components(self._latest_comp(obj), "recurring")
+    def get_recurring(self, obj):
+        return self._sum_components(obj, "recurring")
 
-    def get_one_off(self, obj: Employee) -> str:
-        return self._sum_components(self._latest_comp(obj), "one_off")
+    def get_one_off(self, obj):
+        return self._sum_components(obj, "one_off")
 
-    def get_offset(self, obj: Employee) -> str:
-        return self._sum_components(self._latest_comp(obj), "offset")
+    def get_offset(self, obj):
+        return self._sum_components(obj, "offset")
 
-    def get_employment_type(self, obj: Employee) -> str:
-        latest_jh = obj.job_history.order_by("-effective_date", "-pk").first()
-        return getattr(latest_jh, "employment_type", "") or ""
+    def get_status(self, obj):
+        return "Active" if obj.is_active else "Inactive"
+
+    def get_employment_type(self, obj):
+        latest = obj.job_history.order_by("-effective_date", "-pk").first()
+        return getattr(latest, "employment_type", "") if latest else ""
+
+    def get_job_history(self, obj):
+        return [
+            {
+                "id": j.pk,
+                "effective_date": j.effective_date.isoformat(),
+                "job_title": j.job_title,
+                "position_type": j.position_type,
+                "employment_type": j.employment_type,
+            }
+            for j in obj.job_history.order_by("effective_date", "pk")
+        ]
+
+    def get_contracts(self, obj):
+        return [
+            {
+                "id": c.pk,
+                "contract_number": c.contract_number,
+                "contract_name": c.contract_name,
+                "contract_type": c.contract_type,
+                "start_date": c.start_date.isoformat(),
+                "end_date": c.end_date.isoformat() if c.end_date else None,
+            }
+            for c in obj.contracts.order_by("start_date", "pk")
+        ]
+
+    def get_documents(self, obj):
+        return [
+            {"id": d.pk, "name": d.name, "uploaded_at": d.uploaded_at.isoformat()}
+            for d in obj.documents.order_by("-uploaded_at")
+        ]
 
 
-class EmployeeWriteSerializer(serializers.ModelSerializer):
+class EmployeeUpdateSerializer(serializers.ModelSerializer):
+    # Allow updating core employee fields only; map *_id for convenience
     department_id = serializers.PrimaryKeyRelatedField(
-        source="department",
         queryset=Department.objects.all(),
         required=False,
         allow_null=True,
+        source="department",
     )
     line_manager_id = serializers.PrimaryKeyRelatedField(
-        source="line_manager",
         queryset=Employee.objects.all(),
         required=False,
         allow_null=True,
+        source="line_manager",
     )
 
     class Meta:
         model = Employee
         fields = [
-            "employee_id",
+            "photo",
+            "time_zone",
+            "office",
             "title",
+            "join_date",
+            "last_working_date",
+            "is_active",
+            "health_care",
             "department_id",
             "line_manager_id",
-            "join_date",
-            "last_working_date",
-            "time_zone",
-            "office",
-            "health_care",
-            "is_active",
-            "photo",
         ]
-
-
-class OnboardExistingSerializer(serializers.Serializer):
-    """Payload for onboarding an existing User into an Employee record."""
-
-    user = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.filter(employee__isnull=True),
-        help_text="User id of an existing user without an Employee record",
-    )
-    department_id = serializers.PrimaryKeyRelatedField(
-        source="department",
-        queryset=Department.objects.all(),
-        required=False,
-        allow_null=True,
-    )
-    title = serializers.CharField(required=False, allow_blank=True)
-    employee_id = serializers.CharField(required=False, allow_blank=True)
-
-
-class EmployeeCreateSerializer(serializers.ModelSerializer):
-    user = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.filter(employee__isnull=True),
-        help_text="User id of an existing user without an Employee record",
-    )
-    department_id = serializers.PrimaryKeyRelatedField(
-        source="department",
-        queryset=Department.objects.all(),
-        required=False,
-        allow_null=True,
-    )
-
-    class Meta:
-        model = Employee
-        fields = [
-            "user",
-            "employee_id",
-            "title",
-            "department_id",
-            "join_date",
-            "last_working_date",
-            "time_zone",
-            "office",
-            "health_care",
-            "is_active",
-            "photo",
-        ]
-
-
-class UserCandidateSerializer(serializers.ModelSerializer):
-    """Lightweight user representation for onboarding selection."""
-
-    full_name = serializers.CharField(source="name", read_only=True)
-
-    class Meta:
-        model = User
-        fields = ["id", "username", "full_name", "email"]

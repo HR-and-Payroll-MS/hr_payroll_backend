@@ -3,6 +3,7 @@ With these settings, tests run faster.
 """
 
 from .base import *  # noqa: F403
+from .base import DATABASES
 from .base import TEMPLATES
 from .base import env
 
@@ -39,3 +40,8 @@ MEDIA_URL = "http://media.testserver/"
 WEBPACK_LOADER["DEFAULT"]["LOADER_CLASS"] = "webpack_loader.loaders.FakeWebpackLoader"  # noqa: F405
 # Your stuff...
 # ------------------------------------------------------------------------------
+
+# Force Postgres test DB to use template0 to avoid collation
+# version mismatch in containerized environments
+DATABASES["default"].setdefault("TEST", {})
+DATABASES["default"]["TEST"]["TEMPLATE"] = "template0"

@@ -384,7 +384,7 @@ REST_AUTH = {
 
 # SimpleJWT defaults
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(seconds=45),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
@@ -398,6 +398,10 @@ JWT_AUTH_REFRESH_COOKIE = env("JWT_AUTH_REFRESH_COOKIE", default="refresh_token"
 JWT_AUTH_COOKIE_SAMESITE = env("JWT_AUTH_COOKIE_SAMESITE", default="Lax")
 # In production this should be True to send cookies only over HTTPS
 JWT_AUTH_COOKIE_SECURE = env.bool("JWT_AUTH_COOKIE_SECURE", default=not DEBUG)
+
+# Generated identity defaults
+# Domain to use for auto-generated user emails during employee registration
+GENERATED_EMAIL_DOMAIN = env("GENERATED_EMAIL_DOMAIN", default="example.com")
 # Enforce CSRF protection when using cookies for JWT
 JWT_AUTH_COOKIE_USE_CSRF = env.bool("JWT_AUTH_COOKIE_USE_CSRF", default=True)
 
@@ -452,6 +456,15 @@ SPECTACULAR_SETTINGS = {
     "SERVE_AUTHENTICATION": ["rest_framework.authentication.SessionAuthentication"],
     # Strip /api/v1 prefix so tags/grouping derive from the resource, not the version.
     "SCHEMA_PATH_PREFIX": "/api/v1/",
+    # Group JWT endpoints under a custom tag label used by tests
+    "TAGS": [
+        {"name": "JWT Authentication", "description": "JWT auth endpoints"},
+        {"name": "Authentication", "description": "Other auth endpoints"},
+    ],
+    # As some third-party views use generic 'Authentication' tag, enforce proper JWT grouping
+    "POSTPROCESSING_HOOKS": [
+        "config.spectacular_hooks.jwt_tag_override",
+    ],
 }
 # HR policy toggles
 # Require explicit approval for department manager assignments (future flow).

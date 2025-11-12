@@ -345,6 +345,17 @@ class BankDetailViewSet(viewsets.ModelViewSet):
                 target.fields["employee"].read_only = True
         return serializer
 
+    def perform_create(self, serializer):
+        # Bind employee automatically when using nested route; otherwise use payload
+        employee_id = self.kwargs.get("employee_id")
+        if employee_id:
+            if not Employee.objects.filter(pk=employee_id).exists():
+                msg = "Employee not found."
+                raise NotFound(msg)
+            serializer.save(employee_id=employee_id)
+        else:
+            serializer.save()
+
 
 @extend_schema_view(
     list=extend_schema(tags=["Employees • Dependents"]),
@@ -385,3 +396,14 @@ class DependentViewSet(viewsets.ModelViewSet):
                 target.fields["employee"].required = False
                 target.fields["employee"].read_only = True
         return serializer
+
+    def perform_create(self, serializer):
+        # Bind employee automatically when using nested route; otherwise use payload
+        employee_id = self.kwargs.get("employee_id")
+        if employee_id:
+            if not Employee.objects.filter(pk=employee_id).exists():
+                msg = "Employee not found."
+                raise NotFound(msg)
+            serializer.save(employee_id=employee_id)
+        else:
+            serializer.save()

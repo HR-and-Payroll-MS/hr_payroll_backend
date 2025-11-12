@@ -29,10 +29,10 @@ repos:
     hooks:
       - id: prettier-inside-docker
         name: prettier (docker)
-        entry: docker compose -f backend/docker-compose.local.yml run --rm node npx prettier --tab-width 2 --single-quote
+        entry: docker compose -f docker-compose.local.yml run --rm node npx prettier --tab-width 2 --single-quote
         language: system
         types: [javascript, json, yaml, html, css, scss]
-        exclude: 'backend/hr_payroll/templates/'
+        exclude: 'hr_payroll/templates/'
 
   - repo: https://github.com/adamchainz/django-upgrade
     rev: '1.25.0'
