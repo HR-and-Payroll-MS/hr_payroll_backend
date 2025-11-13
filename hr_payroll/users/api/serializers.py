@@ -1,3 +1,4 @@
+from django.urls import NoReverseMatch
 from django.urls import reverse
 from rest_framework import serializers
 
@@ -33,18 +34,48 @@ class UserSerializer(serializers.ModelSerializer[User]):
     def get_url(self, obj: User) -> str:
         request = self.context.get("request")
         if request is None:
-            # Fallback to default api namespace
-            return reverse("api:user-detail", kwargs={"username": obj.username})
+            # Try common namespaced and non-namespaced route names
+            for candidate in (
+                "api_v1:user-detail",
+                "api:user-detail",
+                "user-detail",
+            ):
+                try:
+                    return reverse(candidate, kwargs={"username": obj.username})
+                except NoReverseMatch:
+                    continue
+            # Give up gracefully
+            return ""
+
         namespace = getattr(
             getattr(request, "resolver_match", None),
             "namespace",
-            "api",
+            None,
         )
-        # Choose view name based on namespace
-        view_name = "api_v1:user-detail" if namespace == "api_v1" else "api:user-detail"
-        return request.build_absolute_uri(
-            reverse(view_name, kwargs={"username": obj.username}),
+
+        # Build a list of candidate view names to try in order of likelihood.
+        candidates = []
+        if namespace:
+            candidates.append(f"{namespace}:user-detail")
+        candidates.extend(
+            [
+                "api_v1:user-detail",
+                "api:user-detail",
+                "user-detail",
+            ]
         )
+
+        for view_name in candidates:
+            try:
+                url = reverse(view_name, kwargs={"username": obj.username})
+            except NoReverseMatch:
+                continue
+            return request.build_absolute_uri(url)
+
+        # If we couldn't resolve any name, return an empty string rather than raising
+        # to avoid crashing serialization in environments with different router
+        # registrations.
+        return ""
 
     def update(self, instance, validated_data):
         # Enforce invariant: username & email are system-managed (onboarding rules)
