@@ -24,6 +24,8 @@ class UserViewSet(RetrieveModelMixin, ListModelMixin, UpdateModelMixin, GenericV
     serializer_class = UserSerializer
     queryset = User.objects.all()
     lookup_field = "username"
+    # Allow dots in usernames (e.g., "first.last"). Default DRF pattern blocks '.'
+    lookup_value_regex = r"[^/]+"
     # Keep legacy API contract: return a plain list (no pagination) for /api/v1/users/
     pagination_class = None
 

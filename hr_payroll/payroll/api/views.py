@@ -1,6 +1,7 @@
 from django.db.models import Sum
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.utils import extend_schema_view
+from rest_framework import serializers
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound
@@ -272,6 +273,18 @@ class PayrollRecordViewSet(viewsets.ModelViewSet):
 class PayrollReportViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
 
+    class PayrollReportRowSerializer(serializers.Serializer):
+        employee_id = serializers.IntegerField()
+        total_comp = serializers.DecimalField(max_digits=12, decimal_places=2)
+        salary = serializers.DecimalField(max_digits=12, decimal_places=2)
+        actual = serializers.DecimalField(max_digits=12, decimal_places=2)
+        recurring = serializers.DecimalField(max_digits=12, decimal_places=2)
+        one_off = serializers.DecimalField(max_digits=12, decimal_places=2)
+        offset = serializers.DecimalField(max_digits=12, decimal_places=2)
+        ot = serializers.DecimalField(max_digits=12, decimal_places=2)
+
+    serializer_class = PayrollReportRowSerializer
+
     @extend_schema(tags=["Payroll • Reports"])
     def list(self, request):
         """Return a paginated payroll report (aggregated per employee) for a date range.
@@ -301,8 +314,10 @@ class PayrollReportViewSet(viewsets.ViewSet):
         )
         # Simple pagination
         paginator = PageNumberPagination()
-        paged = paginator.paginate_queryset(list(agg), request)
-        return paginator.get_paginated_response(paged)
+        rows: list[dict] = list(agg)
+        paged = paginator.paginate_queryset(rows, request)
+        serializer = self.serializer_class(paged, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
 
 @extend_schema_view(

@@ -36,7 +36,7 @@ class AttendanceSerializer(serializers.ModelSerializer):
             "status",
         ]
 
-    def get_logged_time(self, obj):
+    def get_logged_time(self, obj) -> str | None:
         lt = obj.logged_time
         if lt is None:
             return None
@@ -45,7 +45,7 @@ class AttendanceSerializer(serializers.ModelSerializer):
         minutes, seconds = divmod(rem, 60)
         return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
-    def get_deficit(self, obj):
+    def get_deficit(self, obj) -> str | None:
         d = obj.deficit
         if d is None:
             return None
@@ -56,7 +56,7 @@ class AttendanceSerializer(serializers.ModelSerializer):
         minutes, seconds = divmod(rem, 60)
         return f"{sign}{hours:02d}:{minutes:02d}:{seconds:02d}"
 
-    def get_overtime(self, obj):
+    def get_overtime(self, obj) -> str | None:
         ot = getattr(obj, "overtime", None)
         if ot is None:
             return None
