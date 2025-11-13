@@ -2,6 +2,7 @@ from django.db import models
 from django.db import transaction
 from drf_spectacular.utils import OpenApiExample
 from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema_view
 from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -18,6 +19,10 @@ from .serializers import EmployeeRegistrationSerializer
 from .serializers import EmployeeUpdateSerializer
 
 
+@extend_schema_view(
+    list=extend_schema(tags=["Employees"]),
+    retrieve=extend_schema(tags=["Employees"]),
+)
 class EmployeeRegistrationViewSet(viewsets.ModelViewSet):
     queryset = Employee.objects.all().select_related("user", "department")
     serializer_class = EmployeeReadSerializer
