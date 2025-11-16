@@ -1,5 +1,7 @@
+import ipaddress
 from collections import defaultdict
 
+from django.conf import settings
 from django.db import models
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -19,8 +21,27 @@ from hr_payroll.attendance.api.serializers import AttendanceAdjustmentSerializer
 from hr_payroll.attendance.api.serializers import AttendanceSerializer
 from hr_payroll.attendance.models import Attendance
 from hr_payroll.attendance.models import AttendanceAdjustment
+from hr_payroll.attendance.models import OfficeNetwork
 from hr_payroll.employees.api.permissions import IsAdminOrHROrLineManagerScopedWrite
 from hr_payroll.employees.models import Employee
+
+
+def _is_ip_allowed(remote_ip: str) -> bool:
+    """Return True if remote_ip is within any active OfficeNetwork CIDR."""
+    if not remote_ip:
+        return False
+    try:
+        addr = ipaddress.ip_address(remote_ip)
+    except ValueError:
+        return False
+    for net in OfficeNetwork.objects.filter(is_active=True).only("cidr"):
+        try:
+            network = ipaddress.ip_network(net.cidr, strict=False)
+        except ValueError:
+            continue
+        if addr in network:
+            return True
+    return False
 
 
 @extend_schema_view(
@@ -60,9 +81,9 @@ class AttendanceViewSet(
         parameters=[
             OpenApiParameter(
                 name="employee",
-                type=OpenApiTypes.STR,
+                type=OpenApiTypes.INT,
                 location=OpenApiParameter.QUERY,
-                description="Filter by employee UUID",
+                description="Filter by employee ID",
             ),
             OpenApiParameter(
                 name="date",
@@ -101,6 +122,15 @@ class AttendanceViewSet(
                 location=OpenApiParameter.QUERY,
                 description="Filter by employee office (icontains)",
             ),
+            OpenApiParameter(
+                name="record_type",
+                type=OpenApiTypes.STR,
+                enum=["clock", "adjust"],
+                location=OpenApiParameter.QUERY,
+                description=(
+                    "Filter adjustments only (adjust) or clock records (clock)"
+                ),
+            ),
         ]
     )
     def get_queryset(self):  # noqa: C901
@@ -126,6 +156,7 @@ class AttendanceViewSet(
         status_param = self.request.query_params.get("status")
         location = self.request.query_params.get("location")
         office = self.request.query_params.get("office")
+        record_type = self.request.query_params.get("record_type")
         if employee:
             qs = qs.filter(employee_id=employee)
         if date:
@@ -143,6 +174,8 @@ class AttendanceViewSet(
             )
         if office:
             qs = qs.filter(employee__office__icontains=office)
+        if record_type == "adjust":
+            qs = qs.filter(adjustments__isnull=False)
         return qs
 
     @action(detail=True, methods=["post"], url_path="clock-out")
@@ -166,6 +199,7 @@ class AttendanceViewSet(
                 )
         clock_out = request.data.get("clock_out")
         clock_out_location = request.data.get("clock_out_location")
+        notes = request.data.get("notes")
         if not clock_out:
             return Response(
                 {"clock_out": "required"}, status=status.HTTP_400_BAD_REQUEST
@@ -179,9 +213,135 @@ class AttendanceViewSet(
         inst.clock_out = dt
         if clock_out_location:
             inst.clock_out_location = clock_out_location
-        inst.save(update_fields=["clock_out", "clock_out_location", "updated_at"])
+        update_fields = ["clock_out", "clock_out_location", "updated_at"]
+        if isinstance(notes, str):
+            inst.notes = notes
+            update_fields.append("notes")
+        inst.save(update_fields=update_fields)
         serializer = self.get_serializer(inst)
         return Response(serializer.data)
+
+    @action(detail=False, methods=["post"], url_path="clock-in")
+    @extend_schema(tags=["Attendance • Records"])
+    def clock_in(self, request):
+        """Create today's attendance record.
+
+        Non-elevated users: create for the authenticated user's employee.
+        Optional `date` (YYYY-MM-DD) and `clock_in` (ISO). Requires
+        `clock_in_location`.
+        """
+        u = request.user
+        emp = getattr(u, "employee", None)
+        if not emp:
+            return Response({"detail": "No employee profile"}, status=400)
+        # Restrict self-submission to company IP ranges for non-elevated users
+        groups = getattr(u, "groups", None)
+        is_hr = bool(getattr(u, "is_staff", False)) or bool(
+            groups and groups.filter(name__in=["Admin", "Manager"]).exists()
+        )
+        is_line_manager = bool(groups and groups.filter(name="Line Manager").exists())
+        if not (is_hr or is_line_manager):
+            # extract client ip (prefer first XFF entry; fallback to REMOTE_ADDR)
+            xff = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
+            remote_ip = xff or (request.META.get("REMOTE_ADDR") or "").strip()
+            if not _is_ip_allowed(remote_ip):
+                return Response(
+                    {"detail": "Self clock-in allowed only from company network"},
+                    status=403,
+                )
+        date_str = request.data.get("date")
+        clock_in_val = request.data.get("clock_in")
+        clock_in_location = request.data.get("clock_in_location")
+        if not clock_in_location:
+            return Response({"clock_in_location": "required"}, status=400)
+        date_val = (
+            timezone.datetime.fromisoformat(date_str).date()
+            if date_str
+            else timezone.now().date()
+        )
+        if Attendance.objects.filter(employee=emp, date=date_val).exists():
+            return Response(
+                {"detail": "Attendance already exists for date"}, status=400
+            )
+        dt = (
+            parse_datetime(clock_in_val)
+            if isinstance(clock_in_val, str)
+            else (clock_in_val or timezone.now())
+        )
+        att = Attendance.objects.create(
+            employee=emp,
+            date=date_val,
+            clock_in=dt,
+            clock_in_location=clock_in_location,
+        )
+        return Response(self.get_serializer(att).data, status=201)
+
+    @action(detail=False, methods=["post"], url_path="fingerprint/scan")
+    @extend_schema(
+        tags=["Attendance • Records"],
+        description=(
+            "Scan via fingerprint/device token. If no record exists for the day, "
+            "creates a clock-in; otherwise, if an open record exists, performs "
+            "clock-out. Disallows multiple completed records per day."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="timestamp",
+                type=OpenApiTypes.DATETIME,
+                location=OpenApiParameter.QUERY,
+                description="Optional ISO datetime for the event; defaults to now",
+            ),
+        ],
+    )
+    def fingerprint_scan(self, request):
+        """Handle a device scan identified by `fingerprint_token`.
+
+        Body: { fingerprint_token: str, location?: str, timestamp?: ISO str }
+        """
+        token = request.data.get("fingerprint_token")
+        if not token:
+            return Response({"fingerprint_token": "required"}, status=400)
+        try:
+            emp = Employee.objects.get(fingerprint_token=token)
+        except Employee.DoesNotExist:
+            return Response({"detail": "Unknown fingerprint token"}, status=404)
+
+        ts_val = request.data.get("timestamp") or request.query_params.get("timestamp")
+        dt = (
+            parse_datetime(ts_val)
+            if isinstance(ts_val, str)
+            else (ts_val or timezone.now())
+        )
+        if dt is None:
+            return Response({"timestamp": "invalid datetime"}, status=400)
+        date_val = dt.date()
+        loc = request.data.get("location") or ""
+
+        att = Attendance.objects.filter(employee=emp, date=date_val).first()
+        action_taken = None
+        if not att:
+            att = Attendance.objects.create(
+                employee=emp,
+                date=date_val,
+                clock_in=dt,
+                clock_in_location=loc,
+            )
+            action_taken = "clock_in"
+        else:
+            if att.clock_out:
+                return Response(
+                    {"detail": "Attendance already completed for date"},
+                    status=400,
+                )
+            att.clock_out = dt
+            if loc:
+                att.clock_out_location = loc
+            att.save(update_fields=["clock_out", "clock_out_location", "updated_at"])
+            action_taken = "clock_out"
+
+        data = self.get_serializer(att).data
+        data["action"] = action_taken
+        return Response(data, status=200 if action_taken == "clock_out" else 201)
 
     @action(
         detail=True,
@@ -193,6 +353,13 @@ class AttendanceViewSet(
     def adjust_paid_time(self, request, pk=None):
         """Adjust paid_time and create an adjustment audit record."""
         inst = self.get_object()
+        # Enforce edit window
+        window_days = int(getattr(settings, "ATTENDANCE_EDIT_WINDOW_DAYS", 31))
+        if (timezone.now().date() - inst.date).days > window_days:
+            return Response(
+                {"detail": f"Edit window exceeded ({window_days} days)"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         new_paid = request.data.get("paid_time")
         notes = request.data.get("notes", "")
         if new_paid is None:
@@ -449,7 +616,9 @@ class AttendanceViewSet(
             items.append(
                 {
                     "employee": str(emp_id),
-                    "employee_name": getattr(emp_obj, "full_name", ""),
+                    "employee_name": getattr(
+                        getattr(emp_obj, "user", None), "name", ""
+                    ),
                     "count": t["count"],
                     "total_logged": fmt(t["total_logged"]),
                     "total_paid": fmt(t["total_paid"]),

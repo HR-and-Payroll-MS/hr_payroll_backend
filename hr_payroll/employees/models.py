@@ -25,6 +25,11 @@ class Employee(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="employee"
     )
     photo = models.ImageField(upload_to=employee_photo_upload_to, blank=True, null=True)
+    # Simple token alias to map a device-submitted fingerprint/template to an employee
+    # Can store hashed template IDs or external device identifiers
+    fingerprint_token = models.CharField(
+        max_length=128, unique=True, blank=True, null=True
+    )
     time_zone = models.CharField(max_length=50, blank=True)
     office = models.CharField(max_length=100, blank=True)
     title = models.CharField(max_length=150, blank=True)

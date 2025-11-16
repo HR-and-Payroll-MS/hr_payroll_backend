@@ -6,6 +6,9 @@ from drf_spectacular.utils import extend_schema_view
 from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.decorators import action
+from rest_framework.parsers import FormParser
+from rest_framework.parsers import JSONParser
+from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -27,6 +30,7 @@ class EmployeeRegistrationViewSet(viewsets.ModelViewSet):
     queryset = Employee.objects.all().select_related("user", "department")
     serializer_class = EmployeeReadSerializer
     permission_classes = [IsAuthenticated, IsSelfEmployeeOrElevated]
+    parser_classes = (JSONParser, MultiPartParser, FormParser)
 
     def get_queryset(self):
         """Scope employees by role.
@@ -126,6 +130,8 @@ class EmployeeRegistrationViewSet(viewsets.ModelViewSet):
                     "bank_name": "ACME",
                     "account_name": "Payroll",
                     "account_number": "123456",
+                    "document_name": "ID Card",
+                    "document_file": "<binary>",
                 },
                 request_only=True,
             )
@@ -138,7 +144,9 @@ class EmployeeRegistrationViewSet(viewsets.ModelViewSet):
         permission_classes=[IsAuthenticated, IsAdminOrManagerCanWrite],
     )
     def register(self, request):
-        ser = EmployeeRegistrationSerializer(data=request.data)
+        ser = EmployeeRegistrationSerializer(
+            data=request.data, context={"request": request}
+        )
         ser.is_valid(raise_exception=True)
         with transaction.atomic():
             emp = ser.save()
@@ -156,7 +164,9 @@ class EmployeeRegistrationViewSet(viewsets.ModelViewSet):
         responses={201: EmployeeReadSerializer},
     )
     def create(self, request, *args, **kwargs):
-        ser = EmployeeRegistrationSerializer(data=request.data)
+        ser = EmployeeRegistrationSerializer(
+            data=request.data, context={"request": request}
+        )
         ser.is_valid(raise_exception=True)
         with transaction.atomic():
             emp = ser.save()

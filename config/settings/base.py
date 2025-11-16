@@ -1,6 +1,6 @@
-# ruff: noqa: ERA001, E501
 """Base settings to build other settings files upon."""
 
+import os
 import ssl
 from datetime import timedelta
 from pathlib import Path
@@ -30,12 +30,6 @@ TIME_ZONE = "Africa/Nairobi"
 # https://docs.djangoproject.com/en/dev/ref/settings/#language-code
 LANGUAGE_CODE = "en-us"
 # https://docs.djangoproject.com/en/dev/ref/settings/#languages
-# from django.utils.translation import gettext_lazy as _
-# LANGUAGES = [
-#     ('en', _('English')),
-#     ('fr-fr', _('French')),
-#     ('pt-br', _('Portuguese')),
-# ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#site-id
 SITE_ID = 1
 # https://docs.djangoproject.com/en/dev/ref/settings/#use-i18n
@@ -62,6 +56,9 @@ DATABASES = {
 DATABASES["default"]["ATOMIC_REQUESTS"] = True
 # https://docs.djangoproject.com/en/stable/ref/settings/#std:setting-DEFAULT_AUTO_FIELD
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Attendance settings
+ATTENDANCE_EDIT_WINDOW_DAYS = int(os.getenv("ATTENDANCE_EDIT_WINDOW_DAYS", "31"))
 
 # URLS
 # ------------------------------------------------------------------------------
@@ -92,7 +89,8 @@ THIRD_PARTY_APPS = [
     "allauth.socialaccount",
     "django_celery_beat",
     "rest_framework",
-    "rest_framework.authtoken",  # Present to satisfy dj-rest-auth imports; no token endpoints exposed
+    # Present to satisfy dj-rest-auth imports; no token endpoints exposed
+    "rest_framework.authtoken",
     "corsheaders",
     "drf_spectacular",
     "webpack_loader",
@@ -148,11 +146,13 @@ PASSWORD_HASHERS = [
 # https://docs.djangoproject.com/en/dev/ref/settings/#auth-password-validators
 AUTH_PASSWORD_VALIDATORS = [
     {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+        "NAME": (
+            "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
+        ),
     },
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
-    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
-    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+    {"NAME": ("django.contrib.auth.password_validation.MinimumLengthValidator")},
+    {"NAME": ("django.contrib.auth.password_validation.CommonPasswordValidator")},
+    {"NAME": ("django.contrib.auth.password_validation.NumericPasswordValidator")},
 ]
 
 # Feature flags
@@ -279,7 +279,10 @@ LOGGING = {
     "disable_existing_loggers": False,
     "formatters": {
         "verbose": {
-            "format": "%(levelname)s %(asctime)s %(module)s %(process)d %(thread)d %(message)s",
+            "format": (
+                "%(levelname)s %(asctime)s %(module)s "
+                "%(process)d %(thread)d %(message)s"
+            ),
         },
     },
     "handlers": {
@@ -384,7 +387,7 @@ REST_AUTH = {
 
 # SimpleJWT defaults
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
@@ -392,7 +395,7 @@ SIMPLE_JWT = {
 }
 
 # dj-rest-auth cookie-based JWT (HttpOnly cookies for browsers)
-# Access/refresh cookies will be set by dj-rest-auth login/refresh endpoints when REST_USE_JWT=True
+# When REST_USE_JWT=True, login/refresh endpoints set access/refresh cookies
 JWT_AUTH_COOKIE = env("JWT_AUTH_COOKIE", default="access_token")
 JWT_AUTH_REFRESH_COOKIE = env("JWT_AUTH_REFRESH_COOKIE", default="refresh_token")
 JWT_AUTH_COOKIE_SAMESITE = env("JWT_AUTH_COOKIE_SAMESITE", default="Lax")
@@ -400,7 +403,7 @@ JWT_AUTH_COOKIE_SAMESITE = env("JWT_AUTH_COOKIE_SAMESITE", default="Lax")
 JWT_AUTH_COOKIE_SECURE = env.bool("JWT_AUTH_COOKIE_SECURE", default=not DEBUG)
 
 # Generated identity defaults
-# Domain to use for auto-generated user emails during employee registration
+# Domain used for auto-generated user emails during employee registration
 GENERATED_EMAIL_DOMAIN = env("GENERATED_EMAIL_DOMAIN", default="example.com")
 # Enforce CSRF protection when using cookies for JWT
 JWT_AUTH_COOKIE_USE_CSRF = env.bool("JWT_AUTH_COOKIE_USE_CSRF", default=True)
@@ -423,12 +426,12 @@ DJOSER = {
         "user_create": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
         "user_delete": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
         "user_list": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
-        # Everyone authenticated can view/update their own user; serializer enforces field-level restrictions
+        # Authenticated users may view/update their own user; serializer limits fields
         "user": ["rest_framework.permissions.IsAuthenticated"],
         "current_user": ["rest_framework.permissions.IsAuthenticated"],
         # Allow authenticated users to change their own password
         "set_password": ["rest_framework.permissions.IsAuthenticated"],
-        # Restrict username reset workflow to admins only to avoid user enumeration or unwanted emails
+        # Restrict username reset workflow to admins only
         "username_reset": ["rest_framework.permissions.IsAdminUser"],
         "username_reset_confirm": ["rest_framework.permissions.IsAdminUser"],
     },
@@ -446,22 +449,22 @@ CSRF_COOKIE_SECURE = env.bool("CSRF_COOKIE_SECURE", default=not DEBUG)
 _csrf_origins = env("CSRF_TRUSTED_ORIGINS", default="")
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins.split(",") if o.strip()]
 
-# By Default swagger ui is available only to admin user(s). You can change permission classes to change that
-# See more configuration options at https://drf-spectacular.readthedocs.io/en/latest/settings.html#settings
+# Swagger UI is restricted to admin users by default (change via permissions).
+# More options: https://drf-spectacular.readthedocs.io/en/latest/settings.html
 SPECTACULAR_SETTINGS = {
     "TITLE": "hr_payroll API",
     "DESCRIPTION": "Documentation of API endpoints of hr_payroll",
     "VERSION": "1.0.0",
     "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAdminUser"],
     "SERVE_AUTHENTICATION": ["rest_framework.authentication.SessionAuthentication"],
-    # Strip /api/v1 prefix so tags/grouping derive from the resource, not the version.
+    # Strip /api/v1 prefix so tags/grouping derive from resource, not version.
     "SCHEMA_PATH_PREFIX": "/api/v1/",
     # Group JWT endpoints under a custom tag label used by tests
     "TAGS": [
         {"name": "JWT Authentication", "description": "JWT auth endpoints"},
         {"name": "Authentication", "description": "Other auth endpoints"},
     ],
-    # As some third-party views use generic 'Authentication' tag, enforce proper JWT grouping
+    # Enforce proper JWT grouping when third-party views use generic tags
     "POSTPROCESSING_HOOKS": [
         "config.spectacular_hooks.jwt_tag_override",
     ],

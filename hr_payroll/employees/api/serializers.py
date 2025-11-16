@@ -1,13 +1,18 @@
+from contextlib import suppress
+from pathlib import Path
 from typing import Any
 
 from allauth.account.models import EmailAddress
 from django.conf import settings
 from django.db import models
 from django.utils.crypto import get_random_string
+from PIL import Image
+from PIL import UnidentifiedImageError
 from rest_framework import serializers
 
 from hr_payroll.employees.models import Contract
 from hr_payroll.employees.models import Employee
+from hr_payroll.employees.models import EmployeeDocument
 from hr_payroll.employees.models import JobHistory
 from hr_payroll.org.models import Department
 from hr_payroll.payroll.models import BankDetail
@@ -16,6 +21,12 @@ from hr_payroll.payroll.models import Dependent
 from hr_payroll.payroll.models import SalaryComponent
 from hr_payroll.users.models import User
 from hr_payroll.users.models import UserProfile
+
+TOKEN_MAX_LEN = 128
+MAX_PHOTO_MB = 5
+MAX_DOC_MB = 15
+ALLOWED_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
+ALLOWED_DOC_EXTS = ALLOWED_IMAGE_EXTS | {".pdf", ".docx", ".xlsx"}
 
 
 class SalaryComponentInputSerializer(serializers.Serializer):
@@ -43,7 +54,18 @@ class EmployeeRegistrationSerializer(serializers.Serializer):
     marital_status = serializers.CharField(required=False, allow_blank=True)
     personal_tax_id = serializers.CharField(required=False, allow_blank=True)
     social_insurance = serializers.CharField(required=False, allow_blank=True)
-    photo = serializers.ImageField(required=False, allow_null=True)
+    photo = serializers.ImageField(
+        required=False,
+        allow_null=True,
+        help_text="Allowed: jpg, jpeg, png, webp. Max 5MB",
+    )
+    # Optional single document uploaded at registration
+    document_name = serializers.CharField(required=False, allow_blank=True)
+    document_file = serializers.FileField(
+        required=False,
+        allow_null=True,
+        help_text="Allowed: pdf, docx, xlsx, jpg, jpeg, png, webp. Max 15MB",
+    )
 
     # Employees (Job Tab)
     department_id = serializers.PrimaryKeyRelatedField(
@@ -83,6 +105,68 @@ class EmployeeRegistrationSerializer(serializers.Serializer):
     account_number = serializers.CharField(required=False, allow_blank=True)
     iban = serializers.CharField(required=False, allow_blank=True)
 
+    # Optional fingerprint/device token to enroll during registration
+    fingerprint_token = serializers.CharField(required=False, allow_blank=True)
+
+    def _validate_image(self, f):
+        if f is None:
+            return f
+        size_mb = (getattr(f, "size", 0) or 0) / (1024 * 1024)
+        if size_mb > MAX_PHOTO_MB:
+            msg = f"Image too large: {size_mb:.1f} MB > {MAX_PHOTO_MB} MB"
+            raise serializers.ValidationError({"photo": [msg]})
+        ext = Path(getattr(f, "name", "")).suffix
+        if ext.lower() not in ALLOWED_IMAGE_EXTS:
+            allowed = ", ".join(sorted(ALLOWED_IMAGE_EXTS))
+            msg = f"Unsupported image type '{ext}'. Allowed: {allowed}"
+            raise serializers.ValidationError({"photo": [msg]})
+        try:
+            # Pillow validation to ensure file is a real image
+            Image.open(f).verify()
+        except UnidentifiedImageError as exc:
+            msg = "Invalid image file"
+            raise serializers.ValidationError({"photo": [msg]}) from exc
+        finally:
+            with suppress(Exception):
+                f.seek(0)
+        return f
+
+    def _validate_document(self, f, name: str | None = None):
+        if f is None:
+            return f
+        size_mb = (getattr(f, "size", 0) or 0) / (1024 * 1024)
+        if size_mb > MAX_DOC_MB:
+            msg = f"File too large: {size_mb:.1f} MB > {MAX_DOC_MB} MB"
+            raise serializers.ValidationError({"document_file": [msg]})
+        filename = getattr(f, "name", "")
+        ext = Path(filename).suffix
+        if ext.lower() not in ALLOWED_DOC_EXTS:
+            allowed = ", ".join(sorted(ALLOWED_DOC_EXTS))
+            msg = f"Unsupported file type '{ext}'. Allowed: {allowed}"
+            raise serializers.ValidationError({"document_file": [msg]})
+        # For images, additionally validate with Pillow
+        if ext.lower() in ALLOWED_IMAGE_EXTS:
+            try:
+                Image.open(f).verify()
+            except UnidentifiedImageError as exc:
+                msg = "Invalid image file"
+                raise serializers.ValidationError({"document_file": [msg]}) from exc
+            finally:
+                with suppress(Exception):
+                    f.seek(0)
+        return f
+
+    def validate_fingerprint_token(self, value: str) -> str:
+        if not value:
+            return value
+        if Employee.objects.filter(fingerprint_token=value).exists():
+            msg = "Fingerprint token already in use"
+            raise serializers.ValidationError(msg)
+        if len(value) > TOKEN_MAX_LEN:
+            msg = f"Must be at most {TOKEN_MAX_LEN} characters"
+            raise serializers.ValidationError(msg)
+        return value
+
     def _generate_username(self, first_name: str, last_name: str) -> str:
         """Generate a unique username with a short salt to avoid collisions.
 
@@ -115,7 +199,7 @@ class EmployeeRegistrationSerializer(serializers.Serializer):
         nxt = (last.id + 1) if last else 1
         return f"E-{nxt:05d}"
 
-    def create(self, validated):
+    def create(self, validated):  # noqa: C901 - orchestrates multiple related creates atomically
         # Create User with generated username/email/password
         first = validated.get("first_name", "").strip()
         last = validated.get("last_name", "").strip()
@@ -159,9 +243,11 @@ class EmployeeRegistrationSerializer(serializers.Serializer):
             last_working_date=validated.get("last_working_date"),
             is_active=True,
             health_care=validated.get("health_care", ""),
+            fingerprint_token=(validated.get("fingerprint_token") or None),
         )
-        # set photo if present
+        # set photo if present (with validation)
         if validated.get("photo") is not None:
+            self._validate_image(validated.get("photo"))
             emp.photo = validated.get("photo")
             emp.save(update_fields=["photo"])
 
@@ -227,6 +313,15 @@ class EmployeeRegistrationSerializer(serializers.Serializer):
                 account_number=validated.get("account_number", ""),
                 iban=validated.get("iban", ""),
             )
+
+        # Single document (if provided)
+        doc_file = validated.get("document_file")
+        if doc_file is not None:
+            self._validate_document(doc_file, validated.get("document_name"))
+            doc_name = (
+                validated.get("document_name") or doc_file.name or "Document"
+            ).strip()
+            EmployeeDocument.objects.create(employee=emp, name=doc_name, file=doc_file)
 
         # Mark email as verified and primary in allauth
         EmailAddress.objects.get_or_create(
@@ -393,7 +488,12 @@ class EmployeeReadSerializer(serializers.ModelSerializer):
 
     def get_documents(self, obj) -> list[dict[str, Any]]:
         return [  # pragma: no cover - formatting only
-            {"id": d.pk, "name": d.name, "uploaded_at": d.uploaded_at.isoformat()}
+            {
+                "id": d.pk,
+                "name": d.name,
+                "uploaded_at": d.uploaded_at.isoformat(),
+                "file": getattr(d.file, "url", ""),
+            }
             for d in obj.documents.order_by("-uploaded_at")
         ]
 
@@ -427,3 +527,25 @@ class EmployeeUpdateSerializer(serializers.ModelSerializer):
             "department_id",
             "line_manager_id",
         ]
+
+    def validate_photo(self, f):
+        if f is None:
+            return f
+        size_mb = (getattr(f, "size", 0) or 0) / (1024 * 1024)
+        if size_mb > MAX_PHOTO_MB:
+            msg = f"Image too large: {size_mb:.1f} MB > {MAX_PHOTO_MB} MB"
+            raise serializers.ValidationError(msg)
+        ext = Path(getattr(f, "name", "")).suffix
+        if ext.lower() not in ALLOWED_IMAGE_EXTS:
+            allowed = ", ".join(sorted(ALLOWED_IMAGE_EXTS))
+            msg = f"Unsupported image type '{ext}'. Allowed: {allowed}"
+            raise serializers.ValidationError(msg)
+        try:
+            Image.open(f).verify()
+        except UnidentifiedImageError as exc:
+            msg = "Invalid image file"
+            raise serializers.ValidationError(msg) from exc
+        finally:
+            with suppress(Exception):
+                f.seek(0)
+        return f

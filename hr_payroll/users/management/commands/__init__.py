@@ -1,1 +1,1 @@
-"""Management command package."""
+# Users app management commands package

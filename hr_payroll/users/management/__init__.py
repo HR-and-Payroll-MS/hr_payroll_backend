@@ -1,1 +1,1 @@
-"""Users management package."""
+# Users management package
