@@ -452,19 +452,49 @@ CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins.split(",") if o.strip()
 # Swagger UI is restricted to admin users by default (change via permissions).
 # More options: https://drf-spectacular.readthedocs.io/en/latest/settings.html
 SPECTACULAR_SETTINGS = {
-    "TITLE": "hr_payroll API",
-    "DESCRIPTION": "Documentation of API endpoints of hr_payroll",
+    "TITLE": "HR & Payroll API",
+    "DESCRIPTION": "Clean, consistent API documentation for the HR & Payroll system.",
     "VERSION": "1.0.0",
     "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAdminUser"],
     "SERVE_AUTHENTICATION": ["rest_framework.authentication.SessionAuthentication"],
     # Strip /api/v1 prefix so tags/grouping derive from resource, not version.
     "SCHEMA_PATH_PREFIX": "/api/v1/",
-    # Group JWT endpoints under a custom tag label used by tests
+    # Primary, concise tag set for a professional structure
     "TAGS": [
-        {"name": "JWT Authentication", "description": "JWT auth endpoints"},
-        {"name": "Authentication", "description": "Other auth endpoints"},
+        {"name": "Authentication", "description": "Login, JWT, and auth utilities."},
+        {"name": "Users", "description": "User accounts and profiles."},
+        {"name": "Employees", "description": "Employee records and management."},
+        {
+            "name": "Attendance",
+            "description": "Attendance records and administrative actions.",
+        },
+        {
+            "name": "Employee Attendance",
+            "description": "Employee-scoped attendance actions.",
+        },
+        {
+            "name": "Attendance Reports",
+            "description": "Attendance summaries and reporting.",
+        },
+        {
+            "name": "Departments",
+            "description": "Departments and manager assignments.",
+        },
+        {
+            "name": "Payroll Cycles",
+            "description": "Payroll cycle administration.",
+        },
+        {
+            "name": "Payroll Records",
+            "description": "Payroll record management and runs.",
+        },
+        {
+            "name": "Payroll Reports",
+            "description": "Payroll reporting endpoints.",
+        },
+        {"name": "Meta", "description": "Schema and service metadata."},
     ],
-    # Enforce proper JWT grouping when third-party views use generic tags
+    # Normalize JWT paths to the unified Authentication tag
     "POSTPROCESSING_HOOKS": [
         "config.spectacular_hooks.jwt_tag_override",
     ],

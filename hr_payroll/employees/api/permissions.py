@@ -92,3 +92,18 @@ class IsAdminOrHROrLineManagerScopedWrite(BasePermission):
             dept and getattr(dept, "manager_id", None) == getattr(req_emp, "id", None)
         )
         return bool(is_line_manager or is_dept_manager)
+
+
+class IsAdminOrManagerOnly(BasePermission):
+    """Allow access only to Admin/Manager/Staff users."""
+
+    def has_permission(self, request, view) -> bool:
+        u = getattr(request, "user", None)
+        if not (u and getattr(u, "is_authenticated", False)):
+            return False
+        if getattr(u, "is_staff", False):
+            return True
+        return _user_in_groups(u, ["Admin", "Manager"])
+
+    def has_object_permission(self, request, view, obj: Any) -> bool:
+        return self.has_permission(request, view)

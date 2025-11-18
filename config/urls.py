@@ -14,6 +14,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.views import TokenVerifyView
 
+from hr_payroll.attendance.api.views import EmployeeAttendanceViewSet
 from hr_payroll.users.api.auth_views import CookieOnlyJWTRefreshView
 
 from .health import health as health_view
@@ -115,6 +116,43 @@ urlpatterns += [
     ),
 ]
 
+# Nested Employee Attendance endpoints (manual wiring)
+employee_attendance_list = EmployeeAttendanceViewSet.as_view({"get": "list"})
+employee_attendance_detail = EmployeeAttendanceViewSet.as_view({"get": "retrieve"})
+employee_attendance_clock_in = EmployeeAttendanceViewSet.as_view({"post": "clock_in"})
+employee_attendance_clock_out = EmployeeAttendanceViewSet.as_view({"post": "clock_out"})
+employee_attendance_fingerprint_scan = EmployeeAttendanceViewSet.as_view(
+    {"post": "fingerprint_scan"}
+)
+
+urlpatterns += [
+    path(
+        "api/v1/employees/<int:employee_id>/attendances/",
+        employee_attendance_list,
+        name="employee-attendance-list",
+    ),
+    path(
+        "api/v1/employees/<int:employee_id>/attendances/clock-in/",
+        employee_attendance_clock_in,
+        name="employee-attendance-clock-in",
+    ),
+    path(
+        "api/v1/employees/<int:employee_id>/attendances/fingerprint/scan/",
+        employee_attendance_fingerprint_scan,
+        name="employee-attendance-fingerprint-scan",
+    ),
+    path(
+        "api/v1/employees/<int:employee_id>/attendances/<int:pk>/",
+        employee_attendance_detail,
+        name="employee-attendance-detail",
+    ),
+    path(
+        "api/v1/employees/<int:employee_id>/attendances/<int:pk>/clock-out/",
+        employee_attendance_clock_out,
+        name="employee-attendance-clock-out",
+    ),
+]
+
 if settings.DEBUG:
     # This allows the error pages to be debugged during development, just visit
     # these url in browser to see how these error pages look like.
@@ -137,9 +175,12 @@ if settings.DEBUG:
         path("500/", default_views.server_error),
     ]
     if "debug_toolbar" in settings.INSTALLED_APPS:
-        import debug_toolbar
-
-        urlpatterns = [
-            path("__debug__/", include(debug_toolbar.urls)),
-            *urlpatterns,
-        ]
+        try:
+            import debug_toolbar  # type: ignore[import-not-found]
+        except ImportError:
+            debug_toolbar = None  # type: ignore[assignment]
+        if debug_toolbar is not None:  # type: ignore[truthy-bool]
+            urlpatterns = [
+                path("__debug__/", include(debug_toolbar.urls)),
+                *urlpatterns,
+            ]

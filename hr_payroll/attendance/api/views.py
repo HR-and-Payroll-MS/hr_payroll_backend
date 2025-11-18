@@ -19,10 +19,15 @@ from rest_framework.viewsets import GenericViewSet
 
 from hr_payroll.attendance.api.serializers import AttendanceAdjustmentSerializer
 from hr_payroll.attendance.api.serializers import AttendanceSerializer
+from hr_payroll.attendance.api.serializers import EmployeeClockInSerializer
+from hr_payroll.attendance.api.serializers import FingerprintScanSerializer
+from hr_payroll.attendance.api.serializers import ManualEntrySerializer
 from hr_payroll.attendance.models import Attendance
 from hr_payroll.attendance.models import AttendanceAdjustment
 from hr_payroll.attendance.models import OfficeNetwork
 from hr_payroll.employees.api.permissions import IsAdminOrHROrLineManagerScopedWrite
+from hr_payroll.employees.api.permissions import IsAdminOrManagerOnly
+from hr_payroll.employees.api.permissions import _user_in_groups
 from hr_payroll.employees.models import Employee
 
 
@@ -45,12 +50,12 @@ def _is_ip_allowed(remote_ip: str) -> bool:
 
 
 @extend_schema_view(
-    list=extend_schema(tags=["Attendance • Records"]),
-    retrieve=extend_schema(tags=["Attendance • Records"]),
-    create=extend_schema(tags=["Attendance • Records"]),
-    update=extend_schema(tags=["Attendance • Records"]),
-    partial_update=extend_schema(tags=["Attendance • Records"]),
-    destroy=extend_schema(tags=["Attendance • Records"]),
+    list=extend_schema(tags=["Attendance"]),
+    retrieve=extend_schema(tags=["Attendance"]),
+    create=extend_schema(tags=["Attendance"]),
+    update=extend_schema(tags=["Attendance"]),
+    partial_update=extend_schema(tags=["Attendance"]),
+    destroy=extend_schema(tags=["Attendance"]),
 )
 class AttendanceViewSet(
     mixins.ListModelMixin,
@@ -70,7 +75,7 @@ class AttendanceViewSet(
 
     queryset = Attendance.objects.select_related("employee").all()
     serializer_class = AttendanceSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrManagerOnly]
 
     def get_permissions(self):
         if self.request and self.request.method in {"POST", "PUT", "PATCH", "DELETE"}:
@@ -179,7 +184,7 @@ class AttendanceViewSet(
         return qs
 
     @action(detail=True, methods=["post"], url_path="clock-out")
-    @extend_schema(tags=["Attendance • Records"])
+    @extend_schema(tags=["Attendance"])
     def clock_out(self, request, pk=None):
         """Set clock_out time and optional location."""
         inst = self.get_object()
@@ -221,45 +226,49 @@ class AttendanceViewSet(
         serializer = self.get_serializer(inst)
         return Response(serializer.data)
 
-    @action(detail=False, methods=["post"], url_path="clock-in")
-    @extend_schema(tags=["Attendance • Records"])
-    def clock_in(self, request):
-        """Create today's attendance record.
+    # Note: no top-level clock-in; use nested employee endpoints instead.
 
-        Non-elevated users: create for the authenticated user's employee.
-        Optional `date` (YYYY-MM-DD) and `clock_in` (ISO). Requires
-        `clock_in_location`.
-        """
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="manual-entry",
+        serializer_class=ManualEntrySerializer,
+    )
+    @extend_schema(
+        tags=["Attendance"],
+        request=ManualEntrySerializer,
+        responses=AttendanceSerializer,
+        description=(
+            "Manual entry: create a record for a specific employee. Admin/Manager only."
+        ),
+    )
+    def manual_entry(self, request):
         u = request.user
-        emp = getattr(u, "employee", None)
-        if not emp:
-            return Response({"detail": "No employee profile"}, status=400)
-        # Restrict self-submission to company IP ranges for non-elevated users
-        groups = getattr(u, "groups", None)
-        is_hr = bool(getattr(u, "is_staff", False)) or bool(
-            groups and groups.filter(name__in=["Admin", "Manager"]).exists()
-        )
-        is_line_manager = bool(groups and groups.filter(name="Line Manager").exists())
-        if not (is_hr or is_line_manager):
-            # extract client ip (prefer first XFF entry; fallback to REMOTE_ADDR)
-            xff = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
-            remote_ip = xff or (request.META.get("REMOTE_ADDR") or "").strip()
-            if not _is_ip_allowed(remote_ip):
-                return Response(
-                    {"detail": "Self clock-in allowed only from company network"},
-                    status=403,
-                )
-        date_str = request.data.get("date")
-        clock_in_val = request.data.get("clock_in")
-        clock_in_location = request.data.get("clock_in_location")
+        ser = ManualEntrySerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        vd = ser.validated_data
+        if not (
+            getattr(u, "is_staff", False) or _user_in_groups(u, ["Admin", "Manager"])
+        ):
+            return Response({"detail": "Forbidden"}, status=403)
+        employee_id = vd.get("employee") or request.data.get("employee_id")
+        if not employee_id:
+            return Response({"employee": "required"}, status=400)
+        target_emp = Employee.objects.filter(pk=employee_id).first()
+        if not target_emp:
+            return Response({"detail": "Employee not found"}, status=404)
+        date_str = vd.get("date")
+        clock_in_val = vd.get("clock_in")
+        clock_in_location = vd.get("clock_in_location")
+        notes = vd.get("notes")
         if not clock_in_location:
             return Response({"clock_in_location": "required"}, status=400)
         date_val = (
-            timezone.datetime.fromisoformat(date_str).date()
+            timezone.datetime.fromisoformat(str(date_str)).date()
             if date_str
             else timezone.now().date()
         )
-        if Attendance.objects.filter(employee=emp, date=date_val).exists():
+        if Attendance.objects.filter(employee=target_emp, date=date_val).exists():
             return Response(
                 {"detail": "Attendance already exists for date"}, status=400
             )
@@ -269,44 +278,192 @@ class AttendanceViewSet(
             else (clock_in_val or timezone.now())
         )
         att = Attendance.objects.create(
-            employee=emp,
+            employee=target_emp,
+            date=date_val,
+            clock_in=dt,
+            clock_in_location=clock_in_location,
+            notes=notes or "",
+        )
+        return Response(self.get_serializer(att).data, status=201)
+
+    # Note: no top-level fingerprint scan; use nested employee endpoints.
+
+
+@extend_schema_view(
+    list=extend_schema(tags=["Employee Attendance"]),
+    retrieve=extend_schema(tags=["Employee Attendance"]),
+)
+class EmployeeAttendanceViewSet(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    GenericViewSet,
+):
+    """Nested attendance endpoints scoped by employee id.
+
+    Routes (manual urls in config.urls):
+    - GET /api/v1/employees/{employee_id}/attendances/
+    - GET /api/v1/employees/{employee_id}/attendances/{pk}/
+    - POST /api/v1/employees/{employee_id}/attendances/clock-in/
+    - POST /api/v1/employees/{employee_id}/attendances/{pk}/clock-out/
+    - POST /api/v1/employees/{employee_id}/attendances/fingerprint/scan/
+    """
+
+    serializer_class = AttendanceSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        qs = Attendance.objects.select_related("employee").all()
+        employee_id = self.kwargs.get("employee_id")
+        if employee_id:
+            qs = qs.filter(employee_id=employee_id)
+        u = getattr(self.request, "user", None)
+        if not (u and getattr(u, "is_authenticated", False)):
+            return qs.none()
+        # Non-elevated must match their own employee id
+        if not (
+            getattr(u, "is_staff", False) or _user_in_groups(u, ["Admin", "Manager"])
+        ):
+            my_emp_id = getattr(getattr(u, "employee", None), "id", None)
+            if str(my_emp_id) != str(employee_id):
+                return qs.none()
+        # Allow optional filters similar to top-level for convenience
+        date = self.request.query_params.get("date")
+        start_date = self.request.query_params.get("start_date")
+        end_date = self.request.query_params.get("end_date")
+        status_param = self.request.query_params.get("status")
+        if date:
+            qs = qs.filter(date=date)
+        if start_date:
+            qs = qs.filter(date__gte=start_date)
+        if end_date:
+            qs = qs.filter(date__lte=end_date)
+        if status_param:
+            qs = qs.filter(status=status_param)
+        return qs
+
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="clock-in",
+        serializer_class=EmployeeClockInSerializer,
+    )
+    @extend_schema(
+        tags=["Employee Attendance"],
+        request=EmployeeClockInSerializer,
+        responses=AttendanceSerializer,
+    )
+    def clock_in(self, request, employee_id=None):
+        u = request.user
+        ser = EmployeeClockInSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        vd = ser.validated_data
+        # Elevated users may clock-in for the specified employee without IP restriction
+        elevated = getattr(u, "is_staff", False) or _user_in_groups(
+            u, ["Admin", "Manager"]
+        )
+        target_emp = Employee.objects.filter(pk=employee_id).first()
+        if not target_emp:
+            return Response({"detail": "Employee not found"}, status=404)
+        if not elevated:
+            my_emp_id = getattr(getattr(u, "employee", None), "id", None)
+            if str(my_emp_id) != str(employee_id):
+                return Response({"detail": "Forbidden"}, status=403)
+            # IP restriction for self-submission
+            xff = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
+            remote_ip = xff or (request.META.get("REMOTE_ADDR") or "").strip()
+            if not _is_ip_allowed(remote_ip):
+                return Response(
+                    {"detail": "Self clock-in allowed only from company network"},
+                    status=403,
+                )
+        date_str = vd.get("date")
+        clock_in_val = vd.get("clock_in")
+        clock_in_location = vd.get("clock_in_location")
+        if not clock_in_location:
+            return Response({"clock_in_location": "required"}, status=400)
+        date_val = (
+            timezone.datetime.fromisoformat(str(date_str)).date()
+            if date_str
+            else timezone.now().date()
+        )
+        if Attendance.objects.filter(employee=target_emp, date=date_val).exists():
+            return Response(
+                {"detail": "Attendance already exists for date"}, status=400
+            )
+        dt = (
+            parse_datetime(clock_in_val)
+            if isinstance(clock_in_val, str)
+            else (clock_in_val or timezone.now())
+        )
+        att = Attendance.objects.create(
+            employee=target_emp,
             date=date_val,
             clock_in=dt,
             clock_in_location=clock_in_location,
         )
-        return Response(self.get_serializer(att).data, status=201)
+        return Response(AttendanceSerializer(att).data, status=201)
 
-    @action(detail=False, methods=["post"], url_path="fingerprint/scan")
-    @extend_schema(
-        tags=["Attendance • Records"],
-        description=(
-            "Scan via fingerprint/device token. If no record exists for the day, "
-            "creates a clock-in; otherwise, if an open record exists, performs "
-            "clock-out. Disallows multiple completed records per day."
-        ),
-        parameters=[
-            OpenApiParameter(
-                name="timestamp",
-                type=OpenApiTypes.DATETIME,
-                location=OpenApiParameter.QUERY,
-                description="Optional ISO datetime for the event; defaults to now",
-            ),
-        ],
+    @action(detail=True, methods=["post"], url_path="clock-out")
+    @extend_schema(tags=["Employee Attendance"])
+    def clock_out(self, request, employee_id=None, pk=None):
+        # get_object already filtered by employee_id via queryset
+        inst = self.get_object()
+        u = request.user
+        elevated = getattr(u, "is_staff", False) or _user_in_groups(
+            u, ["Admin", "Manager"]
+        )
+        if not elevated:
+            my_emp_id = getattr(getattr(u, "employee", None), "id", None)
+            if str(my_emp_id) != str(employee_id):
+                return Response({"detail": "Forbidden"}, status=403)
+        clock_out = request.data.get("clock_out")
+        clock_out_location = request.data.get("clock_out_location")
+        notes = request.data.get("notes")
+        if not clock_out:
+            return Response({"clock_out": "required"}, status=400)
+        dt = parse_datetime(clock_out) if isinstance(clock_out, str) else clock_out
+        if dt is None:
+            return Response({"clock_out": "invalid datetime"}, status=400)
+        inst.clock_out = dt
+        if clock_out_location:
+            inst.clock_out_location = clock_out_location
+        update_fields = ["clock_out", "clock_out_location", "updated_at"]
+        if isinstance(notes, str):
+            inst.notes = notes
+            update_fields.append("notes")
+        inst.save(update_fields=update_fields)
+        return Response(AttendanceSerializer(inst).data)
+
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="fingerprint/scan",
+        serializer_class=FingerprintScanSerializer,
     )
-    def fingerprint_scan(self, request):
-        """Handle a device scan identified by `fingerprint_token`.
-
-        Body: { fingerprint_token: str, location?: str, timestamp?: ISO str }
-        """
-        token = request.data.get("fingerprint_token")
+    @extend_schema(
+        tags=["Employee Attendance"],
+        request=FingerprintScanSerializer,
+        responses=AttendanceSerializer,
+        description=(
+            "Fingerprint scan via device token. Creates clock-in if absent, or "
+            "closes open record for the day."
+        ),
+    )
+    def fingerprint_scan(self, request, employee_id=None):
+        ser = FingerprintScanSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        vd = ser.validated_data
+        token = vd.get("fingerprint_token")
         if not token:
             return Response({"fingerprint_token": "required"}, status=400)
         try:
             emp = Employee.objects.get(fingerprint_token=token)
         except Employee.DoesNotExist:
             return Response({"detail": "Unknown fingerprint token"}, status=404)
-
-        ts_val = request.data.get("timestamp") or request.query_params.get("timestamp")
+        # Ensure token corresponds to path employee_id
+        if str(getattr(emp, "id", None)) != str(employee_id):
+            return Response({"detail": "Token does not match employee"}, status=400)
+        ts_val = vd.get("timestamp") or request.query_params.get("timestamp")
         dt = (
             parse_datetime(ts_val)
             if isinstance(ts_val, str)
@@ -315,7 +472,7 @@ class AttendanceViewSet(
         if dt is None:
             return Response({"timestamp": "invalid datetime"}, status=400)
         date_val = dt.date()
-        loc = request.data.get("location") or ""
+        loc = vd.get("location") or ""
 
         att = Attendance.objects.filter(employee=emp, date=date_val).first()
         action_taken = None
@@ -339,7 +496,7 @@ class AttendanceViewSet(
             att.save(update_fields=["clock_out", "clock_out_location", "updated_at"])
             action_taken = "clock_out"
 
-        data = self.get_serializer(att).data
+        data = AttendanceSerializer(att).data
         data["action"] = action_taken
         return Response(data, status=200 if action_taken == "clock_out" else 201)
 
@@ -430,7 +587,7 @@ class AttendanceViewSet(
 
     @action(detail=False, methods=["get"], url_path="my/summary")
     @extend_schema(
-        tags=["Attendance • Summaries"],
+        tags=["Attendance Reports"],
         parameters=[
             OpenApiParameter(
                 name="start_date",
@@ -509,7 +666,7 @@ class AttendanceViewSet(
         permission_classes=[IsAuthenticated, IsAdminOrHROrLineManagerScopedWrite],
     )
     @extend_schema(
-        tags=["Attendance • Summaries"],
+        tags=["Attendance Reports"],
         parameters=[
             OpenApiParameter(
                 name="start_date",

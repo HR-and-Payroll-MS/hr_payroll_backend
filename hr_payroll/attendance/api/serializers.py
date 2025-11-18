@@ -81,3 +81,23 @@ class AttendanceAdjustmentSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["created_at"]
+
+
+class FingerprintScanSerializer(serializers.Serializer):
+    fingerprint_token = serializers.CharField()
+    location = serializers.CharField(required=False, allow_blank=True)
+    timestamp = serializers.DateTimeField(required=False)
+
+
+class EmployeeClockInSerializer(serializers.Serializer):
+    date = serializers.DateField(required=False)
+    clock_in = serializers.DateTimeField(required=False)
+    clock_in_location = serializers.CharField()
+
+
+class ManualEntrySerializer(serializers.Serializer):
+    employee = serializers.IntegerField()
+    date = serializers.DateField(required=False)
+    clock_in = serializers.DateTimeField(required=False)
+    clock_in_location = serializers.CharField()
+    notes = serializers.CharField(required=False, allow_blank=True)
