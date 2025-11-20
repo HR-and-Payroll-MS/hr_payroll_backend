@@ -305,6 +305,84 @@ class AttendanceViewSet(
         )
         return Response(self.get_serializer(att).data, status=201)
 
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="approve",
+        permission_classes=[IsAuthenticated, IsAdminOrHROrLineManagerScopedWrite],
+    )
+    @extend_schema(tags=["Attendance"])
+    def approve(self, request, pk=None):
+        """Approve an attendance record."""
+        inst = self.get_object()
+        if inst.status != Attendance.Status.APPROVED:
+            inst.status = Attendance.Status.APPROVED
+            inst.save(update_fields=["status", "updated_at"])
+        return Response({"status": inst.status})
+
+    @action(detail=False, methods=["get"], url_path="my/summary")
+    @extend_schema(
+        tags=["Attendance Reports"],
+        parameters=[
+            OpenApiParameter(
+                name="start_date",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+            ),
+            OpenApiParameter(
+                name="end_date",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+            ),
+        ],
+    )
+    def my_summary(self, request):
+        """Aggregate my attendance for a date range."""
+        u = request.user
+        emp = getattr(u, "employee", None)
+        if not emp:
+            return Response({"detail": "No employee profile"}, status=400)
+        today = timezone.now().date()
+        start_str = request.query_params.get("start_date")
+        end_str = request.query_params.get("end_date")
+        start = (
+            timezone.datetime.fromisoformat(start_str).date()
+            if start_str
+            else today.replace(day=1)
+        )
+        end = timezone.datetime.fromisoformat(end_str).date() if end_str else today
+        qs = Attendance.objects.filter(employee=emp, date__gte=start, date__lte=end)
+        total_logged = timezone.timedelta(0)
+        total_paid = timezone.timedelta(0)
+        total_scheduled = timezone.timedelta(0)
+        for a in qs:
+            if a.clock_out:
+                total_logged += a.logged_time or timezone.timedelta(0)
+            total_paid += a.paid_time or timezone.timedelta(0)
+            total_scheduled += timezone.timedelta(hours=int(a.work_schedule_hours))
+        overtime = total_paid - total_scheduled
+        deficit = total_scheduled - total_paid
+
+        def fmt(td):
+            total_seconds = int(td.total_seconds())
+            sign = "+" if total_seconds >= 0 else "-"
+            total_seconds = abs(total_seconds)
+            hours, rem = divmod(total_seconds, 3600)
+            minutes, seconds = divmod(rem, 60)
+            return f"{sign}{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+        return Response(
+            {
+                "start_date": start.isoformat(),
+                "end_date": end.isoformat(),
+                "count": qs.count(),
+                "total_logged": fmt(total_logged),
+                "total_paid": fmt(total_paid),
+                "overtime": fmt(overtime),
+                "deficit": fmt(deficit),
+            }
+        )
+
     # Note: no top-level fingerprint scan; use nested employee endpoints.
 
 

@@ -1,6 +1,7 @@
 def jwt_tag_override(result, generator, request, public):
     """Normalize tags across the schema for a professional, non-redundant set."""
     patterns = [
+        (lambda p: p.startswith("/api/v1/auth/jwt/"), "JWT Authentication"),
         (lambda p: p.startswith("/api/v1/auth/"), "Authentication"),
         (lambda p: p.startswith("/api/v1/users/"), "Users"),
         (
