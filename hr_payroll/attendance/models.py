@@ -51,7 +51,20 @@ class Attendance(models.Model):
         """Compute raw logged time (clock_out - clock_in) when clock_out is present."""
         if not self.clock_out:
             return None
-        return self.clock_out - self.clock_in
+        ci = self.clock_in
+        co = self.clock_out
+        # Normalize to timezone-aware to avoid naive/aware subtraction errors
+        if timezone.is_naive(ci):
+            try:
+                ci = timezone.make_aware(ci, timezone.get_current_timezone())
+            except (ValueError, TypeError):  # pragma: no cover - fallback
+                ci = timezone.make_aware(ci)
+        if timezone.is_naive(co):
+            try:
+                co = timezone.make_aware(co, timezone.get_current_timezone())
+            except (ValueError, TypeError):  # pragma: no cover - fallback
+                co = timezone.make_aware(co)
+        return co - ci
 
     @property
     def deficit(self) -> timedelta | None:

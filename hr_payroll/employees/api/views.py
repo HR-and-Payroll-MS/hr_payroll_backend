@@ -1,11 +1,13 @@
 from django.db import models
 from django.db import transaction
+from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import OpenApiExample
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.utils import extend_schema_view
 from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.decorators import action
+from rest_framework.filters import SearchFilter
 from rest_framework.parsers import FormParser
 from rest_framework.parsers import JSONParser
 from rest_framework.parsers import MultiPartParser
@@ -14,6 +16,7 @@ from rest_framework.response import Response
 
 from hr_payroll.employees.models import Employee
 
+from .filters import EmployeeFilter
 from .permissions import IsAdminOrManagerCanWrite
 from .permissions import IsSelfEmployeeOrElevated
 from .permissions import _user_in_groups
@@ -31,6 +34,14 @@ class EmployeeRegistrationViewSet(viewsets.ModelViewSet):
     serializer_class = EmployeeReadSerializer
     permission_classes = [IsAuthenticated, IsSelfEmployeeOrElevated]
     parser_classes = (JSONParser, MultiPartParser, FormParser)
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    search_fields = [
+        "user__first_name",
+        "user__last_name",
+        "user__email",
+        "user__username",
+    ]
+    filterset_class = EmployeeFilter
 
     def get_queryset(self):
         """Scope employees by role.

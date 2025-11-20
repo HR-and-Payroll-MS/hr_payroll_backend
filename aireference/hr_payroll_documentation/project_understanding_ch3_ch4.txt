@@ -1,0 +1,147 @@
+HR & Payroll System – Chapters 3 and 4, Diagrams-First Understanding (from the provided document)
+
+Important: This is a diagrams-focused, long-form explanation of the PDF, independent of any codebase. It enumerates the diagrams and, for each, details actors/entities, attributes, relationships, constraints, and flows needed to reconstruct the model from the document alone.
+
+Chapter 3 – System Modeling and Requirements (Use Cases + Domain Model)
+
+3.1 Use Case Diagrams (Actors and Interactions)
+Actors
+- Admin: Manages global settings, roles, permissions, and master data (departments, job titles, payroll calendar). Oversees audits and exports.
+- HR Manager/HR Staff: Onboards employees, maintains records, handles leave policies and approvals, prepares payroll inputs, and triggers payroll runs.
+- Finance/Payroll Officer: Validates payroll, performs payment processing, generates accounting exports and regulatory filings.
+- Employee: Self-service portal—profile review/update (with approvals), leave requests, timesheets (if applicable), view/download payslips, notifications.
+- IT/Operations (optional in diagram): Handles deployments, backups, availability; manages SMTP/identity providers.
+
+Key Use Cases by Actor
+- Admin: Configure Company, Manage Departments, Manage Job Titles, Define Payroll Calendar, Manage Roles & Permissions, View Audit Logs, Configure Integrations (SMTP, accounting export mapping).
+- HR: Onboard Employee, Update Employee Profile, Manage Compensation Components, Approve Leave, Review Attendance/Overtime, Initiate Payroll Run, Review Payroll Exceptions.
+- Finance: Validate Payroll, Finalize Payroll, Generate Payslips, Process Payments (bank file), Export Accounting Journal, Produce Tax/Statutory Reports.
+- Employee: Register/Activate Account, Login (optionally with MFA), View/Update Profile (limited), Request Leave, View Leave Balance, Submit Timesheets/Overtime (optional), View/Download Payslips, Receive Notifications.
+
+Use Case Notes
+- Pre-conditions: Email verified for sensitive actions; RBAC gates all privileged use cases.
+- Post-conditions: Immutable artifacts for finalized payrolls/payslips; audit entries for critical operations; consistent status transitions (Requested → Approved/Rejected for leaves; Open → Calculated → Finalized for payroll periods/runs).
+- Alternate flows: Escalations for leave approvals; corrections via retro adjustments in next payroll; account lockout and password reset flows.
+
+3.2 Domain Model Overview (ERD/Class-Level Perspective)
+Core Entities and Attributes
+- User
+  • id, username (optional), email (unique), password_hash, first_name, last_name, is_active, is_staff, mfa_enabled, created_at, updated_at
+- Department
+  • id, code, name, parent_id (nullable), is_active, created_at, updated_at
+- JobTitle
+  • id, code, name, department_id (nullable), grade/level (optional), is_active
+- Employee
+  • id, user_id (1:1), employee_code, hire_date, termination_date (nullable), department_id, job_title_id, manager_id (self-ref, nullable), employment_status (e.g., active, probation, terminated), pay_frequency (monthly/biweekly), bank_account, bank_name, tax_id, created_at, updated_at
+- LeaveType
+  • id, code, name, accrual_rate, accrual_period (monthly/annual), max_carryover, requires_approval (bool), is_paid (bool)
+- LeaveRequest
+  • id, employee_id, leave_type_id, start_date, end_date, days, status (requested/approved/rejected/cancelled), approver_id, reason, created_at, updated_at
+- PayrollPeriod
+  • id, label (e.g., 2025-08 Monthly), start_date, end_date, status (open/calculated/finalized/locked), calendar_id (if calendarized), created_at, updated_at
+- PayrollComponent (Earning/Deduction Master)
+  • id, code, name, category (earning/deduction), taxable (bool), recurring (bool), priority (int), calculation_method (fixed/percent/formula), cap_amount (nullable)
+- EmployeeComponent (Assignment)
+  • id, employee_id, component_id, amount/value, rate (nullable), formula (nullable), effective_from, effective_to (nullable), active (bool)
+- PayrollRun
+  • id, period_id, run_number, initiated_by, started_at, completed_at, status (draft/calculating/ready/finalized), notes
+- PayrollLine (Per-Employee Result)
+  • id, run_id, employee_id, gross, taxable_income, tax, pre_tax_deductions_total, post_tax_deductions_total, net_pay, currency, details (line items)
+- PayrollLineItem (Detail)
+  • id, line_id, component_id, component_type (earning/deduction), quantity (nullable), rate (nullable), amount, taxable_portion, notes
+- Payslip
+  • id, run_id, employee_id, payslip_number, issued_at, file_path/hash, locale, delivery_status
+- Loan (optional if in doc)
+  • id, employee_id, principal, interest_rate, start_date, end_date, schedule_type, installment_amount, balance
+- IntegrationExport
+  • id, type (bank, accounting, regulatory), file_path, hash, generated_at, generated_by
+
+Relationships and Cardinalities
+- User 1—1 Employee (each employee is a user; not all users must be employees if doc allows, but typically yes)
+- Department 1—∞ JobTitle; Department 1—∞ Employee
+- JobTitle 1—∞ Employee
+- Employee self 1—∞ Employee (manager-subordinate)
+- Employee 1—∞ LeaveRequest; LeaveType 1—∞ LeaveRequest
+- PayrollPeriod 1—∞ PayrollRun; PayrollRun 1—∞ PayrollLine; PayrollLine 1—∞ PayrollLineItem
+- PayrollComponent 1—∞ EmployeeComponent; Employee 1—∞ EmployeeComponent
+- PayrollRun 1—∞ Payslip (one per employee per run)
+
+Constraints and Business Rules (from diagrams/text)
+- Unique codes (Department, JobTitle, Components, Payslip numbers)
+- Valid date ranges on Employee employment and component effective periods
+- LeaveRequest must not overlap and must respect balances and holidays
+- Payroll ordering: earnings → pre-tax deductions → taxable income → tax → post-tax deductions → net pay; rounding rules defined
+- Finalized payroll and payslips are immutable; corrections via next run adjustments
+
+Chapter 4 – Detailed Behavioral and Structural Diagrams
+
+4.1 Sequence Diagrams (Representative Flows)
+A) Registration & Activation
+- Lifelines: User → Auth Service → Email Service → Database
+- Messages: register(email,pw) → create user (pending) → send activation link → user clicks link → activate user → respond 200
+- Alternatives: activation expired → resend; invalid token → error; MFA enrollment (optional) after activation
+
+B) Login with MFA (optional)
+- Lifelines: User → Auth → MFA Service → JWT Issuer → Database
+- Messages: submit credentials → verify → if mfa_enabled then prompt OTP → verify OTP → issue access/refresh tokens → respond 200
+- Errors: invalid credentials; locked account; OTP failure; throttling
+
+C) Leave Request & Approval
+- Lifelines: Employee → Leave Service → Approver (HR/Manager) → Notification Service → Database
+- Messages: submit request → validate balance/overlap → create request (requested) → notify approver → approve/reject → update status → notify employee
+
+D) Payroll Run
+- Lifelines: HR/Finance → Payroll Service → Time/Leave Service → Tax Engine → Payments/Exports → Storage
+- Messages: open period/run → gather inputs (components, overtime, leave) → compute per employee → collate totals → present exceptions → finalize → generate payslips → produce bank/export files → archive
+- Notes: long-running compute possibly via async workers with progress updates
+
+4.2 Activity Diagrams
+A) Payroll Computation Activity
+- Actions: Load period inputs → For each employee: compute earnings → apply pre-tax deductions → compute taxable income → calculate tax by brackets → apply post-tax deductions → compute net → record line items → aggregate totals → mark success or exception
+- Decisions: Employee eligible? Missing data? Exceeds caps? Negative results? Branch to exception handling and review
+- Fork/Join: Parallelize per-employee computations; join for final aggregation and reporting
+
+B) Leave Approval Activity
+- Actions: Receive request → Validate accrual/balance → Check conflicts → Route to approver → Approve/Reject → Update balances → Notify
+- Swimlanes: Employee, System, Approver, HR
+
+4.3 Class Diagram (Structural View)
+- Classes reflect the “Domain Model Overview” above with attributes, types, and key methods (where specified in document)
+- Associations: as per relationships; indicate multiplicities (1..1, 0..*, 1..*) and compositions (e.g., PayrollLine owns PayrollLineItems)
+- Invariants: email uniqueness, non-overlapping leaves, effective date ranges valid, finalized artifacts immutable
+
+4.4 ERD (Database-Centric View)
+- Tables mapped from entities; keys:
+  • PKs: id (UUID/int), unique codes (department.code, job_title.code, component.code, payslip_number)
+  • FKs: employee.user_id, employee.department_id, employee.job_title_id, …
+- Indices: on common filters (employee_code, period_id, run_id, department_id)
+- Junctions: if any many-to-many (e.g., roles/groups), separate tables with FK back to principals
+
+4.5 Deployment Diagram
+- Nodes: Client (Browser/Mobile), Web/API Server (Django), Worker Nodes (Celery), Cache/Broker (Redis), Database (PostgreSQL), Mail (SMTP/Mailpit), Reverse Proxy (Nginx/Traefik), Object Storage (for artifacts)
+- Artifacts: Application image, worker image, static assets, docs, configuration (env secrets)
+- Connectors: HTTPS from client to proxy; proxy to app; app to DB/Redis/SMTP; workers to DB/Redis/storage; secure firewall rules
+- Environments: Local (docker-compose), Staging, Production; scaling guidance for workers and web instances
+
+4.6 Component/Package Diagram (if present)
+- Components: Auth, Users, Employees, Org, Leave, Payroll, Reporting, Integrations
+- Interfaces: REST APIs for each; shared library for common utilities (security, auditing)
+- Dependencies: Payroll depends on Employees, Org, Leave; Reporting depends on Payroll; Integrations depend on Payroll/Reporting outputs
+
+4.7 State Machine Diagram (if present)
+- Entities with states: LeaveRequest (requested → approved/rejected → cancelled), PayrollPeriod (open → calculated → finalized → locked), Employee (prospect → active → on leave → terminated)
+- Transitions: Guarded by permissions and validation; actions on transition (notifications, recalculations)
+
+4.8 Other Diagrams (if present)
+- Context Diagram: External actors (Bank, Tax Authority, Accounting System) and data exchanges (payment file, tax report, journal export)
+- DFD/BPMN: High-level data/process flow for payroll; inputs (employee data, components, attendance), processing (compute), outputs (payslips, exports)
+
+Appendix – Detailed Attributes and Constraints (Consolidated)
+- Unique fields: email, employee_code, department.code, job_title.code, component.code, payslip_number
+- Required fields: user/email for login; employment_status, department, job_title for active employees; effective_from for component assignments; leave_type and dates for requests
+- Date constraints: start_date ≤ end_date; no overlaps for leaves; component effective ranges cannot overlap for same component
+- Calculation rules: priority order for deductions; caps applied where defined; taxable flags determine tax base; rounding to currency precision
+- Immutability: finalized payrolls and payslips are read-only; changes via adjustments in subsequent runs
+- Auditability: who/when tracking for critical changes; export hashes for integrity
+
+End of diagrams-first analysis focusing on Chapters 3 and 4.

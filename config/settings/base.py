@@ -91,6 +91,7 @@ THIRD_PARTY_APPS = [
     "rest_framework",
     # Present to satisfy dj-rest-auth imports; no token endpoints exposed
     "rest_framework.authtoken",
+    "django_filters",
     "corsheaders",
     "drf_spectacular",
     "webpack_loader",
@@ -404,7 +405,7 @@ JWT_AUTH_COOKIE_SECURE = env.bool("JWT_AUTH_COOKIE_SECURE", default=not DEBUG)
 
 # Generated identity defaults
 # Domain used for auto-generated user emails during employee registration
-GENERATED_EMAIL_DOMAIN = env("GENERATED_EMAIL_DOMAIN", default="example.com")
+GENERATED_EMAIL_DOMAIN = env("GENERATED_EMAIL_DOMAIN", default="hrpayroll.com")
 # Enforce CSRF protection when using cookies for JWT
 JWT_AUTH_COOKIE_USE_CSRF = env.bool("JWT_AUTH_COOKIE_USE_CSRF", default=True)
 

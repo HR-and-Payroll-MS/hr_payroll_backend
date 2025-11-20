@@ -5,6 +5,7 @@ from typing import Any
 from allauth.account.models import EmailAddress
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 from django.utils.crypto import get_random_string
 from PIL import Image
 from PIL import UnidentifiedImageError
@@ -338,164 +339,130 @@ class EmployeeRegistrationSerializer(serializers.Serializer):
 
 
 class EmployeeReadSerializer(serializers.ModelSerializer):
-    # Enriched read: pull data from related models to match UI detail
+    # Enriched read: organized into frontend-friendly nested structure
     id = serializers.SerializerMethodField()
-    full_name = serializers.CharField(source="user.name", read_only=True)
-    email = serializers.EmailField(source="user.email", read_only=True)
-    phone = serializers.CharField(source="user.profile.phone", read_only=True)
-    timezone = serializers.CharField(source="time_zone", read_only=True)
-    department = serializers.CharField(source="department.name", read_only=True)
-    employment_type = serializers.SerializerMethodField()
-    job_title = serializers.CharField(source="title", read_only=True)
-    status = serializers.SerializerMethodField()
-    position = serializers.CharField(source="title", read_only=True)
-    gender = serializers.CharField(source="user.profile.gender", read_only=True)
-    date_of_birth = serializers.DateField(
-        source="user.profile.date_of_birth", read_only=True
-    )
-    nationality = serializers.CharField(
-        source="user.profile.nationality", read_only=True
-    )
-    marital_status = serializers.CharField(
-        source="user.profile.marital_status", read_only=True
-    )
-    personal_tax_id = serializers.CharField(
-        source="user.profile.personal_tax_id", read_only=True
-    )
-    social_insurance = serializers.CharField(
-        source="user.profile.social_insurance", read_only=True
-    )
-    total_compensation = serializers.SerializerMethodField()
-    salary = serializers.SerializerMethodField()
-    recurring = serializers.SerializerMethodField()
-    one_off = serializers.SerializerMethodField()
-    offset = serializers.SerializerMethodField()
-    job_history = serializers.SerializerMethodField()
-    contracts = serializers.SerializerMethodField()
+    general = serializers.SerializerMethodField()
+    job = serializers.SerializerMethodField()
+    payroll = serializers.SerializerMethodField()
     documents = serializers.SerializerMethodField()
 
     class Meta:
         model = Employee
-        fields = [
-            "id",
-            "photo",
-            "full_name",
-            "position",
-            "status",
-            "email",
-            "phone",
-            "timezone",
-            "department",
-            "office",
-            "line_manager",
-            "gender",
-            "date_of_birth",
-            "nationality",
-            "health_care",
-            "marital_status",
-            "personal_tax_id",
-            "social_insurance",
-            "employee_id",
-            "join_date",
-            "service_years",
-            "job_history",
-            "contracts",
-            "employment_type",
-            "job_title",
-            "last_working_date",
-            "total_compensation",
-            "salary",
-            "recurring",
-            "one_off",
-            "offset",
-            "documents",
-        ]
+        fields = ["id", "general", "job", "payroll", "documents"]
 
-    # Derived and passthrough helpers
     def get_id(self, obj) -> str:
         return str(obj.pk)
 
-    @property
-    def _latest_comp(self):
-        def _inner(emp):
-            return (
-                getattr(emp, "compensations", None).order_by("-created_at").first()
-                if hasattr(emp, "compensations")
-                else None
-            )
+    def get_general(self, obj) -> dict[str, Any]:
+        profile = getattr(obj.user, "profile", None)
+        return {
+            "fullname": obj.user.name or "",
+            "gender": getattr(profile, "gender", "") if profile else "",
+            "dateofbirth": (
+                profile.date_of_birth.isoformat()
+                if profile and profile.date_of_birth
+                else ""
+            ),
+            "maritalstatus": getattr(profile, "marital_status", "") if profile else "",
+            "nationality": getattr(profile, "nationality", "") if profile else "",
+            "personaltaxid": getattr(profile, "personal_tax_id", "") if profile else "",
+            "emailaddress": obj.user.email or "",
+            "socialinsurance": getattr(profile, "social_insurance", "")
+            if profile
+            else "",
+            "healthinsurance": obj.health_care or "",
+            "phonenumber": getattr(profile, "phone", "") if profile else "",
+            "photo": obj.photo.url if obj.photo else "",
+        }
 
-        return _inner
+    def get_job(self, obj) -> dict[str, Any]:
+        latest_job = obj.job_history.order_by("-effective_date", "-pk").first()
+        latest_contract = obj.contracts.order_by("-start_date", "-pk").first()
 
-    def get_total_compensation(self, obj) -> str:
-        comp = self._latest_comp(obj)
-        return f"{getattr(comp, 'total_compensation', 0) or 0:.2f}" if comp else "0.00"
-
-    def _sum_components(self, obj, kind: str) -> str:
-        comp = self._latest_comp(obj)
-        if not comp:
-            return "0.00"
-        total = (
-            comp.components.filter(kind=kind)
-            .aggregate(models.Sum("amount"))
-            .get("amount__sum")
-            or 0
+        service_days = (
+            (timezone.localdate() - obj.join_date).days if obj.join_date else 0
         )
-        return f"{total:.2f}"
+        return {
+            "employeeid": obj.employee_id or "",
+            "serviceyear": f"{service_days // 365}",
+            "joindate": obj.join_date.isoformat() if obj.join_date else "",
+            "jobtitle": obj.title or "",
+            "positiontype": (
+                getattr(latest_job, "position_type", "") if latest_job else ""
+            ),
+            "employmenttype": (
+                getattr(latest_job, "employment_type", "") if latest_job else ""
+            ),
+            "linemanager": (obj.line_manager.user.name if obj.line_manager else ""),
+            "contractnumber": (
+                getattr(latest_contract, "contract_number", "")
+                if latest_contract
+                else ""
+            ),
+            "contractname": (
+                getattr(latest_contract, "contract_name", "") if latest_contract else ""
+            ),
+            "contracttype": (
+                getattr(latest_contract, "contract_type", "") if latest_contract else ""
+            ),
+            "startdate": (
+                latest_contract.start_date.isoformat()
+                if latest_contract and latest_contract.start_date
+                else ""
+            ),
+            "enddate": (
+                latest_contract.end_date.isoformat()
+                if latest_contract and latest_contract.end_date
+                else ""
+            ),
+            "department": obj.department.name if obj.department else "",
+            "office": obj.office or "",
+            "timezone": obj.time_zone or "",
+        }
 
-    def get_salary(self, obj) -> str:
-        return self._sum_components(obj, "base")
+    def get_payroll(self, obj) -> dict[str, Any]:
+        latest_job = obj.job_history.order_by("-effective_date", "-pk").first()
+        comp = (
+            getattr(obj, "compensations", None).order_by("-created_at").first()
+            if hasattr(obj, "compensations")
+            else None
+        )
 
-    def get_recurring(self, obj) -> str:
-        return self._sum_components(obj, "recurring")
+        def _sum_components(kind: str) -> str:
+            if not comp:
+                return "0.00"
+            total = (
+                comp.components.filter(kind=kind)
+                .aggregate(models.Sum("amount"))
+                .get("amount__sum")
+                or 0
+            )
+            return f"{total:.2f}"
 
-    def get_one_off(self, obj) -> str:
-        return self._sum_components(obj, "one_off")
+        return {
+            "employeestatus": "Active" if obj.is_active else "Inactive",
+            "employmenttype": (
+                getattr(latest_job, "employment_type", "") if latest_job else ""
+            ),
+            "jobdate": obj.join_date.isoformat() if obj.join_date else "",
+            "lastworkingdate": (
+                obj.last_working_date.isoformat() if obj.last_working_date else ""
+            ),
+            "salary": _sum_components("base"),
+            "offset": _sum_components("offset"),
+            "recurring": _sum_components("recurring"),
+        }
 
-    def get_offset(self, obj) -> str:
-        return self._sum_components(obj, "offset")
-
-    def get_status(self, obj) -> str:
-        return "Active" if obj.is_active else "Inactive"
-
-    def get_employment_type(self, obj) -> str:
-        latest = obj.job_history.order_by("-effective_date", "-pk").first()
-        return getattr(latest, "employment_type", "") if latest else ""
-
-    def get_job_history(self, obj) -> list[dict[str, Any]]:
-        return [  # pragma: no cover - formatting only
-            {
-                "id": j.pk,
-                "effective_date": j.effective_date.isoformat(),
-                "job_title": j.job_title,
-                "position_type": j.position_type,
-                "employment_type": j.employment_type,
-            }
-            for j in obj.job_history.order_by("effective_date", "pk")
-        ]
-
-    def get_contracts(self, obj) -> list[dict[str, Any]]:
-        return [  # pragma: no cover - formatting only
-            {
-                "id": c.pk,
-                "contract_number": c.contract_number,
-                "contract_name": c.contract_name,
-                "contract_type": c.contract_type,
-                "start_date": c.start_date.isoformat(),
-                "end_date": c.end_date.isoformat() if c.end_date else None,
-            }
-            for c in obj.contracts.order_by("start_date", "pk")
-        ]
-
-    def get_documents(self, obj) -> list[dict[str, Any]]:
-        return [  # pragma: no cover - formatting only
-            {
-                "id": d.pk,
-                "name": d.name,
-                "uploaded_at": d.uploaded_at.isoformat(),
-                "file": getattr(d.file, "url", ""),
-            }
-            for d in obj.documents.order_by("-uploaded_at")
-        ]
+    def get_documents(self, obj) -> dict[str, Any]:
+        return {
+            "files": [
+                {
+                    "name": d.name,
+                    "url": getattr(d.file, "url", ""),
+                }
+                for d in obj.documents.order_by("-uploaded_at")
+            ]
+        }
 
 
 class EmployeeUpdateSerializer(serializers.ModelSerializer):

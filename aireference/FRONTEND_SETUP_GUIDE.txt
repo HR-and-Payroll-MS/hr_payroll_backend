@@ -1,0 +1,314 @@
+FRONTEND WORKSPACE CREATION & ARCHITECTURE GUIDE
+================================================
+Tech Stack: React 18 + TypeScript + Vite + TailwindCSS + React Router + React Query + Axios + Zod + React Hook Form + SVGR
+Optional Utilities: Zustand (UI/global state), openapi-typescript or orval (typed API client generation)
+
+NOTE: This guide intentionally omits backend domain specifics (employees, departments, etc.). It focuses on professional project scaffolding, quality, and integration readiness.
+
+------------------------------------------------------------------
+1. PREREQUISITES
+------------------------------------------------------------------
+- Node.js LTS (>= 20.x)
+- npm or pnpm (choose one; do NOT mix lockfiles)
+- Git & GitHub access
+- Backend API reachable (local http://localhost:8000 or deployed URL)
+- OpenAPI schema endpoint (e.g. /api/schema/)
+
+------------------------------------------------------------------
+2. CREATE REPOSITORY
+------------------------------------------------------------------
+- New GitHub repo: hr-payroll-frontend
+- Initialize with README only
+- Clone locally
+
+------------------------------------------------------------------
+3. INITIALIZE VITE + TYPESCRIPT
+------------------------------------------------------------------
+> npm create vite@latest
+  Project name: hr-payroll-frontend
+  Framework: React
+  Variant: TypeScript
+> cd hr-payroll-frontend
+Remove default boilerplate assets you won't use (optional later cleanup).
+
+------------------------------------------------------------------
+4. INSTALL DEPENDENCIES
+------------------------------------------------------------------
+Runtime:
+  npm i react-router-dom @tanstack/react-query axios zod react-hook-form @hookform/resolvers jwt-decode clsx date-fns
+State (optional):
+  npm i zustand
+Dev & Tooling:
+  npm i -D typescript @types/node @types/react @types/react-dom @types/jwt-decode \
+    eslint @typescript-eslint/parser @typescript-eslint/eslint-plugin eslint-plugin-react \
+    eslint-plugin-react-hooks eslint-plugin-import eslint-config-prettier prettier \
+    tailwindcss postcss autoprefixer \
+    openapi-typescript orval \
+    svgo @svgr/core @svgr/plugin-svgo @svgr/plugin-jsx vite-plugin-svgr \
+    husky lint-staged cross-env
+
+------------------------------------------------------------------
+5. TAILWIND SETUP
+------------------------------------------------------------------
+> npx tailwindcss init -p
+Edit tailwind.config.js:
+  content: ['./index.html', './src/**/*.{ts,tsx}']
+  theme.extend (example): colors.brand + fontFamily.sans
+Create src/styles/global.css:
+  @tailwind base;\n@tailwind components;\n@tailwind utilities;\n/* custom overrides */
+Import global.css in src/main.tsx.
+
+------------------------------------------------------------------
+6. DIRECTORY STRUCTURE
+------------------------------------------------------------------
+src/
+  app/ (App.tsx, router.tsx, providers, queryClient.ts)
+  api/ (client.ts, auth.ts, generated/ or types/, openapi typings)
+  config/ (env.ts runtime env parsing)
+  features/ (auth/, users/, dashboard/ etc.)
+  components/
+    ui/ (Button, Input, Modal, etc.)
+    layout/ (Navbar, Sidebar, Footer)
+    feedback/ (Toast, ErrorBoundary, Spinner)
+  hooks/
+  lib/ (utilities, constants)
+  pages/ (route-level pages if not colocated)
+  styles/ (global.css, optional design tokens)
+  assets/ (icons/, images/)
+  icons/ (React SVG components via SVGR if separated)
+  state/ (Zustand stores if needed)
+  types/ (global.d.ts, shared types)
+  test/ (setupTests.ts, mocks)
+
+Configure paths in tsconfig.json:
+  "baseUrl": "./src",
+  "paths": {
+     "@app/*": ["app/*"],
+     "@api/*": ["api/*"],
+     "@components/*": ["components/*"],
+     "@features/*": ["features/*"],
+     "@lib/*": ["lib/*"],
+     "@hooks/*": ["hooks/*"],
+     "@styles/*": ["styles/*"]
+  }
+
+------------------------------------------------------------------
+7. ENVIRONMENT VARIABLES
+------------------------------------------------------------------
+Create: .env.development, .env.production, .env.example
+All runtime variables must be prefixed: VITE_
+Example:
+  VITE_API_BASE_URL=http://localhost:8000/api/v1
+  VITE_OPENAPI_SCHEMA_URL=http://localhost:8000/api/schema/
+  VITE_APP_NAME=HR Payroll
+  VITE_APP_VERSION=0.1.0
+Access in code: import.meta.env.VITE_API_BASE_URL
+
+------------------------------------------------------------------
+8. AXIOS INSTANCE (src/api/client.ts)
+------------------------------------------------------------------
+- Create axios instance with baseURL = VITE_API_BASE_URL
+- Request interceptor: add Authorization header if access token present
+- Response interceptor: handle 401 -> attempt refresh or logout
+
+------------------------------------------------------------------
+9. TOKEN STORAGE STRATEGY
+------------------------------------------------------------------
+Preferred: Access token in memory + Refresh token via secure httpOnly cookie (if backend adapted). If not possible:
+- Store refresh token (localStorage) + access token (memory) with explicit security review.
+- Provide tokenService.ts for get/set, refresh scheduling, logout.
+
+------------------------------------------------------------------
+10. REACT QUERY SETUP
+------------------------------------------------------------------
+Create queryClient.ts with custom defaults (retry: minimal). Wrap <App/> with QueryClientProvider. Add ReactQueryDevtools in dev.
+
+------------------------------------------------------------------
+11. ROUTING
+------------------------------------------------------------------
+Use react-router-dom; define public routes (login) and a ProtectedRoute component limiting access based on auth state. Provide Suspense fallback and ErrorBoundary.
+
+------------------------------------------------------------------
+12. AUTH FLOW OUTLINE
+------------------------------------------------------------------
+Endpoints (adjust to backend):
+  POST /auth/jwt/create/ -> {access, refresh}
+  POST /auth/jwt/refresh/
+  POST /auth/jwt/verify/
+  GET  /users/me/
+Flow: login mutation -> store tokens -> prefetch current user -> protected navigation.
+Background refresh using setTimeout before access expiry.
+
+------------------------------------------------------------------
+13. FORMS
+------------------------------------------------------------------
+React Hook Form + Zod resolver. Centralize schemas (features/auth/schemas.ts). Provide reusable <FormField>.
+
+------------------------------------------------------------------
+14. UI COMPONENTS & STYLING
+------------------------------------------------------------------
+Create foundational components (Button, Input, Select, Card, Modal, Alert). Use Tailwind utility patterns + clsx for variants. Optional: dark mode toggle using data-theme or class strategy.
+
+------------------------------------------------------------------
+15. SVG AS COMPONENTS
+------------------------------------------------------------------
+Install vite-plugin-svgr (already). In vite.config.ts:
+  import svgr from 'vite-plugin-svgr';
+  plugins: [react(), svgr()]
+Usage:
+  import { ReactComponent as Logo } from '@assets/icons/logo.svg';
+  <Logo className="h-8 w-8 text-brand-500" />
+Optional: maintain a script to batch-convert raw SVGs to components.
+
+------------------------------------------------------------------
+16. OPENAPI CLIENT GENERATION
+------------------------------------------------------------------
+Option A (openapi-typescript):
+  Script: "generate:api": "openapi-typescript $VITE_OPENAPI_SCHEMA_URL --output src/api/types/openapi.d.ts"
+  Manually wrap endpoints with typed helper functions.
+Option B (orval):
+  orval.config.ts points to schema; outputs src/api/generated.ts using axios and your axiosInstance.
+  Script: "generate:api": "orval --config orval.config.ts"
+Choose ONE approach, document the decision.
+
+------------------------------------------------------------------
+17. ERROR HANDLING
+------------------------------------------------------------------
+Global <ErrorBoundary>. Central toast notifications (e.g. a ToastProvider). Axios errors mapped to user-friendly messages. 401 -> logout + redirect to /login with redirect state.
+
+------------------------------------------------------------------
+18. TESTING
+------------------------------------------------------------------
+Install (when ready): vitest @testing-library/react @testing-library/jest-dom @testing-library/user-event msw
+Create test/setupTests.ts importing jest-dom and MSW server.
+Scripts:
+  "test": "vitest"
+  "test:watch": "vitest --watch"
+Focus initial tests on: auth login mutation + protected route redirect.
+
+------------------------------------------------------------------
+19. LINTING & FORMATTING
+------------------------------------------------------------------
+.eslintrc.cjs extends: ['eslint:recommended','plugin:react/recommended','plugin:@typescript-eslint/recommended','plugin:react-hooks/recommended','plugin:import/recommended','prettier']
+.prettierrc example: {"singleQuote": true, "semi": false, "printWidth": 100}
+Husky + lint-staged pre-commit:
+  "lint-staged": {"src/**/*.{ts,tsx,css,md}": ["eslint --max-warnings=0", "prettier --write"]}
+
+------------------------------------------------------------------
+20. PACKAGE SCRIPTS (ADD)
+------------------------------------------------------------------
+"dev": "vite"
+"build": "vite build"
+"preview": "vite preview"
+"lint": "eslint 'src/**/*.{ts,tsx}'"
+"typecheck": "tsc --noEmit"
+"format": "prettier --write ."
+"generate:api": (chosen generator)
+"ci": "npm run typecheck && npm run lint && npm run test -- --run"
+
+------------------------------------------------------------------
+21. CI WORKFLOW (GITHUB ACTIONS SKELETON)
+------------------------------------------------------------------
+- on: push / pull_request
+- steps: checkout -> setup-node -> cache -> install -> generate:api -> typecheck -> lint -> test -> build -> upload artifact dist/
+
+------------------------------------------------------------------
+22. DEPLOYMENT
+------------------------------------------------------------------
+Vite build => dist/ static assets.
+Host on static provider (Azure Static Web Apps, Netlify, Vercel, S3+CloudFront).
+Set env vars at build time (VITE_*). Ensure backend CORS configured or front a proxy.
+
+------------------------------------------------------------------
+23. PERFORMANCE / DX EXTRAS
+------------------------------------------------------------------
+Add rollup-plugin-visualizer for bundle stats.
+Optional PWA (vite-plugin-pwa) later.
+Code splitting via dynamic import() for large feature routes.
+
+------------------------------------------------------------------
+24. ACCESS CONTROL (FRONTEND)
+------------------------------------------------------------------
+ProtectedRoute component checks auth context. Role checks (future) by decoding JWT claims, but always rely on backend for authorization.
+
+------------------------------------------------------------------
+25. LOGGING & MONITORING (OPTIONAL LATER)
+------------------------------------------------------------------
+Integrate Sentry (browser + performance) after stabilization. Wrap App with Sentry ErrorBoundary.
+
+------------------------------------------------------------------
+26. SVG MANAGEMENT PATTERN
+------------------------------------------------------------------
+Keep raw SVGs in src/assets/icons. Import as React components via svgr. For consistent sizing, create <Icon name="..." size={24} /> that maps names to components.
+
+------------------------------------------------------------------
+27. VERSION & CHANGELOG
+------------------------------------------------------------------
+Track version in package.json. Optionally use changesets for semantic release workflow. Display app version in a footer or About modal.
+
+------------------------------------------------------------------
+28. SECURITY QUICK WINS
+------------------------------------------------------------------
+- Avoid storing access token in localStorage long-term if you can migrate to httpOnly cookie refresh flow.
+- Sanitize any dynamic HTML (DOMPurify) when/if introduced.
+- Always enforce HTTPS in production; ensure backend uses secure cookies appropriately.
+
+------------------------------------------------------------------
+29. ONBOARDING SUMMARY FOR TEAMMATE
+------------------------------------------------------------------
+1. Clone repo.
+2. npm install
+3. Copy .env.example -> .env.development and fill VITE_API_BASE_URL.
+4. npm run generate:api (if schema reachable).
+5. npm run dev
+6. Implement login page.
+7. Add protected layout + initial feature route.
+
+------------------------------------------------------------------
+30. COMMON PITFALLS
+------------------------------------------------------------------
+- Missing VITE_ prefix => undefined at runtime.
+- Duplicating server state in Zustand (use React Query).
+- Refresh token handling not implemented => frequent logouts.
+- Skipping type errors—enforce tsc in CI.
+- Forgetting imports in tailwind content config => purged classes.
+
+------------------------------------------------------------------
+31. INITIAL COMMIT STRATEGY
+------------------------------------------------------------------
+1: Vite scaffold
+2: Tailwind + lint/format config + paths
+3: Auth foundation (axios client, query providers)
+4: OpenAPI generation config + generated output
+5: Login page + protected route
+6: CI workflow + docs update
+
+------------------------------------------------------------------
+32. README ESSENTIALS
+------------------------------------------------------------------
+- Tech stack & rationale
+- Quick start commands
+- Environment variables table
+- Scripts table
+- Architecture overview
+- Contribution guidelines (lint, test, branch naming)
+
+------------------------------------------------------------------
+33. OPTIONAL DOCKER SUPPORT
+------------------------------------------------------------------
+Multi-stage Dockerfile building dist/ then serving via Nginx. Ensure SPA 404 rewrite to /index.html.
+
+------------------------------------------------------------------
+34. QUALITY GATES LOCAL
+------------------------------------------------------------------
+Before PR: npm run typecheck && npm run lint && npm run test && npm run build
+
+------------------------------------------------------------------
+35. EVOLUTION HOOKS
+------------------------------------------------------------------
+- Storybook for isolated UI as components grow
+- Design tokens (JSON) for theme synchronization
+- Dark mode, i18n, accessibility audits
+
+------------------------------------------------------------------
+END OF GUIDE

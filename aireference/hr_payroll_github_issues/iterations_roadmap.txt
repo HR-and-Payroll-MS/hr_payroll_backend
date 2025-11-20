@@ -1,0 +1,94 @@
+HR & Payroll System – Iterations Roadmap (High-Level MVPs)
+
+Purpose
+- Provide a professional, end-to-end roadmap broken into big iterations (each is a coherent MVP).
+- Aligns to the documentation (Ch.1–4 understanding) and current project progress (auth and docs configured, groundwork done).
+- Each iteration yields production-valuable outcomes with tests, docs, and i18n touchpoints.
+
+Guiding principles
+- Ship vertical slices that are usable end-to-end.
+- Keep security (RBAC), auditability, and i18n in scope throughout.
+- Prefer minimal, versioned master data and deterministic payroll runs.
+- Add async (Celery) only where needed for UX/perf.
+
+Iteration 0 – Foundations hardening (already in progress)
+Goal: Stable developer experience, CI, and minimal auth ready for future features.
+Outcomes
+- Pre-commit + formatting (Ruff, djLint, Prettier) reliable locally and in CI.
+- Docker compose workflows for local dev (Django, Postgres, Redis, Mailpit, Celery worker/beat, Traefik/Nginx if used).
+- Auth baseline: Djoser + SimpleJWT, allauth email verification; admin-only API docs; smoke tests green.
+- Project documentation seeds (README, dev HOWTO).
+
+Iteration 1 – IAM + RBAC MVP
+Goal: Secure access with roles; seed roles and minimal permissions used by later iterations.
+Outcomes
+- Roles/Groups: Admin, HR, Finance, Employee; permission matrix minimal for users, org, employees.
+- JWT flows finalized: register, activate, login, refresh, me; tests for lockout and happy paths.
+- Admin-only docs; per-role access to user/me endpoints; audit hooks stubbed for key events.
+- i18n: base strings for auth flows and email templates.
+Definition of done
+- Tests: registration/login/refresh/me; role-based access checks.
+- Docs: API auth guide; roles table.
+
+Iteration 2 – Organization master data MVP
+Goal: Departments and Job Titles to support employees and reporting.
+Outcomes
+- Models: Department (code, name, parent, active), JobTitle (code, name, department, grade, active).
+- Admin/HR CRUD APIs with list/search/filter; uniqueness constraints and simple hierarchy.
+- Seed data scripts and fixtures; permissions limited to Admin/HR.
+- i18n for labels/messages; OpenAPI updated.
+Definition of done
+- Tests: CRUD, uniqueness, filters; RBAC on endpoints.
+- Docs: ERD snippet; API usage examples.
+
+Iteration 3 – Employee core MVP
+Goal: Employee profiles linked to users and org data.
+Outcomes
+- Employee model: user 1:1, employee_code, hire/termination, department, job_title, manager, status, bank/tax ids.
+- Employee API: HR/Admin CRUD; Employee self “me” read (and limited update if allowed).
+- Signals: optional auto-create employee on user with defaults; validation on date ranges.
+- Basic reporting fields and indexes.
+Definition of done
+- Tests: create/update/list/retrieve, self-scope, RBAC, validation.
+- Docs: Employee model reference; onboarding workflow.
+
+Iteration 4 – Leave management MVP
+Goal: Request/approve leave with balances and validations.
+Outcomes
+- Models: LeaveType (accrual rules, carryover, paid), LeaveRequest (dates, days, status, approver).
+- Balance service (simplified): monthly accrual baseline and overlap prevention.
+- Workflows: employee requests; approver (manager/HR) approves/rejects; notifications via email.
+- Optional: Holiday calendar and simple conflict checks.
+Definition of done
+- Tests: request, overlap prevention, approval path, balance adjustments.
+- Docs: Leave policies and API; activity diagram mapping.
+
+Iteration 5 – Payroll core MVP
+Goal: Deterministic computation for a period with payslips and exports.
+Outcomes
+- Master: PayrollComponent (earning/deduction), EmployeeComponent assignments with effective dating.
+- Period/Run: PayrollPeriod (open/calc/finalize), PayrollRun, PayrollLine, PayrollLineItem, Payslip.
+- Engine: earnings → pre-tax deductions → taxable income → tax → post-tax deductions → net; rounding rules.
+- Outputs: generates payslips (PDF/HTML), CSV export of bank file; immutable finalized artifacts.
+- Async compute via Celery with progress tracking.
+Definition of done
+- Tests: per-employee computation, caps, state transitions, immutability.
+- Docs: Sequence/activity diagrams alignment; how to re-run/correct via next period.
+
+Iteration 6 – Reporting, compliance, and hardening MVP
+Goal: Ship operational reports and production hardening.
+Outcomes
+- Reports: payroll summary, deductions/tax, headcount; filters by date/department/job.
+- Exports: accounting journal CSV/XLSX; archival with hashes; permissions on sensitive reports.
+- Observability: structured logs, health checks, error notifications; backup/restore procedure notes.
+- Security: review RBAC coverage, password/MFA policy, audit trail MVP.
+Definition of done
+- Tests: report APIs, permissions, export integrity; smoke checks for health endpoints.
+- Docs: Admin runbooks, compliance notes, production checklist.
+
+Post-6 Extensions (optional)
+- Loans/advances, time & attendance deepening, SSO, regional tax packs, multi-company/tenancy.
+
+Notes on execution
+- Each iteration: update fixtures, OpenAPI, translations; run pre-commit and CI; keep migrations atomic.
+- Maintain a CHANGELOG and a migration guideline; version API when breaking changes arise.

@@ -1,0 +1,171 @@
+title,body,labels
+Setup Project Skeleton using Cookiecutter Django,"Initialize the Django project using the Cookiecutter Django template.
+
+Create Custom User Model,"Create a custom user model extending AbstractUser.
+
+Setup User Authentication,"Enable login, logout, password reset using django-allauth.
+
+Implement User Registration API,"Implement registration via DRF endpoints.
+
+Implement Login & Token Management API,"Allow login with email + password and return JWT access/refresh tokens.
+
+### Issue: Restrict API Schema / Docs to Admin Only
+
+**Body:**
+Ensure that the auto-generated API schema and documentation endpoints are not publicly accessible. Only admin (or designated privileged) users should be able to access these.
+
+**Labels:** `security`, `api`, `documentation`
+
+**Sub-issues:**
+
+1. **Identify schema/doc endpoints** — find where `/api/schema/`, Swagger, Redoc or drf-spectacular endpoints are defined.
+2. **Add permission classes** — wrap schema/doc views with `IsAdminUser` or custom permission to restrict access.
+3. **Write tests for non-admin access** — verify that non-admin authenticated users get `403`, unauthenticated get `401`.
+4. **Update docs** — modify `docs/howto.rst` or README to note which roles can access API docs/schema.
+
+---
+
+### Issue: Test for Migration Consistency
+
+**Body:**
+Add a CI test to ensure migrations are kept up to date. The test should fail if any new models or changes are not captured in migrations or if migrations have missing dependencies.
+
+**Labels:** `ci`, `test`, `migrations`
+
+**Sub-issues:**
+
+1. **Write unit test / script** that checks for `makemigrations --check` or similar, detecting missing migrations.
+2. **CI integration** — add that script to GitHub Actions workflow so it runs on PRs.
+3. **Test applying migrations** — set up a test that starts with fresh DB and runs all migrations without errors.
+4. **Document migration policy** — note in docs how to handle and commit migrations, when to run them.
+
+---
+
+### Issue: Test for Celery Startup
+
+**Body:**
+Ensure that Celery worker and beat services can start without errors, as part of the dev stack. This guarantees the async background tasks structure is valid.
+
+**Labels:** `ci`, `celery`, `test`, `infrastructure`
+
+**Sub-issues:**
+
+1. **Write simple Celery task** (maybe a dummy periodic task) to prove beat and worker run.
+2. **Smoke test startup** — script that boots the celery worker/beat via Docker Compose and checks health / log messages.
+3. **CI job or test stub** — integrate check into CI or a separate test suite.
+4. **Document how to run celery in dev** in docs/howto.rst.
+
+---
+
+### Issue: Environment Variables Validation
+
+**Body:**
+Validate that required environment variables are present and valid at startup. Missing required settings should fail fast.
+
+**Labels:** `configuration`, `security`, `docs`
+
+**Sub-issues:**
+
+1. **List needed env vars** — identify all required environment variables (DB, secret key, email, etc.).
+2. **Startup validation** — in `config/settings/base.py` or a helper, add code that checks for presence/format.
+3. **Tests** — simulate missing env var and expect startup to fail or raise clear error.
+4. **Document** — in README or docs/howto.rst list required env vars and defaults.
+
+---
+
+### Issue: Add Health Check Endpoint
+
+**Body:**
+Create an HTTP endpoint (e.g. `/health/` or `/healthz`) that returns basic health status of system: database connection, optional Redis or cache, maybe Celery status.
+
+**Labels:** `feature`, `api`, `test`, `documentation`
+
+**Sub-issues:**
+
+1. **Define endpoint** — add view + URL path for health check.
+2. **Check DB connection** — in view logic try a simple DB query.
+3. **Optional checks** — include Redis/cache ping, optional background queue connection.
+4. **Write tests** — for healthy and unhealthy situations (e.g. DB down).
+5. **Document** — how to call health endpoint; expected responses; usage in monitoring.
+
+---
+
+### Issue: Locale / i18n Setup & Initial Translation Extraction
+
+**Body:**
+Even though you have locale directories, need to extract initial messages, add at least one translation, ensure strings in auth, errors use gettext.
+
+**Labels:** `i18n`, `feature`, `documentation`
+
+**Sub-issues:**
+
+1. **makemessages** — run Django’s `makemessages` to extract all strings across templates, views, serializers.
+2. **Add translation** — pick a language (e.g. French) and translate some core parts: auth messages, form labels, error messages.
+3. **Use gettext in code** — ensure that error messages / verbose\_name / serializer error strings are wrapped with gettext\_lazy or similar.
+4. **Compilemessages and test** — verify translations compile; switch locale in dev to test.
+5. **Document translation contribution** — instructions in `docs/howto.rst` or README about adding translations.
+
+---
+
+### Issue: Dev Docs — Update “How to run dev stack”
+
+**Body:**
+Update or create documentation that clearly tells developers how to get the full local development stack running in your project.
+
+**Labels:** `docs`, `developer_experience`
+
+**Sub-issues:**
+
+1. **Describe Docker Compose commands** — what to run to bring up all services (django, postgres, redis, celery etc.).
+2. **Describe how to run tests** — command for running pytest, coverage, etc.
+3. **Describe linting / pre-commit flow** — which tools, commands, how to fix.
+4. **Describe API schema/docs generation** — how to access, how to generate.
+5. **Describe translation process** — how to run makemessages, compilemessages, how to test switching languages.
+
+---
+
+### Issue: Ensure CI Runs Pre-commit & Formatting Checks
+
+**Body:**
+CI must ensure that formatting & code style rules are enforced. Pre-commit, ruff, black/isort, djLint, prettier (if applicable) should run and fail CI if violations exist.
+
+**Labels:** `ci`, `lint`, `style`, `tests`
+
+**Sub-issues:**
+
+1. **Add CI step for formatting** — ensure `black --check` or `ruff` style checks.
+2. **Add pre-commit integration** — ensure commits locally validated; maybe a CI job that simulates a commit to verify hooks.
+3. **Write sample failing case** — commit a file with formatting errors to test that CI catches them.
+4. **Document style guide** — in README or docs folder for team standard.
+
+---
+
+### Issue: Check Docker & Compose Local Dev Stack Health
+
+**Body:**
+Make sure all services in `compose/local/` start properly, endpoints reachable, basic services working in local dev.
+
+**Labels:** `infrastructure`, `devstack`, `test`
+
+**Sub-issues:**
+
+1. **Smoke test script** — a script or test that via HTTP/ping checks that Django server is running, Postgres is accepting connections, Mailpit is reachable.
+2. **Manual verification** — bring up stack locally and test endpoints.
+3. **CI / dev job** — optionally integrated job that uses docker compose up and verifies health.
+4. **Document dev stack ports & services** — in docs/howto, list what containers are part of dev stack, what ports are exposed.
+
+---
+
+## Already Done / To Mark Complete
+
+These you said you already implemented; include them so you can mark them:
+
+* Setup Project Skeleton using Cookiecutter Django
+* Custom User Model
+* Setup User Authentication (SSR pages)
+* Implement User Registration API via DRF / Djoser
+* Implement Login & Token Management API
+
+---
+
+If you want, I can also produce this list in a CSV or template format so you can paste directly into GitHub (with parent-child issue links).

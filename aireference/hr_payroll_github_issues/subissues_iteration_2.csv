@@ -1,0 +1,71 @@
+parent_title,title,body,labels
+Org: Create Department model,Model fields and migrations,"Add Department model fields and Generate migrations.
+- code (CharField, unique, CI), name, parent (self, null), is_active, timestamps.
+- Indexes on code and is_active; DB unique on code.
+- Include __str__ and Meta verbose names.",models,db
+Org: Create Department model,Validation and cycle checks,"Implement clean() and/or serializer validation.
+- Block self-parent and circular references.
+- Enforce code regex and uppercase normalization.",models,validation
+Org: Create Department model,Admin registration and UX,"Register Department in admin.
+- list_display, list_filter, search_fields.
+- Add bulk activate/deactivate actions.",admin,ux
+
+Org: Create JobTitle model,Model fields and migrations,"Add JobTitle model fields and Generate migrations.
+- code (unique, CI), name, department (FK PROTECT), grade (nullable), is_active, timestamps.
+- Indexes and constraints for performance.",models,db
+Org: Create JobTitle model,Validation rules,"Validate code regex; ensure department is active when job title is active; optional grade range.",models,validation
+Org: Create JobTitle model,Admin registration,"Register JobTitle with filters by is_active and department; search by code/name; readonly timestamps.",admin
+
+Org API: Department ViewSet + Router,Serializer and ViewSet,"Create ModelSerializer and ModelViewSet.
+- Permissions: Admin/HR write, all authenticated read.
+- Filters: is_active, parent, code icontains; ordering and search.",api,rbac
+Org API: Department ViewSet + Router,Routers and URLs,"Mount routes under /api/organization/departments/ and add tag to schema.",api,docs
+Org API: Department ViewSet + Router,API tests for CRUD + RBAC,"Tests for permissions matrix, create/update/delete flows, filtering/search, error shapes.",tests,api
+
+Org API: JobTitle ViewSet + Router,Serializer and ViewSet,"Create ModelSerializer and ModelViewSet with department select_related.",api,performance
+Org API: JobTitle ViewSet + Router,Routers and URLs,"Mount /api/organization/job-titles/ and update schema tagging.",api,docs
+Org API: JobTitle ViewSet + Router,API tests for CRUD + RBAC,"Tests for permissions and filters (department, grade), search and ordering.",tests,api
+
+RBAC: Permissions for Organization models,Define perm matrix,"Document and codify perm mapping per role; Admin/HR full, Finance/Employee view.",rbac,docs
+RBAC: Permissions for Organization models,Seeding command,"Management command to create/update groups and assign perms (idempotent).",rbac,infra
+RBAC: Permissions for Organization models,Endpoint permission classes,"Apply Role/Group-based permission classes to Org endpoints; tests for matrix.",rbac,api
+
+Validation & constraints: codes, hierarchy,Uppercase and regex enforcement,"Normalize codes on save; centralize regex constant; unit tests.",models,standards
+Validation & constraints: codes, hierarchy,Cycle detection utility,"Create reusable cycle check for Department hierarchy; test multiple branches.",models,validation
+Validation & constraints: codes, hierarchy,Error messaging and i18n,"Ensure human-readable, translated errors (gettext); serializer error codes set.",i18n,validation
+
+Admin UI: Departments and Job Titles,Bulk actions and filters,"Implement activate/deactivate actions; verify queryset updates; tests if feasible.",admin
+Admin UI: Departments and Job Titles,Read-only fields and forms,"Set created/updated as readonly; optional form clean hooks.",admin
+Admin UI: Departments and Job Titles,Docs screenshots,"Add brief screenshots or notes to docs for admin usage (optional).",docs
+
+Seed data and fixtures for Org,Create fixtures,"YAML/JSON fixture files for a few Departments and Job Titles.",fixtures,data
+Seed data and fixtures for Org,Idempotent loader command,"Management command load_org_fixtures with upsert semantics; safe re-runs.",fixtures,infra
+Seed data and fixtures for Org,Tests for idempotency,"Test multiple runs don’t duplicate; validate counts and key fields.",tests,fixtures
+
+OpenAPI: Tagging and examples for Org endpoints,Spectacular configuration,"Add Organization tag and descriptions; include operation summaries.",docs,schema
+OpenAPI: Tagging and examples for Org endpoints,Examples and extensions,"Add example request/response bodies; document filter/ordering params via extensions.",docs,schema
+OpenAPI: Tagging and examples for Org endpoints,Schema verification in CI,"Optionally add schema diff or export step; manual verification acceptable.",ci,docs
+
+i18n: Organization strings and errors,Wrap strings with gettext,"Apply gettext_lazy to model verbose names, serializer messages, admin actions.",i18n
+I18n: Organization strings and errors,Update and compile locales,"Run makemessages and compilemessages for en_US, fr_FR, pt_BR.",i18n,build
+I18n: Organization strings and errors,Tests for translations,"Switch LANGUAGE_CODE in tests to validate translated error strings appear.",tests,i18n
+
+Tests: Organization models and APIs,Factories for org models,"Add DepartmentFactory and JobTitleFactory with sensible defaults.",tests,fixtures
+Tests: Organization models and APIs,Model test suite,"Test unique code, normalization, cycle validation, and constraints.",tests,models
+Tests: Organization models and APIs,API test suite,"Test CRUD + RBAC, filters/search/ordering, pagination, error shapes (400 vs 403).",tests,api
+
+Performance & indexes for Org,Add/select indexes,"Ensure DB indexes via migrations and select_related on JobTitle queries.",performance,db
+Performance & indexes for Org,Query count tests,"Assert reasonable number of queries in list endpoints; prevent N+1.",tests,performance
+Performance & indexes for Org,Load testing stub,"Optional: basic locust/bench script or doc for future scaling.",performance,docs
+
+Audit trail stubs for Org changes,Signals/log hooks,"Connect post_save/post_delete to emit structured logs for actions.",audit,logging
+Audit trail stubs for Org changes,Log format and context,"Define JSON log structure (action, actor, entity, timestamp) and include request user if available.",audit,docs
+Audit trail stubs for Org changes,Smoke test logging,"Simple test that an update triggers a structured log; manual verification acceptable.",tests,audit
+
+API error shape and conflict handling,Standardize error responses,"Ensure consistent error shape (detail, code, field errors) across Org endpoints.",api,standards
+API error shape and conflict handling,Unique conflict mapping,"Map unique violations to field errors (400); avoid 409 unless explicit conflict semantics.",api,validation
+API error shape and conflict handling,Docs for error format,"README/docs page describing error JSON format with examples.",docs,api
+
+CI: Include Org tests & lint in pipeline,CI config update,"Ensure Org tests are picked up; extend pre-commit paths if required.",ci,tests
+CI: Include Org tests & lint in pipeline,Run and validate CI,"Push a branch to exercise CI and confirm green pipeline.",ci
+CI: Include Org tests & lint in pipeline,Optional schema check,"Add optional schema export or diff step if tracked in repo.",ci,docs

@@ -1,0 +1,55 @@
+parent_number,title,body,labels
+68,Use Cookiecutter Django,"Use latest cookiecutter-django to scaffold the project.",infra
+69,Enable Docker and Celery,"Set up Docker, Celery, Redis, Mailpit, Traefik.",infra
+70,Split Settings Files,"Split into base, local, production, test.",infra
+71,Add Full Name Field,"Extend user model with full_name.",users
+72,Use Email as Username,"Make email the login credential.",users
+73,Set AUTH_USER_MODEL,"Point to the custom user model.",users
+74,Configure Allauth,"Install and configure django-allauth.",auth
+75,Add Allauth Templates,"Setup templates for login/logout/reset.",auth
+76,Mail Support,"Enable email confirmation via Mailpit/SendGrid.",auth
+77,DRF Signup Endpoint,"Add API to register users.",api
+78,Validate Duplicate Emails,"Prevent registsration with existing email.",api
+79,Return Token on Signup,"Send access token after registration.",api
+80,JWT Login Endpoint,"Allow email/password login with SimpleJWT.",auth
+81,Add Refresh Token,"Include refresh support.",auth
+82,Secure Auth APIs,"Protect endpoints using permissions.",auth
+83,Create Groups,"Define Admin, HR, Employee, etc.",rbac
+84,Assign Permissions,"Set perms per role via Django Groups.",rbac
+85,Assign Roles at Reg/Update,"Assign roles during or after registration.",rbac
+86,Add OneToOne Employee,"Link Employee to User.",employees
+87,Add Employee Fields,"Add dept, job title, hire date, etc.",employees
+88,Auto-create Employee on User,"Use signal to auto-create.",employees
+89,Create Department Model,"Model for departments.",models
+90,Create JobTitle Model,"Model for job titles.",models
+91,API CRUD for Dept/Job,"DRF ViewSets for department/job.",api
+92,CRUD Employee API,"Create ViewSet, list, retrieve, update, delete.",api
+93,Add Permissions,"Restrict access to HR/Admin.",api
+94,Add Filters,"Filter by department/job.",api
+95,Test User Auth,"Test registration/login.",tests
+96,Test Employee Creation,"Test create/retrieve/update.",tests
+97,Use Factories,"FactoryBoy for user/employee.",tests
+98,Docstrings for Models,"Add docstrings to user and employee models.",docs
+99,Generate Sphinx Docs,"Use sphinx-apidoc to create docs.",docs
+100,Add Users.rst and Employees.rst,"Separate rst files per model.",docs
+101,Translate Auth Templates,"Use {% trans %} in auth templates.",i18n
+102,Compile Translations,"Use makemessages and compilemessages.",i18n
+103,Test Locales,"Test en_US, fr_FR, pt_BR.",i18n
+104,Setup Pre-commit,"Configure ruff, black, isort.",pre-commit
+105,Run Hooks,"Run pre-commit on all files.",pre-commit
+106,Add Pre-commit to CI,"Check on GitHub actions.",pre-commit
+107,Compose Services,"Define docker-compose.local.yml services: django, db, redis, mailpit, celery worker/beat, proxy.",infra
+108,Volumes & Env Templates,"Add persisted volumes and .env templates; document usage in README.",infra
+109,Local Dev Scripts,"Provide make/just commands to build, up, down, logs, test.",infra
+
+110,Base Settings Layout,"Create base.py, local.py, production.py, test.py with shared and env-specific config.",infra
+111,Env Switching,"Use DJANGO_SETTINGS_MODULE and .env to switch settings per environment.",infra
+112,Secrets Management,"Load secrets from env and avoid committing sensitive defaults.",infra
+
+113,Spectacular Settings,"Enable schema generation and configure SERVE permissions for staff-only.",docs
+114,Docs Auth Behavior Tests,"Add tests: admin gets 200 on docs; anonymous gets 403.",tests
+115,Tags and Examples,"Add tags for Organization/Auth and simple request/response examples.",docs
+
+116,Djoser Endpoints,"Enable registration/activation endpoints and wire to URLs.",auth
+117,SimpleJWT Settings,"Configure lifetimes, rotation, blacklist (if used).",auth
+118,JWT + Allauth Integration,"Ensure email verification via allauth dovetails with JWT issue; tests for register/login/refresh/me.",auth,tests

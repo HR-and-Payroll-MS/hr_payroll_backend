@@ -1,0 +1,215 @@
+API v1 – Tables and Attributes (Project-owned models only)
+
+Scope
+- Only resources exposed under /api/v1 via config.api_router.py
+- Excludes SSR-only pages and third‑party tables (e.g., JWT blacklist, auth tokens) unless explicitly noted
+
+Endpoints discovered
+- /api/v1/users → users.User
+- /api/v1/departments → employees.Department
+- /api/v1/employees → employees.Employee (+ onboarding actions)
+- /api/v1/employee-documents → employees.EmployeeDocument
+ - /api/v1/positions → employees.Position
+
+============================================================
+users.User (custom user model)
+============================================================
+Database fields (inherits AbstractUser + custom):
+- id: BigAutoField (primary key)
+- username: CharField, unique, max_length=150
+- email: EmailField, unique
+- first_name: CharField, max_length=150, blank=True
+- last_name: CharField, max_length=150, blank=True
+- name: CharField (Full Name), max_length=255, blank=True  [auto-populated from first/last on save]
+- password: CharField
+- last_login: DateTimeField, null=True, blank=True
+- is_superuser: BooleanField
+- is_staff: BooleanField
+- is_active: BooleanField
+- date_joined: DateTimeField
+- groups: ManyToMany to auth.Group
+- user_permissions: ManyToMany to auth.Permission
+ - created_at: DateTimeField, auto_now_add=True
+ - updated_at: DateTimeField, auto_now=True
+
+API fields (UserSerializer):
+- username (read-only)
+- first_name (read/write)
+- last_name (read/write)
+- full_name (read-only; maps to model.name)
+- email (read-only)
+- groups (read-only; list of group names)
+- url (read-only; absolute URL to this user)
+
+Notes:
+- Update attempts for username/email are rejected by the serializer (kept system-managed).
+- Listing: elevated users (is_staff or in groups Admin/Manager) see all; others see only themselves.
+
+============================================================
+employees.Department
+============================================================
+Database fields:
+- id: BigAutoField (primary key)
+- name: CharField, max_length=150, unique=True, db_index=True
+- description: TextField, blank=True
+ - location: CharField, max_length=150, null=True, blank=True
+ - budget_code: CharField, max_length=50, null=True, blank=True
+ - manager: ForeignKey → employees.Employee, null=True, blank=True, on_delete=SET_NULL, related_name="managed_departments"
+ - is_active: BooleanField, default=True
+ - created_at: DateTimeField, auto_now_add=True
+ - updated_at: DateTimeField, auto_now=True
+
+API fields (DepartmentSerializer):
+- id, name, description, location, budget_code, manager (employee id), is_active, created_at, updated_at
+	- Auth: Admin/Manager can CRUD; authenticated users can read
+	- Manager dropdown: lists only Employees whose associated User is in group "Manager".
+Default filtering:
+- Lists return only is_active=True by default. Admin/Manager can pass `?include_inactive=1` to include inactive.
+
+============================================================
+employees.Employee
+============================================================
+Database fields:
+- id: BigAutoField (primary key)
+- user: OneToOneField → users.User, on_delete=CASCADE (unique per user)
+- department: ForeignKey → employees.Department, on_delete=SET_NULL, null=True, blank=True, related_name="employees"
+ - title (db column job_title): CharField, max_length=150, blank=True
+- hire_date: DateField, null=True, blank=True
+ - supervisor: ForeignKey → employees.Employee (self), null=True, blank=True, on_delete=SET_NULL, related_name="subordinates"
+ - position: ForeignKey → employees.Position, null=True, blank=True
+ - national_id: CharField, max_length=50, unique=True, null=True, blank=True
+ - gender: CharField, choices [male,female,other], null=True, blank=True
+ - date_of_birth: DateField, null=True, blank=True
+ - employment_status: CharField, choices [active,suspended,resigned,terminated,retired], default 'active'
+ - first_name: CharField, max_length=80, null=False, blank=True, default=''
+ - last_name: CharField, max_length=80, null=False, blank=True, default=''
+ - email: EmailField, unique=True, null=True, blank=True
+ - phone: CharField, max_length=32, null=True, blank=True
+ - address: TextField, null=True, blank=True
+ - is_active: BooleanField, default=True
+ - created_at: DateTimeField, auto_now_add=True
+ - updated_at: DateTimeField, auto_now=True
+
+API fields (EmployeeSerializer):
+Representation (GET):
+- id
+- user: object { id, username, email, first_name, last_name, is_active }
+- department: object or null { id, name, description, location, budget_code, manager, is_active, created_at, updated_at }
+- title
+- hire_date
+- supervisor: object or null { id, user: { id, username } }
+- position: object or null { id, title, department, salary_grade, description, created_at, updated_at }
+- national_id
+- gender
+- date_of_birth
+- employment_status
+- first_name
+- last_name
+- email
+- phone
+- address
+- is_active
+- created_at
+- updated_at
+
+Writable fields (POST/PUT/PATCH):
+- user (accepts username or user id; required on create; must not already have an Employee)
+- department (department id or null)
+- title
+- hire_date
+- supervisor (employee id or null)
+- position (position id or null)
+- national_id, gender, date_of_birth, employment_status, first_name, last_name, email, phone, address, is_active
+
+Extra actions under /api/v1/employees (creation is supported only via these endpoints; the base /employees endpoint has no POST form):
+- POST onboard/new → body: first_name?, last_name?, full_name?, department?, title?, hire_date?, cv_file? (multipart); response includes employee plus credentials: { username, email, initial_password } (time‑limited in cache)
+- POST onboard/existing → body: user, department?, title?, hire_date?, full_name?, cv_file? (multipart); response: employee (missing first_name/last_name/email auto-filled from the selected User). If cv_file is provided, basic fields are extracted to prefill and the PDF is stored as an EmployeeDocument.
+- POST onboard/bulk → body: JSON array of objects where each item is either a "new" shape (like onboard/new) or an "existing" shape (like onboard/existing with `user`). Returns an array of results with either created employee data (and credentials for new) or an error per item. This endpoint does not fail the entire batch on individual errors.
+- GET {id}/initial-credentials → returns cached credentials if still available
+- POST {id}/regenerate-credentials → resets password and returns fresh credentials
+
+Onboarding request bodies (full supported fields):
+- onboard/new (creates User + Employee; credentials auto-generated):
+	- first_name?, last_name?, full_name?
+	- department?, title?, hire_date?
+	- supervisor?, position?
+	- national_id?, gender?, date_of_birth?, employment_status?
+	- employee_email?, phone?, address?
+	- cv_file? (PDF, multipart/form-data)
+- onboard/existing (promotes an existing non-employee user):
+	- user (username or id)
+	- department?, title?, hire_date?, full_name?
+	- supervisor?, position?
+	- national_id?, gender?, date_of_birth?, employment_status?
+	- first_name?, last_name?, employee_email?, phone?, address?
+	- cv_file? (PDF, multipart/form-data)
+
+Autofill & simplifications:
+- For onboard/existing: if first_name/last_name are omitted, they default from the selected User's first_name/last_name; if employee_email is omitted, it defaults from the User's email.
+- For both onboarding endpoints: you may provide a single full_name; if first_name/last_name are omitted we split full_name into first (first token) and last (remaining tokens).
+- If cv_file is provided (PDF), we extract text (using pdfminer.six when available, with a simple pypdf fallback) and best‑effort prefill fields like first_name/last_name/full_name, email, phone, and date_of_birth. The uploaded file is also saved under EmployeeDocument for the created employee.
+- is_active is no longer accepted in onboarding bodies; it is auto-synced from employment_status.
+
+Permissions and queryset rules:
+- Elevated (is_staff or in groups Admin/Manager): full access
+- Regular users: can only view their own Employee record
+Default filtering:
+- Lists return only is_active=True by default. Admin/Manager can pass `?include_inactive=1` to include inactive.
+
+Notes:
+- As of 2025-10-13, Employee.first_name and Employee.last_name are NOT NULL; existing rows were safely backfilled (empty string where missing) prior to enforcing the constraint.
+- Business rule: is_active auto-syncs from employment_status on save. If employment_status is one of {resigned, terminated, retired}, is_active becomes False; otherwise True. Any client-provided is_active value will be overridden by this rule. The input "is_active" field has been removed from onboarding endpoints.
+
+============================================================
+employees.EmployeeDocument
+============================================================
+Database fields:
+- id: BigAutoField (primary key)
+- employee: ForeignKey → employees.Employee, on_delete=CASCADE, related_name="documents"
+- name: CharField, max_length=200
+- file: FileField, upload_to="employees/<employee_id>/<filename>"
+- uploaded_at: DateTimeField, auto_now_add=True
+ - created_at: DateTimeField, auto_now_add=True
+ - updated_at: DateTimeField, auto_now=True
+
+API fields (EmployeeDocumentSerializer):
+- id, employee (id), name, file (URL/path), uploaded_at
+
+Validation constraints (API + model.clean()):
+- Allowed extensions: .pdf, .png, .jpg, .jpeg, .txt
+- Max file size: 5 MB
+
+Access rules:
+- Elevated users: can manage any employee’s documents
+- Regular users: limited to their own documents; cannot upload for others
+
+Onboarding integration:
+- When cv_file is passed to onboarding endpoints, the file is automatically saved as an EmployeeDocument linked to the new employee, so you can keep the dedicated upload endpoint for additional documents uploaded later. Bulk onboarding does not support file uploads.
+
+============================================================
+employees.Position
+============================================================
+Database fields:
+- id: BigAutoField (primary key)
+- title: CharField, max_length=120
+- department: ForeignKey → employees.Department, null=True, blank=True, related_name="positions"
+- salary_grade: CharField, max_length=20, null=True, blank=True
+- description: TextField, blank=True
+- created_at: DateTimeField, auto_now_add=True
+- updated_at: DateTimeField, auto_now=True
+
+API fields (PositionSerializer):
+- id, title, department (id), salary_grade, description, created_at, updated_at
+	- Auth: Admin/Manager can CRUD; authenticated users can read
+
+============================================================
+Notes on /api/v1/auth/*
+============================================================
+- Auth endpoints are provided by dj-rest-auth and djoser under /api/v1/auth/ (login/logout/password reset/JWT).
+- They operate on the same users.User model and Django auth tables; third‑party tables (e.g., JWT blacklist) are not listed here.
+
+API exposure notes (unchanged):
+- The newly added fields (timestamps, is_active, manager/supervisor, identity/contact) are not exposed in current API serializers unless noted above; responses remain backward-compatible.
+ - The base /employees endpoint is read-only for create; use onboarding endpoints for creation.
+
+End of document.

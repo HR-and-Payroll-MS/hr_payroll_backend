@@ -59,6 +59,7 @@ target-version = "py312"
 extend-exclude = [
     "*/migrations/*.py",
     "staticfiles/*",
+    "aireference/*",
 ]
 
 [tool.ruff.lint]
@@ -127,6 +128,7 @@ ignore = [
           # Deactivated because it can make the code slow:
           # https://github.com/astral-sh/ruff/issues/7871
   "COM812", # Trailing comma conflicts with Ruff formatter
+  "PLR2004", # Magic value used in comparison (acceptable in tests)
 ]
 # The fixes in extend-unsafe-fixes will require
 # provide the `--unsafe-fixes` flag when fixing.

@@ -1,0 +1,199 @@
+
+---
+
+## Iteration 2 – Identity & Access Control: Issues & Subissues
+
+---
+
+### Issue: Add User Registration with Email Verification
+
+**Body:**
+Implement user registration API endpoint that requires email verification. When a user registers, send a verification email; require clicking link/token to activate account before login.
+
+**Labels:** `feature`, `api`, `auth`, `email`, `tests`
+
+**Sub-issues:**
+
+1. Create DRF serializer + view for registration endpoint (accepts email, password, etc.).
+2. Integrate email sending (via Djoser or custom) for verification link; set up Mailpit/local email for testing.
+3. Write tests: happy path (register → verify → login works), invalid email format, duplicate email.
+
+---
+
+### Issue: Add Login / Logout Endpoints with JWT + Refresh
+
+**Body:**
+Provide endpoints to log in (get JWT tokens: access + refresh), refresh token, and logout (invalidate token or blacklist if used).
+
+**Labels:** `feature`, `api`, `auth`, `security`, `tests`
+
+**Sub-issues:**
+
+1. Implement login endpoint using Djoser / DRF to return access + refresh tokens.
+2. Implement refresh token endpoint.
+3. Implement logout endpoint: either token blacklist or other mechanism, and tests around using invalidated tokens.
+
+---
+
+### Issue: Add `/api/me/` Endpoint for Profile Details
+
+**Body:**
+Provide authenticated users an endpoint to retrieve (and possibly update) their own user profile details.
+
+**Labels:** `feature`, `api`, `auth`, `tests`
+
+**Sub-issues:**
+
+1. Create view + serializer for `/api/me/` that returns user fields (email, username, roles, etc.).
+2. Limit update: decide which fields users can update (e.g. first\_name, last\_name, bank info later etc.) and implement patch/update only for those.
+3. Test that unauthorized users can’t access or update others’ profiles; users get correct info.
+
+---
+
+### Issue: Implement Password Reset via Email
+
+**Body:**
+Allow users to request a password reset, send reset link via email, and perform reset using token.
+
+**Labels:** `feature`, `api`, `auth`, `tests`, `email`
+
+**Sub-issues:**
+
+1. Add endpoint to request password reset (send email with token/link).
+2. Add endpoint to reset password (token in URL or in body).
+3. Tests: success reset path; invalid or expired token; weak password / mismatch.
+
+---
+
+### Issue: Seed Default Roles & Permissions
+
+**Body:**
+Define fixed roles/groups (Admin, HR, Payroll Officer, Manager, Employee, Senior Manager) and assign appropriate Django permissions in the system, so they can be used for RBAC.
+
+**Labels:** `feature`, `rbac`, `data`, `fixtures`, `tests`
+
+**Sub-issues:**
+
+1. Create fixture or data migration to create the roles/groups.
+2. Define permissions for each role (which model permissions each role has) and seed them.
+3. Tests: check that seeded roles have correct permissions; check idempotency.
+
+---
+
+### Issue: Enforce RBAC on `/api/me/` and Admin Endpoints
+
+**Body:**
+Ensure all endpoints have role-based access control: only users with correct roles can access admin endpoints; `/api/me/` only for authenticated; others restricted.
+
+**Labels:** `security`, `rbac`, `api`, `tests`
+
+**Sub-issues:**
+
+1. Apply permission classes on views/routers: AdminUser / HR / Manager etc.
+2. Write tests for each role: Admin, HR, Employee, Manager etc., ensuring correct access / forbidden.
+3. Review existing endpoints (including admin UI) to verify no endpoint leaks unauthorized data.
+
+---
+
+### Issue: Create AuditLog Model for Login & Role Changes
+
+**Body:**
+Track certain important user events (login, logout maybe, role changes) in an `AuditLog` model: who performed the action, timestamp, what changed.
+
+**Labels:** `feature`, `audit`, `models`, `tests`
+
+**Sub-issues:**
+
+1. Define `AuditLog` model: fields such as actor (user), event\_type (login, role\_change, etc.), target\_user, timestamp, additional data.
+2. Implement signals or hooks: on successful login, on role assignment/changes via admin or API.
+3. Tests: ensure logs are created, correct data stored, permissions or privacy checking (who can read them).
+
+---
+
+### Issue: Add Management Command to Assign Roles to Users
+
+**Body:**
+Provide a Django management command to set or change roles of existing users (by email or username). Useful for seeding and maintenance.
+
+**Labels:** `feature`, `infra`, `management`, `rbac`
+
+**Sub-issues:**
+
+1. Create command (e.g. `python manage.py assign_role --user EMAIL --role ROLE_NAME`).
+2. Validate that role exists, user exists; handle errors.
+3. Tests for management command: using tmp DB, ensure role changes.
+
+---
+
+### Issue: Write Unit Tests for Login / Register / Logout Flows
+
+**Body:**
+Ensure good coverage for core auth flows: registration, login, logout, token refresh.
+
+**Labels:** `tests`, `api`, `auth`
+
+**Sub-issues:**
+
+1. Test registration flow: valid, duplicate email, invalid password.
+2. Test login: correct credentials vs wrong, valid tokens.
+3. Test logout / token revocation or blacklist behavior.
+
+---
+
+### Issue: Write Integration Tests for Email Flows (Mailpit)
+
+**Body:**
+Test the full email lifecycle: registration verification, password reset email sending, etc., using Mailpit in local test environment.
+
+**Labels:** `tests`, `email`, `integration`
+
+**Sub-issues:**
+
+1. Test that registration triggers a verification email with correct content and link/token.
+2. Test that password reset request triggers email.
+3. Test that clicking (or posting token) allows password reset.
+
+---
+
+### Issue: Add i18n Strings for Auth Emails & Error Messages
+
+**Body:**
+Ensure that all user-facing strings in emails (verification, reset), error messages (invalid credentials, etc.) are wrapped in gettext or equivalent, and translations can be provided.
+
+**Labels:** `i18n`, `feature`, `auth`, `tests`
+
+**Sub-issues:**
+
+1. Identify all strings in auth serializers/views/templates that are not internationalized; wrap with gettext\_lazy / gettext.
+2. Add translation files/messages for at least one non-English locale, for auth email subject/body, error messages.
+3. Tests: switch locale and assert translated strings appear.
+
+---
+
+### Issue: Update `templates/allauth/` with Styled Login / Registration Pages
+
+**Body:**
+Even though API endpoints exist, maintain SSR login/registration via allauth; improve the styling / user experience of templates.
+
+**Labels:** `ui`, `templates`, `feature`, `auth`
+
+**Sub-issues:**
+
+1. Modify base templates to use shared layout / CSS; ensure consistent look.
+2. Update registration/login pages: field labels, error inline errors, success messages.
+3. Test manually and via smoke test that pages render correctly, errors shown.
+
+---
+
+### Issue: Add Docs Page “Authentication & Roles Guide”
+
+**Body:**
+Create documentation describing how authentication + roles work: which endpoints, what roles exist, what permissions each role has, how to use the auth API.
+
+**Labels:** `docs`, `auth`, `rbac`
+
+**Sub-issues:**
+
+1. Write roles/permissions matrix in docs.
+2. Document all API endpoints for auth: register, login, me, reset etc.
+3. Provide examples (curl or HTTP) for using tokens and accessing endpoints.

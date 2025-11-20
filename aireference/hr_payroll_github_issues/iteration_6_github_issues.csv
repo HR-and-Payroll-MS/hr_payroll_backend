@@ -1,0 +1,188 @@
+
+---
+
+## Iteration 6 – Leave Management: Issues & Sub-issues
+
+**Goal:** Enable employees to request leave, managers & HR to approve & finalize; maintain leave balances; support holiday calendar & notifications; ensure validation and i18n.
+
+---
+
+### Issue: Create LeaveType Model with Accrual & Carryover Rules
+
+**Body:**
+Define a model `LeaveType` to represent types of leave (paid, unpaid, etc.), with attributes for accrual, carryover, limits, activation status, etc.
+
+**Labels:** `models`, `leave`, `db`, `validation`
+
+**Sub-issues:**
+
+1. Define fields: `code`, `name`, `paid` (boolean), `accrual_rate` (e.g. days/month or days/year), `carryover_limit`, `max_days_per_year`, `is_active`, timestamps.
+2. Add validations: ensure accrual\_rate ≥ 0, carryover\_limit ≤ some max, code uniqueness, code format (regex, uppercase).
+3. Add migrations, apply, and admin registration with list\_display, filters, search for LeaveType.
+
+---
+
+### Issue: Create LeaveRequest Model & Workflow States
+
+**Body:**
+Implement `LeaveRequest` model to capture employee leave requests, with workflow states (pending, approved, rejected), references to approver(s) and HR, duration, type etc.
+
+**Labels:** `models`, `leave`, `workflow`, `api`, `tests`
+
+**Sub-issues:**
+
+1. Define fields: `employee` FK, `leave_type` FK, `start_date`, `end_date`, `days_requested`, `status` (choices: Pending, Approved, Rejected), `approver` (FK to user or manager), `submitted_at`, `decision_at`.
+2. Implement state transition logic: only manager or HR can approve/reject; validations on date fields; ensure `end_date >= start_date`.
+3. Migrations + admin registration; ensure appropriate admin UI for viewing/approving requests.
+
+---
+
+### Issue: Add LeaveBalance Service & Accrual Logic
+
+**Body:**
+Create a service or component that tracks and computes each employee’s leave balance based on leave types, accruals, carryovers, usage; invoked at needed points.
+
+**Labels:** `feature`, `leave`, `service`, `tests`
+
+**Sub-issues:**
+
+1. Compute accruals: e.g. monthly accrual according to leave\_type settings; carryover rules applied at year end.
+2. Subtract used leave (approved leave) from balance; ensure balance never goes negative.
+3. Tests: initial balance, after accrual, after leave usage, after carryover; edge cases.
+
+---
+
+### Issue: Holiday Calendar Model & Integration
+
+**Body:**
+Support a calendar of holidays that affect leave and possibly block leave on those days; integrate into leave request validation.
+
+**Labels:** `models`, `leave`, `validation`, `tests`
+
+**Sub-issues:**
+
+1. Create `Holiday` model: fields `date`, `name`, `is_recurring` (e.g. recurring annually), `description`.
+2. Validate leave requests against holidays: e.g. if holiday falls within requested dates, exclude or adjust total days requested.
+3. Tests: applying for leave over holidays; recurring holiday behavior; error messages when leave is fully holidays etc.
+
+---
+
+### Issue: Employee API Endpoint to Submit Leave Requests
+
+**Body:**
+Provide API for employees to submit leave requests: choose leave type, dates; see pending requests; status.
+
+**Labels:** `api`, `leave`, `auth`, `tests`
+
+**Sub-issues:**
+
+1. Serializer & view for submission: accept leave\_type, start/end, compute days\_requested, validate overlap with existing leave or holiday.
+2. Endpoint `POST /api/leave/requests/` for create; `GET /api/leave/requests/me/` for own requests.
+3. Tests: valid submission, invalid dates, overlapping requests, insufficient balance, holiday overlap.
+
+---
+
+### Issue: Manager / HR API Endpoints to Approve or Reject Leave Requests
+
+**Body:**
+Allow Manager and HR roles to review, approve or reject leave requests; record decision, send notifications.
+
+**Labels:** `api`, `leave`, `rbac`, `notifications`, `tests`
+
+**Sub-issues:**
+
+1. Viewset or endpoint for listing pending requests (manager’s team or HR globally).
+2. Approve/reject action with required permissions; update status, decision\_at, approver.
+3. Tests: that unauthorized roles cannot approve; behavior for approving, rejecting paths.
+
+---
+
+### Issue: Prevent Overlaps Between Leaves & Existing Leave / Holiday Periods
+
+**Body:**
+Ensure business rules that do not allow overlapping leave requests for same employee or conflicts with holiday periods (unless allowed).
+
+**Labels:** `validation`, `leave`, `tests`
+
+**Sub-issues:**
+
+1. Model / serializer validation for overlapping with same user’s existing approved/pending leaves.
+2. Check conflicts with holidays defined in holiday calendar.
+3. Tests: attempt leave overlapping own leave; leave fully during holiday; mixed cases.
+
+---
+
+### Issue: Notifications for Leave Request / Approval Workflow
+
+**Body:**
+Send emails or notifications at key points: on submission, on approval, on rejection.
+
+**Labels:** `feature`, `email`, `leave`, `tests`
+
+**Sub-issues:**
+
+1. On leave request submission: email to manager or HR depending on workflow.
+2. On decision (approve/reject): email to employee with decision and dates.
+3. Tests: verify email is sent, content includes correct placeholders; localized (i18n) content.
+
+---
+
+### Issue: Tests for Leave Lifecycle & Balance Updates
+
+**Body:**
+Ensure the leave flow (submit → approve → usage counted → balance updated) is well-tested across different conditions.
+
+**Labels:** `tests`, `leave`, `integration`
+
+**Sub-issues:**
+
+1. Test full lifecycle for regular leave: submission → approval → balance decremented.
+2. Test using up leave, then rejecting, then submitting another.
+3. Edge cases: submit leave when balance is zero; carryover case; holiday overlap; batch of leave spanning year boundary.
+
+---
+
+### Issue: i18n for Leave Messages & Errors
+
+**Body:**
+Ensure that all user-facing messages in leave module (error messages, email subject/body, status labels) are wrapped for translation; provide translations.
+
+**Labels:** `i18n`, `leave`, `tests`, `docs`
+
+**Sub-issues:**
+
+1. Wrap status labels, error texts, leave type names, etc., with gettext / gettext\_lazy.
+2. Extract translation messages (`makemessages`) and provide at least one non-English locale for leave module.
+3. Tests: switch locale and assert translations in API responses / email texts.
+
+---
+
+### Issue: Documentation: Leave Workflow & Policies Guide
+
+**Body:**
+Document how leave works: types, accrual, carryover, how to request, who approves, holiday calendar, overlapping rules, balance behavior etc.
+
+**Labels:** `docs`, `leave`, `policy`
+
+**Sub-issues:**
+
+1. Write leave policies: what leave types exist, accrual rates, carryover limits.
+2. Create workflow diagram or activity diagram (submit → manager → HR → finalize).
+3. Document API endpoints: request, approve, status, holiday calendar.
+
+---
+
+### Issue: Admin UI for Leave Management
+
+**Body:**
+Provide admin interfaces to manage leave types, leave requests, and the holiday calendar.
+
+**Labels:** `admin`, `leave`, `ui`
+
+**Sub-issues:**
+
+1. Register LeaveType, LeaveRequest, Holiday in admin with useful list\_display, filters (status, date, employee).
+2. Provide admin actions: bulk approve/reject; bulk deactivate leave types.
+3. Ensure permissions in admin are set: HR/Admin roles can see all, manager limited, etc.
+
+---

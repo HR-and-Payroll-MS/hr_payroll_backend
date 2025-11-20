@@ -1,0 +1,2154 @@
+openapi: 3.0.3
+info:
+  title: hr_payroll API
+  version: 1.0.0
+  description: Documentation of API endpoints of hr_payroll
+paths:
+  /api/v1/auth/jwt/create/:
+    post:
+      operationId: v1_auth_jwt_create_create
+      description: |-
+        Takes a set of user credentials and returns an access and refresh JSON web
+        token pair to prove the authentication of those credentials.
+      tags:
+      - JWT Authentication
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPair'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPair'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPair'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenObtainPair'
+          description: ''
+  /api/v1/auth/jwt/refresh/:
+    post:
+      operationId: v1_auth_jwt_refresh_create
+      description: |-
+        Takes a refresh type JSON web token and returns an access type JSON web
+        token if the refresh token is valid.
+      tags:
+      - JWT Authentication
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+  /api/v1/auth/jwt/verify/:
+    post:
+      operationId: v1_auth_jwt_verify_create
+      description: |-
+        Takes a token and indicates if it is valid.  This view provides no
+        information about a token's fitness for a particular use.
+      tags:
+      - JWT Authentication
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenVerify'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenVerify'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenVerify'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenVerify'
+          description: ''
+  /api/v1/auth/login/:
+    post:
+      operationId: v1_auth_login_create
+      description: |-
+        Check the credentials and return the REST Token
+        if the credentials are valid and authenticated.
+        Calls Django Auth login method to register User ID
+        in Django session framework
+
+        Accept the following POST parameters: username, password
+        Return the REST Framework Token Object's key.
+      tags:
+      - Session Auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Login'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Login'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Login'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Token'
+          description: ''
+  /api/v1/auth/logout/:
+    post:
+      operationId: v1_auth_logout_create
+      description: |-
+        Calls Django logout method and delete the Token object
+        assigned to the current User object.
+
+        Accepts/Returns nothing.
+      tags:
+      - Session Auth
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestAuthDetail'
+          description: ''
+  /api/v1/auth/password/change/:
+    post:
+      operationId: v1_auth_password_change_create
+      description: |-
+        Calls Django Auth SetPasswordForm save method.
+
+        Accepts the following POST parameters: new_password1, new_password2
+        Returns the success/fail message.
+      tags:
+      - Session Auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordChange'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestAuthDetail'
+          description: ''
+  /api/v1/auth/password/reset/:
+    post:
+      operationId: v1_auth_password_reset_create
+      description: |-
+        Calls Django Auth PasswordResetForm save method.
+
+        Accepts the following POST parameters: email
+        Returns the success/fail message.
+      tags:
+      - Session Auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordReset'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordReset'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordReset'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestAuthDetail'
+          description: ''
+  /api/v1/auth/password/reset/confirm/:
+    post:
+      operationId: v1_auth_password_reset_confirm_create
+      description: |-
+        Password reset e-mail link is confirmed, therefore
+        this resets the user's password.
+
+        Accepts the following POST parameters: token, uid,
+            new_password1, new_password2
+        Returns the success/fail message.
+      tags:
+      - Session Auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirm'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirm'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirm'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestAuthDetail'
+          description: ''
+  /api/v1/auth/user/:
+    get:
+      operationId: v1_auth_user_retrieve
+      description: |-
+        Reads and updates UserModel fields
+        Accepts GET, PUT, PATCH methods.
+
+        Default accepted fields: username, first_name, last_name
+        Default display fields: pk, username, email, first_name, last_name
+        Read-only fields: pk, email
+
+        Returns UserModel fields.
+      tags:
+      - Authentication
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetails'
+          description: ''
+    put:
+      operationId: v1_auth_user_update
+      description: |-
+        Reads and updates UserModel fields
+        Accepts GET, PUT, PATCH methods.
+
+        Default accepted fields: username, first_name, last_name
+        Default display fields: pk, username, email, first_name, last_name
+        Read-only fields: pk, email
+
+        Returns UserModel fields.
+      tags:
+      - Authentication
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserDetails'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserDetails'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserDetails'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetails'
+          description: ''
+    patch:
+      operationId: v1_auth_user_partial_update
+      description: |-
+        Reads and updates UserModel fields
+        Accepts GET, PUT, PATCH methods.
+
+        Default accepted fields: username, first_name, last_name
+        Default display fields: pk, username, email, first_name, last_name
+        Read-only fields: pk, email
+
+        Returns UserModel fields.
+      tags:
+      - Authentication
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUserDetails'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUserDetails'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUserDetails'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetails'
+          description: ''
+  /api/v1/auth/users/:
+    get:
+      operationId: v1_auth_users_list
+      tags:
+      - User Management
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+          description: ''
+    post:
+      operationId: v1_auth_users_create
+      tags:
+      - User Management
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreatePasswordRetype'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserCreatePasswordRetype'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserCreatePasswordRetype'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserCreatePasswordRetype'
+          description: ''
+  /api/v1/auth/users/{id}/:
+    get:
+      operationId: v1_auth_users_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user.
+        required: true
+      tags:
+      - User Management
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    put:
+      operationId: v1_auth_users_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user.
+        required: true
+      tags:
+      - User Management
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/User'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/User'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    patch:
+      operationId: v1_auth_users_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user.
+        required: true
+      tags:
+      - User Management
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUser'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUser'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUser'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    delete:
+      operationId: v1_auth_users_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user.
+        required: true
+      tags:
+      - User Management
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/auth/users/activation/:
+    post:
+      operationId: v1_auth_users_activation_create
+      tags:
+      - User Management
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Activation'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Activation'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Activation'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Activation'
+          description: ''
+  /api/v1/auth/users/me/:
+    get:
+      operationId: v1_auth_users_me_retrieve
+      tags:
+      - User Management
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    put:
+      operationId: v1_auth_users_me_update
+      tags:
+      - User Management
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/User'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/User'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    patch:
+      operationId: v1_auth_users_me_partial_update
+      tags:
+      - User Management
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUser'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUser'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUser'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    delete:
+      operationId: v1_auth_users_me_destroy
+      tags:
+      - User Management
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/auth/users/resend_activation/:
+    post:
+      operationId: v1_auth_users_resend_activation_create
+      tags:
+      - User Management
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendEmailReset'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SendEmailReset'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SendEmailReset'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendEmailReset'
+          description: ''
+  /api/v1/auth/users/reset_password/:
+    post:
+      operationId: v1_auth_users_reset_password_create
+      tags:
+      - User Management
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendEmailReset'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SendEmailReset'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SendEmailReset'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendEmailReset'
+          description: ''
+  /api/v1/auth/users/reset_password_confirm/:
+    post:
+      operationId: v1_auth_users_reset_password_confirm_create
+      tags:
+      - User Management
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirm'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirm'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirm'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordResetConfirm'
+          description: ''
+  /api/v1/auth/users/reset_username/:
+    post:
+      operationId: v1_auth_users_reset_username_create
+      tags:
+      - User Management
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendEmailReset'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SendEmailReset'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SendEmailReset'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendEmailReset'
+          description: ''
+  /api/v1/auth/users/reset_username_confirm/:
+    post:
+      operationId: v1_auth_users_reset_username_confirm_create
+      tags:
+      - User Management
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UsernameResetConfirm'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UsernameResetConfirm'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UsernameResetConfirm'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsernameResetConfirm'
+          description: ''
+  /api/v1/auth/users/set_password/:
+    post:
+      operationId: v1_auth_users_set_password_create
+      tags:
+      - User Management
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetPassword'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SetPassword'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SetPassword'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetPassword'
+          description: ''
+  /api/v1/auth/users/set_username/:
+    post:
+      operationId: v1_auth_users_set_username_create
+      tags:
+      - User Management
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetUsername'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SetUsername'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SetUsername'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetUsername'
+          description: ''
+  /api/v1/departments/:
+    get:
+      operationId: v1_departments_list
+      tags:
+      - Departments
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Department'
+          description: ''
+    post:
+      operationId: v1_departments_create
+      tags:
+      - Departments
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Department'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Department'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Department'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Department'
+          description: ''
+  /api/v1/departments/{id}/:
+    get:
+      operationId: v1_departments_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this department.
+        required: true
+      tags:
+      - Departments
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Department'
+          description: ''
+    put:
+      operationId: v1_departments_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this department.
+        required: true
+      tags:
+      - Departments
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Department'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Department'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Department'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Department'
+          description: ''
+    patch:
+      operationId: v1_departments_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this department.
+        required: true
+      tags:
+      - Departments
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedDepartment'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedDepartment'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedDepartment'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Department'
+          description: ''
+    delete:
+      operationId: v1_departments_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this department.
+        required: true
+      tags:
+      - Departments
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/employee-documents/:
+    get:
+      operationId: v1_employee_documents_list
+      tags:
+      - Employee Documents
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EmployeeDocument'
+          description: ''
+    post:
+      operationId: v1_employee_documents_create
+      tags:
+      - Employee Documents
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmployeeDocument'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EmployeeDocument'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EmployeeDocument'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeDocument'
+          description: ''
+  /api/v1/employee-documents/{id}/:
+    get:
+      operationId: v1_employee_documents_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this employee document.
+        required: true
+      tags:
+      - Employee Documents
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeDocument'
+          description: ''
+    put:
+      operationId: v1_employee_documents_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this employee document.
+        required: true
+      tags:
+      - Employee Documents
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmployeeDocument'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EmployeeDocument'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EmployeeDocument'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeDocument'
+          description: ''
+    patch:
+      operationId: v1_employee_documents_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this employee document.
+        required: true
+      tags:
+      - Employee Documents
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedEmployeeDocument'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedEmployeeDocument'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedEmployeeDocument'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeDocument'
+          description: ''
+    delete:
+      operationId: v1_employee_documents_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this employee document.
+        required: true
+      tags:
+      - Employee Documents
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/employees/:
+    get:
+      operationId: v1_employees_list
+      tags:
+      - Employees
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Employee'
+          description: ''
+  /api/v1/employees/{id}/:
+    get:
+      operationId: v1_employees_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this employee.
+        required: true
+      tags:
+      - Employees
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employee'
+          description: ''
+    put:
+      operationId: v1_employees_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this employee.
+        required: true
+      tags:
+      - Employees
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Employee'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Employee'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Employee'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employee'
+          description: ''
+    patch:
+      operationId: v1_employees_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this employee.
+        required: true
+      tags:
+      - Employees
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedEmployee'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedEmployee'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedEmployee'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employee'
+          description: ''
+    delete:
+      operationId: v1_employees_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this employee.
+        required: true
+      tags:
+      - Employees
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/employees/{id}/initial-credentials/:
+    get:
+      operationId: v1_employees_initial_credentials_retrieve
+      description: Return cached autogenerated username, email, and initial password
+        if it is still within the TTL. After expiration this returns 404. Only Admin
+        or Manager roles may access this resource.
+      summary: Retrieve cached initial credentials (time-limited)
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this employee.
+        required: true
+      tags:
+      - Employees
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          description: Credentials still available
+        '404':
+          description: Not found or expired
+  /api/v1/employees/{id}/regenerate-credentials/:
+    post:
+      operationId: v1_employees_regenerate_credentials_create
+      description: Generate a new secure password for the employee's user, update
+        the user, cache the credentials with a fresh TTL, and return them. Use when
+        the original credentials were lost before delivery. Only Admin or Manager
+        may call this endpoint.
+      summary: Regenerate initial password (invalidate previous)
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this employee.
+        required: true
+      tags:
+      - Employees
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Employee'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Employee'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Employee'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          description: New credentials generated
+  /api/v1/employees/onboard/existing/:
+    post:
+      operationId: v1_employees_onboard_existing_create
+      description: Promotes an existing non-employee User to Employee. Only Admin
+        or Manager may call this endpoint.
+      summary: Onboard an existing user as Employee
+      tags:
+      - Employees
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OnboardEmployeeExisting'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OnboardEmployeeExisting'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OnboardEmployeeExisting'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employee'
+          description: Employee created
+  /api/v1/employees/onboard/new/:
+    post:
+      operationId: v1_employees_onboard_new_create
+      description: Creates a new active User (email marked verified) and the corresponding
+        Employee. Only Admin or Manager may call this endpoint.
+      summary: Onboard a brand-new employee (create User + Employee)
+      tags:
+      - Employees
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OnboardEmployeeNew'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OnboardEmployeeNew'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OnboardEmployeeNew'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employee'
+          description: Employee created
+  /api/v1/schema/:
+    get:
+      operationId: v1_schema_retrieve
+      description: |-
+        OpenApi3 schema for this API. Format can be selected via content negotiation.
+
+        - YAML: application/vnd.oai.openapi
+        - JSON: application/vnd.oai.openapi+json
+      parameters:
+      - in: query
+        name: format
+        schema:
+          type: string
+          enum:
+          - json
+          - yaml
+      - in: query
+        name: lang
+        schema:
+          type: string
+          enum:
+          - af
+          - ar
+          - ar-dz
+          - ast
+          - az
+          - be
+          - bg
+          - bn
+          - br
+          - bs
+          - ca
+          - ckb
+          - cs
+          - cy
+          - da
+          - de
+          - dsb
+          - el
+          - en
+          - en-au
+          - en-gb
+          - eo
+          - es
+          - es-ar
+          - es-co
+          - es-mx
+          - es-ni
+          - es-ve
+          - et
+          - eu
+          - fa
+          - fi
+          - fr
+          - fy
+          - ga
+          - gd
+          - gl
+          - he
+          - hi
+          - hr
+          - hsb
+          - hu
+          - hy
+          - ia
+          - id
+          - ig
+          - io
+          - is
+          - it
+          - ja
+          - ka
+          - kab
+          - kk
+          - km
+          - kn
+          - ko
+          - ky
+          - lb
+          - lt
+          - lv
+          - mk
+          - ml
+          - mn
+          - mr
+          - ms
+          - my
+          - nb
+          - ne
+          - nl
+          - nn
+          - os
+          - pa
+          - pl
+          - pt
+          - pt-br
+          - ro
+          - ru
+          - sk
+          - sl
+          - sq
+          - sr
+          - sr-latn
+          - sv
+          - sw
+          - ta
+          - te
+          - tg
+          - th
+          - tk
+          - tr
+          - tt
+          - udm
+          - ug
+          - uk
+          - ur
+          - uz
+          - vi
+          - zh-hans
+          - zh-hant
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/vnd.oai.openapi:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/yaml:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/vnd.oai.openapi+json:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/users/:
+    get:
+      operationId: v1_users_list
+      tags:
+      - Users
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+          description: ''
+  /api/v1/users/{username}/:
+    get:
+      operationId: v1_users_retrieve
+      parameters:
+      - in: path
+        name: username
+        schema:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+        required: true
+      tags:
+      - Users
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    put:
+      operationId: v1_users_update
+      parameters:
+      - in: path
+        name: username
+        schema:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+        required: true
+      tags:
+      - Users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/User'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/User'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    patch:
+      operationId: v1_users_partial_update
+      parameters:
+      - in: path
+        name: username
+        schema:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+        required: true
+      tags:
+      - Users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUser'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUser'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUser'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/v1/users/me/:
+    get:
+      operationId: v1_users_me_retrieve
+      tags:
+      - Users
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+components:
+  schemas:
+    Activation:
+      type: object
+      properties:
+        uid:
+          type: string
+        token:
+          type: string
+      required:
+      - token
+      - uid
+    Department:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 150
+        description:
+          type: string
+      required:
+      - id
+      - name
+    Employee:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        user:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          writeOnly: true
+        department:
+          type: integer
+          writeOnly: true
+          nullable: true
+        title:
+          type: string
+          maxLength: 150
+        hire_date:
+          type: string
+          format: date
+          nullable: true
+      required:
+      - id
+    EmployeeDocument:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        employee:
+          type: integer
+        name:
+          type: string
+          maxLength: 200
+        file:
+          type: string
+          format: uri
+        uploaded_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - employee
+      - file
+      - id
+      - name
+      - uploaded_at
+    Login:
+      type: object
+      properties:
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required:
+      - password
+    OnboardEmployeeExisting:
+      type: object
+      properties:
+        user:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+        department:
+          type: integer
+          nullable: true
+        title:
+          type: string
+          maxLength: 150
+        hire_date:
+          type: string
+          format: date
+          nullable: true
+      required:
+      - user
+    OnboardEmployeeNew:
+      type: object
+      description: |-
+        Serializer to onboard a brand-new employee.
+
+        If ``username`` and/or ``email`` are omitted or blank they are automatically
+        generated using a deterministic compact pattern:
+
+            <first-initial><truncated-last><seq>
+
+        - first-initial: first letter of the provided first name (fallback 'u')
+            - truncated-last: slugified last name limited by
+                ONBOARDING_LAST_NAME_LENGTH (fallback 'user')
+            - seq: zero-padded sequence starting at 001 (width
+                ONBOARDING_SEQUENCE_PAD)
+
+        Example: first_name=John, last_name=Robertson -> jrobert001 (domain
+        appended for email)
+
+        Settings influencing generation:
+            ONBOARDING_EMAIL_DOMAIN (default hr_payroll.com)
+            ONBOARDING_LAST_NAME_LENGTH (default 6)
+            ONBOARDING_SEQUENCE_PAD (default 3)
+
+        The email local part equals the generated username.
+      properties:
+        username:
+          type: string
+          readOnly: true
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          readOnly: true
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        department:
+          type: integer
+          nullable: true
+        title:
+          type: string
+          maxLength: 150
+        hire_date:
+          type: string
+          format: date
+          nullable: true
+      required:
+      - email
+      - username
+    PasswordChange:
+      type: object
+      properties:
+        new_password1:
+          type: string
+          maxLength: 128
+        new_password2:
+          type: string
+          maxLength: 128
+      required:
+      - new_password1
+      - new_password2
+    PasswordReset:
+      type: object
+      description: Serializer for requesting a password reset e-mail.
+      properties:
+        email:
+          type: string
+          format: email
+      required:
+      - email
+    PasswordResetConfirm:
+      type: object
+      description: Serializer for confirming a password reset attempt.
+      properties:
+        new_password1:
+          type: string
+          maxLength: 128
+        new_password2:
+          type: string
+          maxLength: 128
+        uid:
+          type: string
+        token:
+          type: string
+      required:
+      - new_password1
+      - new_password2
+      - token
+      - uid
+    PatchedDepartment:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 150
+        description:
+          type: string
+    PatchedEmployee:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        user:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          writeOnly: true
+        department:
+          type: integer
+          writeOnly: true
+          nullable: true
+        title:
+          type: string
+          maxLength: 150
+        hire_date:
+          type: string
+          format: date
+          nullable: true
+    PatchedEmployeeDocument:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        employee:
+          type: integer
+        name:
+          type: string
+          maxLength: 200
+        file:
+          type: string
+          format: uri
+        uploaded_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedUser:
+      type: object
+      properties:
+        username:
+          type: string
+          readOnly: true
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        full_name:
+          type: string
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        groups:
+          type: array
+          items:
+            type: string
+          readOnly: true
+        url:
+          type: string
+          readOnly: true
+    PatchedUserDetails:
+      type: object
+      description: User model w/o password
+      properties:
+        pk:
+          type: integer
+          readOnly: true
+          title: ID
+        username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          readOnly: true
+          title: Email address
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+    RestAuthDetail:
+      type: object
+      properties:
+        detail:
+          type: string
+          readOnly: true
+      required:
+      - detail
+    SendEmailReset:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+      required:
+      - email
+    SetPassword:
+      type: object
+      properties:
+        new_password:
+          type: string
+        current_password:
+          type: string
+      required:
+      - current_password
+      - new_password
+    SetUsername:
+      type: object
+      properties:
+        current_password:
+          type: string
+        new_username:
+          type: string
+          title: Username
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+      required:
+      - current_password
+      - new_username
+    Token:
+      type: object
+      description: Serializer for Token model.
+      properties:
+        key:
+          type: string
+          maxLength: 40
+      required:
+      - key
+    TokenObtainPair:
+      type: object
+      properties:
+        username:
+          type: string
+          writeOnly: true
+        password:
+          type: string
+          writeOnly: true
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+          readOnly: true
+      required:
+      - access
+      - password
+      - refresh
+      - username
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+      required:
+      - access
+      - refresh
+    TokenVerify:
+      type: object
+      properties:
+        token:
+          type: string
+          writeOnly: true
+      required:
+      - token
+    User:
+      type: object
+      properties:
+        username:
+          type: string
+          readOnly: true
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        full_name:
+          type: string
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        groups:
+          type: array
+          items:
+            type: string
+          readOnly: true
+        url:
+          type: string
+          readOnly: true
+      required:
+      - email
+      - full_name
+      - groups
+      - url
+      - username
+    UserCreatePasswordRetype:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          title: Email address
+          maxLength: 254
+        username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        id:
+          type: integer
+          readOnly: true
+        password:
+          type: string
+          writeOnly: true
+        re_password:
+          type: string
+      required:
+      - email
+      - id
+      - password
+      - re_password
+      - username
+    UserDetails:
+      type: object
+      description: User model w/o password
+      properties:
+        pk:
+          type: integer
+          readOnly: true
+          title: ID
+        username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          readOnly: true
+          title: Email address
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+      required:
+      - email
+      - pk
+      - username
+    UsernameResetConfirm:
+      type: object
+      properties:
+        new_username:
+          type: string
+          title: Username
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+      required:
+      - new_username
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: __Secure-sessionid
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    tokenAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: Token-based authentication with required prefix "Token"
+servers:
+- url: https://hr-payroll.com
+  description: Production server
+tags:
+- name: Employees
+  description: Operations for creating, viewing, and managing employee records.
+- name: Employee Documents
+  description: Upload and manage documents associated with employees (IDs, certifications,
+    etc.).
+- name: Departments
+  description: CRUD operations and metadata for organizational departments.
+- name: Users
+  description: User profile management separate from authentication endpoints.
+- name: Authentication
+  description: Registration, login, JWT tokens, password management, and related auth
+    flows.
+- name: JWT Authentication
+  description: Issue, refresh, and verify JSON Web Tokens (Djoser + SimpleJWT).
+- name: Session Auth
+  description: Session / dj-rest-auth based login, logout, and password change/reset
+    flows.
+- name: User Management
+  description: User CRUD, activation, username & password management (Djoser).

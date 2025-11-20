@@ -1,0 +1,240 @@
+
+---
+
+# 🚀 HR & Payroll System – Detailed Iterations Roadmap
+
+---
+
+### **Iteration 1 – Environment & Baseline Hardening**
+
+**Goal:** Ensure a rock-solid dev + CI/CD foundation before building features.
+
+**Feature Blocks**
+
+* Developer workflow & pre-commit
+* Docker & Compose workflows
+* CI/CD (GitHub Actions)
+* Documentation baseline
+* Internationalization baseline
+
+**Potential GitHub Issues**
+
+* Setup `pre-commit` with ruff, black, djLint, prettier.
+* Configure `.github/workflows/ci.yml` (lint, test, migrations check, build docs).
+* Add `docker-compose.local.yml` and verify services: Django, Postgres, Redis, Mailpit, Celery worker/beat, Flower.
+* Add dev documentation in `docs/howto.rst`.
+* Enable API schema generation (`drf-spectacular`) with `/api/schema/`.
+* Restrict API docs to Admin only.
+* Setup `locale/` and extract first translation messages.
+* Add test for migration consistency.
+* Add test for Celery startup.
+* Add initial README update (“how to run dev stack”).
+
+---
+
+### **Iteration 2 – Identity & Access Control**
+
+**Goal:** Build secure authentication, roles, and RBAC for all later modules.
+
+**Feature Blocks**
+
+* Authentication flows (JWT + session)
+* Roles & permissions (Admin, HR, Payroll Officer, Manager, Employee, Senior Manager)
+* Audit logging skeleton
+* Tests & docs
+
+
+
+### **Iteration 3 – Organization Setup**
+
+**Goal:** Create the organizational master data structure.
+
+**Feature Blocks**
+
+* Departments (hierarchy)
+* Job Titles & Grades
+* CRUD APIs & admin UI
+* Fixtures & docs
+
+**Potential GitHub Issues**
+
+* Create Department model: code, name, parent, active.
+* Create JobTitle model with FK to Department, Grade.
+* Add Grade model with code, description, level.
+* Add DRF serializers & viewsets for org models.
+* Add filtering/search endpoints (by department, grade).
+* Add uniqueness constraints (dept code, job title).
+* Implement Admin UI pages for Department/JobTitle.
+* Add seed fixture with sample departments/job titles.
+* Write tests: CRUD + uniqueness + hierarchy prevention.
+* Write tests: RBAC (HR/Admin full access, others read-only).
+* Add ERD snippet in `docs/`.
+* Add API usage examples in docs.
+* Add translations for model field labels.
+
+---
+
+### **Iteration 4 – Employee Management & Documents**
+
+**Goal:** Manage employee records linked to users, with secure document uploads.
+
+**Feature Blocks**
+
+* Employee model & CRUD
+* Auto-create employee on user creation
+* Employee self-service (profile, limited update)
+* Document upload
+* Tests & docs
+
+**Potential GitHub Issues**
+
+* Extend `User` with `Employee` model (1:1).
+* Add fields: employee\_code, department FK, job title FK, hire\_date, termination\_date, manager FK, tax/bank IDs, status.
+* Add signal to auto-create Employee record when User is created.
+* Add admin UI for Employee records.
+* Create DRF serializers & viewsets for Employee.
+* Add “self-service” profile endpoint (employee only).
+* Add EmployeeDocument model (upload contract, ID, certificate).
+* Secure document storage in `media/` folder.
+* Validate file types (PDF/JPG/PNG only).
+* Add tests: employee CRUD (HR/Admin), self-service access.
+* Add tests: document upload validation.
+* Add translations for employee fields and messages.
+* Add docs page: “Employee Onboarding & Docs.”
+
+---
+
+### **Iteration 5 – Attendance Tracking**
+
+**Goal:** Capture employee time data to feed payroll.
+
+**Feature Blocks**
+
+* Attendance model & API
+* CSV import for HR
+* Manager dashboards
+* Validations & reporting
+
+**Potential GitHub Issues**
+
+* Create Attendance model (employee, clock\_in, clock\_out, total\_hours, source).
+* Add validation: prevent overlapping clock entries.
+* Add manual entry API for managers.
+* Add self-view API for employees to see attendance.
+* Implement CSV import endpoint for HR.
+* Add Celery task for bulk attendance import.
+* Add tests: overlapping clock entries blocked.
+* Add tests: bulk import works & reports errors.
+* Add manager dashboard endpoint (team attendance summary).
+* Add docs page: “Attendance Tracking + Sample CSV.”
+* Add i18n strings for attendance errors/messages.
+
+---
+
+### **Iteration 6 – Leave Management**
+
+**Goal:** Enable employees to request leave and managers/HR to approve.
+
+**Feature Blocks**
+
+* Leave types & balances
+* Leave requests workflow
+* Holiday calendar
+* Notifications
+
+**Potential GitHub Issues**
+
+* Create LeaveType model (paid/unpaid, accrual, carryover).
+* Create LeaveRequest model (employee, start/end dates, type, status, approver).
+* Add LeaveBalance service with accrual logic.
+* Implement employee API to submit leave requests.
+* Implement manager API to approve/reject.
+* Add HR finalization step for requests.
+* Add notifications (emails on request/approval).
+* Add holiday calendar model.
+* Prevent overlaps between holidays and leave.
+* Add tests: leave request lifecycle.
+* Add tests: balance accrual & updates.
+* Add i18n strings for leave messages/emails.
+* Add docs: leave workflow activity diagram.
+
+---
+
+### **Iteration 7 – Payroll Processing**
+
+**Goal:** Run payroll periods with payslips & exports.
+
+**Feature Blocks**
+
+* Payroll components & assignments
+* Payroll period & run lifecycle
+* Payroll engine pipeline
+* Payslips & exports
+* Async computation
+
+**Potential GitHub Issues**
+
+* Create PayrollComponent model (earning/deduction/tax).
+* Create EmployeeComponent model (assignment with effective dates).
+* Create PayrollPeriod model (open, calculated, finalized).
+* Create PayrollRun model + state machine.
+* Implement payroll engine: gross → deductions → taxable → net.
+* Generate payslips (HTML + PDF template).
+* Generate CSV export for bank transfers.
+* Generate XLSX journal export for accounting.
+* Add Celery task for payroll computation.
+* Add API for payroll run progress.
+* Add tests: payroll math correctness.
+* Add tests: finalized runs immutable.
+* Add docs page: “Payroll Sequence Diagram.”
+* Add i18n strings for payslips.
+
+---
+
+### **Iteration 8 – Reporting & Compliance**
+
+**Goal:** Provide insights and compliance reporting.
+
+**Feature Blocks**
+
+* Reports API
+* Exports & archival
+* Senior Manager dashboards
+* Permission controls
+
+**Potential GitHub Issues**
+
+* Create Reports API: headcount, payroll summary, leave usage, tax deductions.
+* Add filters by date/department/job.
+* Generate tax/compliance reports (CSV/XLSX).
+* Add archival service with file hashes.
+* Add Senior Manager dashboard endpoints.
+* Add RBAC: reports only visible by authorized roles.
+* Add tests: export integrity (hashes).
+* Add docs: compliance checklist.
+
+---
+
+### **Iteration 9 – Production Hardening**
+
+**Goal:** Make the system production-ready and secure.
+
+**Feature Blocks**
+
+* Observability & monitoring
+* Security
+* Backup/restore docs
+* Audit trail completion
+
+**Potential GitHub Issues**
+
+* Add structured logging (JSON logs).
+* Add health check endpoints.
+* Integrate Sentry for error monitoring.
+* Add MFA stub for admin users.
+* Review RBAC coverage across system.
+* Make AuditLog model immutable + admin queryable.
+* Add backup/restore scripts & docs.
+* Add production deployment guide.
+
+---

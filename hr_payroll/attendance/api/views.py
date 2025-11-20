@@ -49,6 +49,23 @@ def _is_ip_allowed(remote_ip: str) -> bool:
     return False
 
 
+def _ensure_aware(dt):
+    """Return a timezone-aware datetime from possibly naive input.
+
+    - If dt is None, returns None
+    - If dt is naive, make it aware in the current timezone
+    - If already aware, return as-is
+    """
+    if dt is None:
+        return None
+    if timezone.is_naive(dt):
+        try:
+            return timezone.make_aware(dt, timezone.get_current_timezone())
+        except (ValueError, TypeError):
+            return timezone.make_aware(dt)
+    return dt
+
+
 @extend_schema_view(
     list=extend_schema(tags=["Attendance"]),
     retrieve=extend_schema(tags=["Attendance"]),
@@ -210,6 +227,7 @@ class AttendanceViewSet(
                 {"clock_out": "required"}, status=status.HTTP_400_BAD_REQUEST
             )
         dt = parse_datetime(clock_out) if isinstance(clock_out, str) else clock_out
+        dt = _ensure_aware(dt)
         if dt is None:
             return Response(
                 {"clock_out": "invalid datetime"},
@@ -277,6 +295,7 @@ class AttendanceViewSet(
             if isinstance(clock_in_val, str)
             else (clock_in_val or timezone.now())
         )
+        dt = _ensure_aware(dt)
         att = Attendance.objects.create(
             employee=target_emp,
             date=date_val,
@@ -373,7 +392,12 @@ class EmployeeAttendanceViewSet(
             remote_ip = xff or (request.META.get("REMOTE_ADDR") or "").strip()
             if not _is_ip_allowed(remote_ip):
                 return Response(
-                    {"detail": "Self clock-in allowed only from company network"},
+                    {
+                        "detail": (
+                            f"Self clock-in allowed only from company network. "
+                            f"Detected IP: {remote_ip}"
+                        )
+                    },
                     status=403,
                 )
         date_str = vd.get("date")
@@ -422,6 +446,7 @@ class EmployeeAttendanceViewSet(
         if not clock_out:
             return Response({"clock_out": "required"}, status=400)
         dt = parse_datetime(clock_out) if isinstance(clock_out, str) else clock_out
+        dt = _ensure_aware(dt)
         if dt is None:
             return Response({"clock_out": "invalid datetime"}, status=400)
         inst.clock_out = dt
@@ -469,6 +494,7 @@ class EmployeeAttendanceViewSet(
             if isinstance(ts_val, str)
             else (ts_val or timezone.now())
         )
+        dt = _ensure_aware(dt)
         if dt is None:
             return Response({"timestamp": "invalid datetime"}, status=400)
         date_val = dt.date()
@@ -633,7 +659,7 @@ class EmployeeAttendanceViewSet(
         total_scheduled = timezone.timedelta(0)
         for a in qs:
             if a.clock_out:
-                total_logged += a.clock_out - a.clock_in
+                total_logged += a.logged_time or timezone.timedelta(0)
             total_paid += a.paid_time or timezone.timedelta(0)
             total_scheduled += timezone.timedelta(hours=int(a.work_schedule_hours))
         overtime = total_paid - total_scheduled
@@ -750,7 +776,7 @@ class EmployeeAttendanceViewSet(
             t = totals[a.employee_id]
             t["count"] += 1
             if a.clock_out:
-                t["total_logged"] += a.clock_out - a.clock_in
+                t["total_logged"] += a.logged_time or timezone.timedelta(0)
             t["total_paid"] += a.paid_time or timezone.timedelta(0)
             t["total_scheduled"] += timezone.timedelta(hours=int(a.work_schedule_hours))
 

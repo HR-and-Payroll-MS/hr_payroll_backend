@@ -1,0 +1,103 @@
+HR & Payroll System – Chapters 1 and 2, Comprehensive Understanding (from the provided document)
+
+Scope: This write-up focuses solely on the PDF. It provides a long, direct narrative of Chapters 1 and 2, independent of any codebase. Use it alongside the diagrams-first Chapters 3 & 4 analysis file.
+
+Chapter 1 – Introduction, Vision, and Context
+
+1.1 Problem Statement & Goals
+- Organizations need an integrated platform to manage the employee lifecycle (onboarding → operations → offboarding) and run compliant, accurate payroll.
+- Pain points addressed: fragmented spreadsheets, error-prone calculations, poor auditability, limited self-service, lack of localized compliance features, and difficult reporting.
+- Project goals: centralize HR data; automate payroll computations; enforce role-based access; provide robust reporting; support localization (language, currency, date formats) and regional tax rules.
+
+1.2 Project Vision & Value Proposition
+- Provide a secure, scalable HR & Payroll system that is modular, extensible, and designed for clarity and compliance.
+- Value: reduce manual effort and errors; ensure regulatory reporting readiness; improve employee experience through self-service (payslips, leave); enable HR and Finance collaboration.
+
+1.3 Stakeholders
+- Internal: Admins (system configuration), HR, Finance/Payroll, Employees, IT/Operations.
+- External: Banks/payment processors (payment files), Tax authorities (remittance reports), Accounting systems (journal exports), Email providers (verification, notifications).
+
+1.4 Product Scope & Boundaries
+- In-scope: Identity & Access; Organization master data; Employee management; Time/Leave; Payroll core; Reporting/exports; Notifications; Audit & compliance.
+- Out-of-scope (initial): Full financial accounting; advanced analytics; complex multi-tenant features (unless explicitly stated); deep third-party integrations beyond file-based exchange.
+
+1.5 High-Level Features
+- Secure registration/login (email verification, optional MFA), RBAC across modules.
+- Employee profiles with employment and compensation data.
+- Leave policies, requests, approvals, balances, holiday calendars.
+- Payroll periods, components (earnings/deductions), automated calculations, payslips, exports.
+- Reports (summary, statutory, audit), localization and i18n.
+
+1.6 Assumptions & Constraints
+- Email is unique and required; privacy regulations apply (least privilege, data retention policy, user data export on request).
+- The system targets small-to-mid organizations; peak load and scale are addressed with batch processing and async jobs.
+- Deployment is containerized; environments include local, staging, production; secrets managed externally.
+
+1.7 Success Metrics & KPIs
+- Reduced payroll processing time and error rates; on-time payroll completion; decreased manual corrections.
+- User adoption of self-service; time-to-approve leave; audit resolution times; successful export/import cycles.
+
+1.8 Risks & Mitigations
+- Compliance drift: maintain configurable tax/deduction tables and versioned rule changes.
+- Data breaches: role-based access, encryption-in-transit, audit logging, backups.
+- Operational failures: retries, idempotent exports, disaster recovery plan with tested restores.
+
+Chapter 2 – Detailed Requirements (Functional & Non-Functional)
+
+2.1 Functional Requirements by Subsystem
+A) Identity & Access Management (IAM)
+- Registration, email verification, activation; login with email/username; optional MFA (TOTP).
+- Password management: reset, change; session/JWT lifetimes configurable; account lockout after failed attempts.
+- RBAC: roles (Admin, HR, Finance, Employee) with permissions; audit trail for auth-related events.
+
+B) Organization & Master Data
+- Departments: CRUD, unique codes, optional parent-child hierarchy, active flag.
+- Job Titles: CRUD, unique codes, link to department, optional grade/level, active flag.
+- Company settings: payroll calendar (frequency, cut-offs), currency, locale, numbering sequences.
+
+C) Employee Management
+- Create/Update employee linked to user; capture employment status, dates, manager, department, job title.
+- Compensation profiles: base salary, components (allowances/deductions), effective dating.
+- Personal/PII data: tax IDs, bank info, contacts; document attachments with secure access.
+
+D) Time, Attendance, and Leave
+- Leave types: accrual rules, max carryover, paid/unpaid; balance calculation.
+- Leave requests: creation, approval workflow, overlap validation, cancellation.
+- Attendance/time capture (if included): timesheets, overtime, public holidays integration.
+
+E) Payroll Core
+- Payroll periods: open/calc/finalize lifecycle; run payroll; compute per employee deterministically.
+- Components: earning/deduction definitions with taxable flags, priorities, caps; employee assignments with effective dates.
+- Taxes & deductions: bracket-based tax; pre-/post-tax deductions; pension/social security; one-off adjustments.
+- Outputs: immutable payslips; bank payment files; accounting exports; exception handling & retries.
+
+F) Reporting & Compliance
+- Payslip distribution; payroll summaries; deduction/tax reports; headcount metrics.
+- Export formats: CSV/XLSX; integrity (hashing) and archival; permissions on sensitive reports.
+- Audit logging for critical changes; user action trails.
+
+2.2 Non-Functional Requirements (NFRs)
+- Security: OWASP best practices; strong password policy; CSRF for web flows; secure JWT settings; MFA support; RBAC; least privilege.
+- Privacy & Compliance: PII handling, data minimization, retention policy, export/delete on request; immutable payroll artifacts.
+- Performance & Scalability: batch compute via async workers; pagination for APIs; indexed DB fields; target response times for core endpoints.
+- Reliability & Availability: monitored background jobs; health checks; retries; idempotency for exports; backup & restore procedures.
+- Internationalization & Localization: multiple languages; locale-aware currency/date formatting; translated emails and reports.
+- Observability: structured logs with correlation IDs; metrics on worker throughput and queue depth; alerting on failures.
+- Maintainability: modular design; API documentation (OpenAPI); clear versioning and deprecation policy.
+
+2.3 Acceptance Criteria Patterns
+- IAM: Verified users can log in; lockout after repeated failures; MFA enforced when enabled; audit entries captured.
+- Org: Admin/HR can CRUD departments/job titles with uniqueness and activation state.
+- Employees: HR can onboard with all required fields; updates respect effective dating; PII protected; changes audited.
+- Leave: Employees request; approvers act; balances update correctly; overlaps prevented; holidays respected.
+- Payroll: Runs transition states correctly; line items sum to totals; taxes/deductions follow rules; payslips generated and immutable; exports produced.
+- Reporting: Reports filter by date/department/job; sensitive data restricted; exports succeed and are archived.
+
+2.4 Constraints & Dependencies
+- Email/SMS providers for notifications; banking format specs for payment files; tax authority specs for remittances.
+- Deployment tooling (Docker/Compose); database engine (PostgreSQL); cache/broker (Redis) as referenced in the document.
+
+2.5 Open Questions (if listed in doc)
+- Extent of multi-tenancy; required regional tax packs at launch; depth of attendance module; SSO integrations; payroll retro policies.
+
+End of Chapters 1–2 narrative.

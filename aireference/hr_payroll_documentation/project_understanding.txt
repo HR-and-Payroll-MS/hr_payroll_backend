@@ -1,0 +1,171 @@
+HR & Payroll Management System – Detailed Understanding (from provided documentation)
+
+Note: This text consolidates my understanding of the attached comprehensive documentation (overall system spec) into a direct, long-form narrative. It focuses on what the system is, how it’s structured, what the critical flows are, and how the pieces fit together across architecture, data, APIs, and operations.
+
+1) Vision and Scope
+- The project aims to deliver an end-to-end Human Resources and Payroll Management System for small-to-mid sized organizations.
+- Core goals: manage the entire employee lifecycle (onboarding through offboarding), maintain accurate employee records, support organization structures (departments/job titles), run recurring payroll accurately and compliantly, handle attendance/leaves, and produce auditable reports (payslips, ledger outputs, tax reports).
+- Non-goals: external accounting beyond integration touchpoints; deep BI dashboards (phase 1 provides exports and basic reporting); regional tax rule engines for many countries (initially target a defined set, with extensibility).
+
+2) Primary Stakeholders and Roles
+- Admin: Global system administration and configuration (tenancy, environment, security, master data). Can manage roles/permissions.
+- HR Manager/HR Staff: Owns employee data, onboarding/offboarding, salary setups, leave approvals, and compliance checks; initiates payroll runs.
+- Finance/Payroll Officer: Confirms payroll inputs, executes payroll runs, processes payments, reconciles ledgers, and exports to accounting.
+- Employee (Self-Service): Reviews profile, requests leave, views payslips, updates personal info (with approval), MFA enrollment, and notifications.
+- IT/Operations: Runs and maintains the platform (deployments, backups, monitoring, secrets management).
+
+3) High-Level Architecture
+- Monolithic Django application with a clear modular design. Django REST Framework used for all external API endpoints.
+- AuthN/AuthZ: JWT-based API authentication (SimpleJWT), Djoser for user flows, django-allauth for email verification and optional social/MFA. RBAC via Django Groups and per-permission tuning on DRF ViewSets.
+- Asynchronous tasks with Celery; Redis as broker and result backend. Used for emails, heavy payroll computations, and scheduled jobs (via django-celery-beat).
+- Persistence layer: PostgreSQL (assumed) with normalized schema for users, employees, payroll artifacts, attendance, and reference data (departments, job titles, tax/deduction tables).
+- Static assets via Webpack; API documentation via DRF Spectacular (OpenAPI) + Swagger UI; i18n support with compiled translations.
+- Containerized with Docker Compose (local/prod). Reverse proxy (Nginx/Traefik) in production; mail (Mailpit/SMTP) for verification and notifications.
+
+4) Six Subsystems (Project Partitions)
+A) Identity & Access Management (IAM)
+- Accounts, registration, activation, login, password reset, MFA (TOTP), JWT issuance/refresh/verify.
+- Roles and Permissions: Admin, HR, Finance, Employee; fine-grained DRF permissions; audit trails for key actions; session and JWT revocation strategies.
+- User profile basics (name, email, username) and security controls (password policy, lockouts, email verification mandatory).
+
+B) Organization & Master Data
+- Departments: CRUD and hierarchy (optional parent-child); active/inactive status; codes for integration.
+- Job Titles: CRUD; link to departments; optional grades/levels.
+- Company Settings: payroll calendar (monthly/biweekly), cut-off dates, default allowances/deductions, currency, locale, and numbering sequences for documents (employee IDs, payslips).
+
+C) Employee Management
+- Employee core: one-to-one relation with User; personal information (PII), employment details (hire date, status, contract type), compensation structure (base salary, pay frequency), bank/payment info, tax IDs.
+- Lifecycle flows: onboarding (document collection, initial compensation setup), probation, promotion/transfer, termination/offboarding.
+- Attachments and compliance: store references to documents (IDs, contracts) with secure access; GDPR-aware handling (PII minimization, role-based visibility, data retention policies).
+- Derived fields and validation: full name generation; uniqueness for email/IDs; constraints on date ranges and status transitions.
+
+D) Time, Attendance, and Leave
+- Leave types: annual, sick, unpaid, optional custom types with accrual rules and maximum carry-over.
+- Leave requests: employee requests with reason and dates; multi-level approval (line manager → HR); balance checks and overlap validation.
+- Attendance integration: optional timesheets or import files; overtime capture and approval; public holidays calendar.
+- Impact on payroll: approved leave and overtime adjustments feed into earnings/deductions for the payroll cycle.
+
+E) Payroll Core
+- Payroll periods: generated from payroll calendar (monthly/biweekly). Each run locks in input data snapshot (salaries, allowances, deductions, time-related adjustments).
+- Earnings: base salary, overtime, bonuses, allowances; configurable components (taxable/non-taxable, prorated rules, one-off vs recurring).
+- Deductions: taxes (PAYE or local equivalents), pensions, social security, insurance, loan repayments; statutory and voluntary deductions; priorities and caps.
+- Computation: deterministic sequence per employee—derive gross, apply pre-tax deductions, compute taxable income, apply tax tables/brackets, compute post-tax deductions; produce net pay; rounding rules configurable.
+- Validation: pre-run checks (missing data, negative balances), per-employee audit lines; exception handling for employees with incomplete data.
+- Output: payslip artifact (immutable once finalized), payment batches (bank transfers, mobile money export files), accounting journal export.
+- Post-run: lock/finalize payroll; ability to rollback only under admin controls with audit log; retro adjustments applied in next run.
+
+F) Reporting & Compliance
+- Payslips: employee self-service access; HR/Finance bulk download; PDF generation; localization of labels and currency formatting.
+- Summary reports: payroll summary by dept/job; deductions summary; tax remittance reports; headcount and attrition metrics.
+- Exports: CSV/XLSX for accounting system import; configurable column mappings; archival of export snapshots.
+- Audit & logs: key actions logged (who, what, when); payroll changes tracked; access logs; periodic backups; disaster recovery guidelines.
+
+5) Data Model (Conceptual Overview)
+- User (auth): username, email (unique), password, names, status, MFA flags; group memberships.
+- Employee: 1:1 to User; employee_code, hire_date, department, job_title, manager, compensation profile, tax IDs, bank info, employment status.
+- Department: name, code, optional parent, active.
+- JobTitle: name, code, dept (optional), grade/level.
+- LeaveType: name, accrual rules, carry-over policy; LeaveRequest: employee, type, start/end dates, status, approvals, balance impact.
+- PayrollPeriod: start/end, period label, status (open/calc/finalized), calendar linkage.
+- PayrollComponent: earnings/deduction master (code, name, type, taxable flag, recurrence); EmployeeComponent: assignment with amount/formula, effective dates.
+- PayrollRun: header for a specific period and company context; PayrollLine: per-employee computation with line items detailing each component and totals.
+- Payslip: immutable snapshot referencing PayrollRun/Line with masked PII; delivery status.
+- Loan: principal, interest (if any), schedule; repayment deductions linked to payroll.
+- IntegrationExport: type (bank, accounting), file path, hash, created_at, user.
+
+6) Key Business Rules & Flows
+A) Registration & Activation
+- Employee may be invited or self-register. Email verification is mandatory. Upon activation, initial role assigned (Employee). Optional immediate JWT issuance after activation can be configured.
+
+B) Login & MFA
+- Username/email + password; optional MFA (TOTP) enforced per policy; device/browser trust with limited lifetime. JWT-based API: access + refresh tokens; rotation enabled and blacklist on rotation.
+
+C) Employee Onboarding
+- HR creates an employee record or converts a registered user; set department/job, manager, base salary, and components (allowances, deductions); collect bank and tax details; mark ready for payroll.
+
+D) Leave Request
+- Employee submits leave with dates and type; system validates balances and holiday overlaps; approval flow; payroll is adjusted accordingly.
+
+E) Payroll Cycle
+- Open period based on calendar; ingest adjustments (overtime, leaves, one-offs); compute all employees in one batch (Celery for scalability); validate exceptions; HR/Finance review; finalize run; generate payslips and payment files; export accounting entries; archive artifacts.
+
+F) Reporting
+- On-demand reports filtered by time range, department, job; exportable; localized; sensitive fields restricted by role.
+
+7) APIs (External Interface Expectations)
+- Auth: /api/auth/users/* (Djoser), /api/auth/jwt/*; registration, activation, password reset, change password; JWT create/refresh/verify.
+- Users & Profiles: /api/users/ with self-scoped list/retrieve/update; me endpoint; admin/HR elevated endpoints for management.
+- Organization: /api/departments, /api/job-titles; filters and ordering.
+- Employees: /api/employees; CRUD for HR/Admin; self access restricted to own profile subset.
+- Leave: /api/leave-types, /api/leaves; request/approve/reject; balance endpoints.
+- Payroll: /api/payroll-periods, /api/payroll-runs (create/calc/finalize), /api/payslips (list/retrieve), /api/components (earnings/deductions), /api/exports.
+- Versioned APIs; OpenAPI schema available; role-based permissions per endpoint; consistent error contract.
+
+8) Cross-Cutting Concerns
+- Security & Privacy: PII protection, least-privilege RBAC, audit logging, encrypted secrets, HTTPS everywhere, CSRF protection for session endpoints, secure JWT configs (short access lifetime, refresh rotation).
+- Internationalization: English primary, French and Portuguese secondary; translatable emails, UI texts, and payslips; locale-aware dates/currency.
+- Observability: structured logging, correlation IDs for async jobs, health checks, basic metrics on Celery workers and queue depth.
+- Backups & DR: scheduled DB backups, policy-based retention; test restore procedures; export archives hashed and immutable storage.
+- Performance & Scale: batch computations via Celery; pagination on list APIs; database indexes on foreign keys and high-cardinality filters; cautious N+1 avoidance in serializers.
+
+9) Diagrams Referenced by the Document (Expected Content)
+- Use Case Diagrams: for each role (Admin, HR, Finance, Employee) showing key interactions.
+- ERD/Class Diagram: entities above with relationships and cardinalities; strong boundaries between HR and Payroll artifacts.
+- Sequence Diagrams: representative flows—registration & activation; payroll run; leave request; payslip generation.
+- Deployment Diagram: Dockerized services (Django, Postgres, Redis, Celery workers/beat, Nginx/Traefik); environments (local, staging, prod); external SMTP provider.
+- Activity/Flow Diagrams: payroll computation algorithm; leave approval process; error handling and retries.
+
+10) Assumptions and Constraints
+- Single-tenant per deployment (multi-tenant could be future work);
+- Initial country-specific tax logic abstracted so new rule sets can be added (strategy or rulesets table driven);
+- Email is required and verified; phone-based MFA optional.
+- Compliance boundaries: store only necessary PII; provide data export/delete mechanisms.
+
+11) Gaps/Mismatches/Ambiguities Noted vs Current Repo and Iteration-1 Issues
+- Login Identifier vs Issue 72 (Use Email as Username):
+  • Current settings allow username and email; Djoser LOGIN_FIELD appears to be username. If the spec requires email-only login (email is the canonical username), we should set LOGIN_FIELD=email, ensure unique email, and de-emphasize username in UX and APIs.
+- Token on Signup vs Issue 79 (Return Token on Signup):
+  • Djoser typically returns activation flow without tokens immediately. If the requirement is to return JWT upon successful signup (post-activation), we need a custom signal/serializer or a post-registration login step. Clarify whether tokens should be returned before or after email verification (security trade-off).
+- RBAC (Issues 83–85):
+  • Groups/Admin-HR-Finance-Employee are not yet implemented in code. The document’s flows assume role-based gating of features (especially payroll and sensitive PII). We need a Group seeding migration and permission mapping per endpoint.
+- Employees & Org Models (Issues 86–94):
+  • Department, JobTitle, Employee, Leave, Payroll artifacts are not present yet in the repo. The documentation expects these domain models and their APIs. Implementation should follow the ERD/class diagram and align with filters, permissions, and test coverage.
+- Pre-commit Stack (Issues 104–106):
+  • Issues mention ruff, black, isort. Repo uses ruff and Prettier; black/isort aren’t configured. Either align issues to ruff+prettier (Python formatting by ruff/ruff-format) or add black/isort to match the doc/issue plan.
+- API Docs Accessibility:
+  • Current SPECTACULAR settings restrict docs to admin via SessionAuth (403 for anonymous). If the documentation states public schema access (read-only), we’d need to adjust permissions. Otherwise leave as-is for security.
+- MFA Scope:
+  • The document expects MFA (TOTP) as part of IAM. The repo includes allauth[mfa] but endpoints/flows are not implemented yet for API JWT flows. We’ll need endpoints to enroll/verify TOTP and enforce on login.
+- Internationalization:
+  • Locales exist (en_US, fr_FR, pt_BR); documentation expects translated auth templates and payslips. Ensure makemessages/compilemessages in CI and that email templates are localized.
+- Payroll Computation Specifics:
+  • The documentation likely lists detailed formulas (brackets, caps, ordering). These aren’t in code. We must create a rule engine or configuration-driven tables and write deterministic computation with tests.
+- Data Retention & Privacy:
+  • If the document mandates data retention windows or deletion/export-on-request, these policies are not yet implemented.
+- Diagrams vs Implementation Naming:
+  • Confirm naming alignment (e.g., EmployeeComponent vs CompensationComponent; PayrollRun vs PayRun). Adopt consistent naming across models, APIs, and docs to avoid confusion.
+
+12) Quality and Delivery Approach
+- Iterative delivery matching the six subsystems; start with IAM + Org + Employees, then Leave + Payroll Core, then Reporting/Compliance.
+- TDD/contract tests for computation-heavy logic (payroll); API tests for key flows (register, activate, login, me; depart/job CRUD; employee CRUD; leave request; payroll run; payslip retrieval).
+- OpenAPI-first mindset: endpoints documented with examples and security schemes; schemas versioned; deprecations policy.
+- CI: run tests, pre-commit, and i18n compilation; SAST/Dependency scanning; container build.
+
+13) Acceptance Criteria Summary (Representative)
+- IAM: User can register, verify email, login (with optional MFA), receive JWT; password reset works; RBAC enforced on protected endpoints.
+- Org: Admin/HR can create departments and job titles; employees reference them.
+- Employees: HR can onboard employees with full details; employees see their own profile; validations for unique identifiers and required fields.
+- Leave: Employees can request leave; HR approves/rejects; balances and overlaps enforced; integration to payroll.
+- Payroll: Finance/HR can run payroll for a period; totals computed per rules; payslips generated and immutable; exports produced; audit trail present.
+- Reporting: Key summary reports downloadable; access scoped by role; localized output.
+
+14) Next Steps (from documentation to implementation)
+- Decide on email-only login vs username+email and configure Djoser/Allauth accordingly.
+- Implement Groups/Permissions and seed default roles; wire DRF permission classes per endpoint.
+- Model and migrate Department, JobTitle, Employee (1:1 User) with initial API ViewSets and tests.
+- Define payroll components model and computation pipeline; add Celery tasks and tests.
+- Implement leave types/requests with approval flow and payroll integration.
+- Build reporting endpoints and export services; connect to accounting exports as per target formats.
+- Finalize pre-commit/CI toolchain per agreed stack (ruff+prettier vs black/isort) and i18n workflows.
+
+End of document—comprehensive understanding distilled for alignment and execution.

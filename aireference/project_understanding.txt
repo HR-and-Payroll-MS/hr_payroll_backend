@@ -1,0 +1,73 @@
+# HR & Payroll Management System - Project Understanding
+
+## 1. Project Overview
+This is a robust, centralized HR and Payroll system built with Django and Django Rest Framework (DRF). It is designed to automate manual HR processes, manage employee lifecycles, track attendance, and process payroll with a high degree of flexibility and auditability.
+
+## 2. Technology Stack
+- **Backend Framework:** Django 5.x (Python 3.12)
+- **API:** Django Rest Framework (DRF) with versioning (`/api/v1/`)
+- **Authentication:** JWT via `dj-rest-auth` and `djoser`
+- **Database:** PostgreSQL (implied by production setup, likely SQLite for local dev)
+- **Async Tasks:** Celery with Redis (for background processing)
+- **Containerization:** Docker & Docker Compose (production and local dev setups)
+- **Testing:** Pytest with coverage reporting
+- **Linting/Formatting:** Ruff, djLint, MyPy
+- **Documentation:** OpenAPI (Swagger/Redoc)
+
+## 3. Architecture & Modules
+The project follows a modular "Django App" architecture, separating concerns into distinct domains:
+
+### A. Users & Authentication (`users`)
+- **Custom User Model:** Extends AbstractUser.
+- **RBAC (Role-Based Access Control):** Three core groups defined:
+    - **Admin:** Full system access.
+    - **Manager:** Can view/change users and manage departments.
+    - **Employee:** Limited view (self-service).
+- **Security:** JWT-based stateless authentication.
+
+### B. Organization (`org`)
+- **Department:** Represents internal teams/units.
+- **Manager Link:** Departments have a designated manager (linked to an Employee).
+- **Budgeting:** Tracks budget codes per department.
+
+### C. Employees (`employees`)
+- **Core Profile:** Links 1-to-1 with the User model.
+- **Onboarding:**
+    - **CV Parsing:** Two-step process to extract data from PDF CVs before creating records.
+    - **Auto-generation:** Deterministic username/email generation (`jdoe001`) to ensure consistency.
+- **Documents:** Secure storage for employee files (contracts, IDs).
+
+### D. Attendance (`attendance`)
+- **Tracking:** Records clock-in/clock-out times with location data.
+- **Calculations:** Automatically computes:
+    - **Logged Time:** Raw duration between in/out.
+    - **Deficit/Overtime:** Compares paid time vs. scheduled hours.
+- **Adjustments:** Audit trail for manual corrections to time logs.
+- **Network Security:** `OfficeNetwork` model defines allowed CIDR ranges for self-service clock-ins.
+
+### E. Payroll (`payroll`)
+- **Compensation Model:** Flexible structure allowing multiple components (Base, Recurring, One-off, Offset).
+- **Payroll Cycles:** Supports Monthly, Weekly, Bi-weekly cycles with specific cut-off dates.
+- **Eligibility:** Cycles can apply to "All Employees" or a specific subset.
+- **Records:** Generates immutable `PayrollRecord` snapshots for each cycle, calculating:
+    - Gross Salary, Deductions, Overtime pay.
+    - Integration with Attendance data (actual work seconds).
+- **Banking:** Stores direct deposit details (`BankDetail`).
+- **Dependents:** Tracks family members for tax/benefit purposes.
+
+### F. Audit (`audit`)
+- **AuditLog:** A generic system to track changes across models.
+- **Data:** Stores `before` and `after` states (JSON), actor, action, and IP address for full accountability.
+
+## 4. Key Workflows
+1.  **Onboarding:** Manager uploads a CV -> System extracts data -> Manager reviews & submits -> System generates User/Employee records with auto-credentials.
+2.  **Attendance:** Employee clocks in (validated by IP) -> System tracks time -> Manager approves -> Data feeds into Payroll.
+3.  **Payroll Run:** HR creates a Cycle -> System identifies eligible employees -> Generates PayrollRecords based on Compensation + Attendance data -> HR reviews & closes cycle.
+
+## 5. Current Progress Assessment
+- **Foundation:** Strong. The core data models are well-defined and cover complex scenarios (like payroll components and attendance logic).
+- **Code Quality:** High. Usage of type hinting (`mypy`), modern Python features, and comprehensive linting configuration (`ruff`) indicates a professional standard.
+- **DevOps:** Fully dockerized with support for local email testing (`Mailpit`) and task queues (`Celery`).
+
+## 6. Conclusion
+The system is well-architected for scalability. It moves beyond simple CRUD apps by implementing domain-specific logic (payroll math, time calculations) directly in the models, ensuring data integrity. The separation of concerns between "Organization", "People" (Employees), and "Operations" (Attendance/Payroll) is clean and logical.

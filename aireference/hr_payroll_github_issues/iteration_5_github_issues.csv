@@ -1,0 +1,172 @@
+---
+
+## Iteration 5 – Attendance Tracking: Issues & Sub-issues
+
+**Goal:** Capture employee time data to feed payroll: manual entries, imports, reporting, prevention of bad data, dashboards, i18n, etc.
+
+---
+
+### Issue: Create Attendance Model
+
+**Body:**
+Define the core `Attendance` model in your project. This model should capture clock-in and clock-out events, total hours, source (manual / import / system), and associated user/employee.
+
+**Labels:** `models`, `attendance`, `db`, `api`
+
+**Sub-issues:**
+
+1. Add model fields: `employee` (FK), `clock_in` (DateTime), `clock_out` (DateTime, nullable), `source` (choices: manual/import/etc.), `status` (present, absent, maybe late/early), `total_hours` (decimal or float), `created_at`, `updated_at`.
+2. Migrations: generate and apply; ensure indexes on `employee`, `clock_in`, maybe on `status`.
+3. String/verbose names & `__str__`: e.g. “Employee at clock\_in time”, and set model meta options.
+
+---
+
+### Issue: Prevent Overlapping Clock Entries
+
+**Body:**
+Ensure that an employee can’t have overlapping attendance intervals (e.g. one clock\_in/out period overlapping another). Validation at model/serializer/admin level.
+
+**Labels:** `validation`, `attendance`, `models`, `tests`
+
+**Sub-issues:**
+
+1. Implement `clean()` in model or custom validator to detect overlapping intervals: check existing attendance for same employee where new clock\_in < existing clock\_out and new clock\_out > existing clock\_in.
+2. Serializer validation: ensure when API creates or updates, overlapping intervals rejected with clear error.
+3. Tests: overlapping intervals: create one record, attempt second that overlaps in various edge cases (touching edges, fully inside, etc.).
+
+---
+
+### Issue: Manual Entry API for Managers
+
+**Body:**
+Allow HR/Admin/Managers to manually create or adjust attendance records (in case of corrections, missing entries).
+
+**Labels:** `api`, `attendance`, `rbac`, `tests`
+
+**Sub-issues:**
+
+1. Create DRF serializer & viewset/method for manual entry: endpoints to create, update, delete (if allowed).
+2. Permissions: only Manager / HR / Admin roles allowed to use manual entry endpoints.
+3. Tests: confirm correct behavior and forbidden for roles without permissions.
+
+---
+
+### Issue: Self-View API for Employees to See Their Attendance
+
+**Body:**
+Enable authenticated employee user to view their own attendance records: list + retrieve.
+
+**Labels:** `api`, `attendance`, `auth`, `tests`
+
+**Sub-issues:**
+
+1. Create endpoint `/api/attendance/me/` for listing own attendance with pagination.
+2. Serializer: limit fields appropriately.
+3. Tests: employee sees only their records; cannot access others’ records; roles with elevated privileges can see more if allowed.
+
+---
+
+### Issue: CSV Import Endpoint for HR
+
+**Body:**
+Allow HR to upload a CSV file containing attendance entries in bulk (e.g. from time-clock systems).
+
+**Labels:** `feature`, `attendance`, `import`, `tests`, `api`
+
+**Sub-issues:**
+
+1. Define CSV format: columns, required fields (employee code or ID, clock\_in, clock\_out, source). Document that format.
+2. Implement upload endpoint & parsing logic: validate records, report errors (row-level), skip or reject bad rows.
+3. Tests: uploading valid CSV; invalid rows; duplicate entries; overlapping prevention in imported entries.
+
+---
+
+### Issue: Celery Task for Bulk Attendance Import
+
+**Body:**
+For large CSVs or asynchronous processing, use Celery to process the import; track progress.
+
+**Labels:** `feature`, `attendance`, `celery`, `tests`
+
+**Sub-issues:**
+
+1. Create Celery task that takes uploaded CSV (or path) and processes rows; maybe store import job status.
+2. View or endpoint to check import job status (pending, in progress, completed, failed).
+3. Tests: small CSV with mix of good/bad rows; ensure job correctly handles both; proper error reporting.
+
+---
+
+### Issue: Manager Dashboard / Team Attendance Summary
+
+**Body:**
+Provide a dashboard or endpoint for managers to see summary of their team’s attendance over periods: totals, absences, late arrivals, etc.
+
+**Labels:** `feature`, `attendance`, `reports`, `api`, `ui`
+
+**Sub-issues:**
+
+1. Define “team” relationship (employee → manager) and retrieve all employees under a manager.
+2. Create summary metrics: e.g. total present days, missing clock-ins, late statuses, hours worked per day/period.
+3. Endpoint or view for dashboard; tests for correct aggregation; possibly front-end or simple template to display summary.
+
+---
+
+### Issue: Add Tests for Overlapping & Edge Cases
+
+**Body:**
+Ensure robust test coverage for overlapping intervals, edge cases (clock\_out before clock\_in, daylight saving, missing clock\_out, etc.)
+
+**Labels:** `tests`, `attendance`, `validation`
+
+**Sub-issues:**
+
+1. Test invalid cases: clock\_out before clock\_in, overlapping intervals, missing clock\_out.
+2. Test edge boundary conditions: intervals that touch edges (e.g. one ends exactly where another begins).
+3. Test daylight-savings or timezone effects (if using timezones) to ensure consistent behavior.
+
+---
+
+### Issue: i18n for Attendance Module Errors & Messages
+
+**Body:**
+All user-facing messages / errors in attendance should be internationalized (translations) and locale switching should work.
+
+**Labels:** `i18n`, `attendance`, `tests`, `docs`
+
+**Sub-issues:**
+
+1. Wrap error messages, column/field labels, status messages with `gettext_lazy`.
+2. Run `makemessages` and add translations for at least one non-English locale.
+3. Switch locale in tests and assert correct translated messages appear.
+
+---
+
+### Issue: Documentation & Sample CSV for Attendance Tracking
+
+**Body:**
+Write up docs describing attendance flows, sample CSV format, API endpoints, validation rules.
+
+**Labels:** `docs`, `attendance`, `api`
+
+**Sub-issues:**
+
+1. Document the format of CSV import: required columns, sample file.
+2. Document API endpoints: create, list, summary, import.
+3. Document validation rules: overlapping intervals, missing data, allowed sources.
+
+---
+
+### Issue: Performance & Indexing for Attendance Queries
+
+**Body:**
+Optimize attendance queries (list, dashboard, import) so they perform well as data grows. Add necessary indexes, use `select_related`, avoid N+1 queries.
+
+**Labels:** `performance`, `db`, `attendance`, `tests`
+
+**Sub-issues:**
+
+1. Add DB indexes: on `employee`, `clock_in`, maybe `status`, `source`.
+2. In API List endpoints and dashboard, use `select_related` / `prefetch_related` to avoid extra DB hits.
+3. Tests for query counts (e.g. using Django’s `assertNumQueries`) on listing attendance or dashboard endpoints.
+
+---

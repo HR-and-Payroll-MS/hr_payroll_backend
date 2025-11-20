@@ -152,13 +152,13 @@ When creating a new employee via the endpoint `POST /api/v1/employees/onboard/ne
 
     <first-initial><truncated-last><sequence>
 
-Example: `John Robertson` -> `jrobert001` (email: `jrobert001@hr_payroll.com`). The sequence is zero-padded to ensure stable sorting and starts at `001` for each distinct name root.
+Example: `John Robertson` -> `jrobert001` (email: `jrobert001@hrpayroll.com`). The sequence is zero-padded to ensure stable sorting and starts at `001` for each distinct name root.
 
 ### Environment Settings
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ONBOARDING_EMAIL_DOMAIN` | `hr_payroll.com` | Domain appended to generated username for the email address. |
+| `ONBOARDING_EMAIL_DOMAIN` | `hrpayroll.com` | Domain appended to generated username for the email address. |
 | `ONBOARDING_LAST_NAME_LENGTH` | `6` | Maximum characters from the slugified last name to retain. |
 | `ONBOARDING_SEQUENCE_PAD` | `3` | Zero-padding width for the numeric sequence (e.g. 001, 002). |
 

@@ -1,0 +1,172 @@
+---
+
+## Iteration 4 – Employee Management & Documents: Issues & Subissues
+
+**Goal:** Manage employee records linked to users, with secure document uploads; provide Admin + API + self-service + tests + docs.
+
+---
+
+### Issue: Define Employee Model & Fields
+
+**Body:**
+Create `Employee` model (1:1 with User) with necessary fields and integrity constraints. This is the core model for employee data.
+
+**Labels:** `models`, `employee`, `db`, `validation`, `api`
+
+**Sub-issues:**
+
+1. Add `Employee` model in `hr_payroll/users/models.py` (or new `employees/` app) with fields: `employee_code` (unique), `department` FK, `job_title` FK, `manager` FK (self or to Employee), `hire_date`, `termination_date`, `tax_id`, `bank_account_info`, `status` (choices).
+2. Ensure model constraints: unique `employee_code`, non-nullable where necessary; protect FK deletion (e.g. if department or job\_title deleted).
+3. Generate migrations and apply; ensure `__str__`, verbose names.
+
+---
+
+### Issue: Auto-create Employee on User Creation
+
+**Body:**
+Whenever a new `User` is created, automatically create an associated `Employee` record with default values.
+
+**Labels:** `feature`, `signals`, `employee`, `db`, `tests`
+
+**Sub-issues:**
+
+1. Create a signal (post\_save on User) that creates an Employee if not existing with default department/job\_title/status.
+2. Decide default values (department null? status = Active?).
+3. Write tests: when user is created, employee record exists; if user already has employee, do not duplicate.
+
+---
+
+### Issue: Employee CRUD via Admin UI
+
+**Body:**
+Provide admin panels to allow HR/Admin to manage Employee records.
+
+**Labels:** `admin`, `employee`, `ui`
+
+**Sub-issues:**
+
+1. Register Employee in `admin.py` with `list_display` (employee\_code, user, department, status), `list_filter`, `search_fields`.
+2. Make certain fields read-only (e.g. creation date, user link) in admin where needed.
+3. Bulk actions: e.g. bulk deactivate, bulk assign manager or department.
+
+---
+
+### Issue: Employee API (CRUD + View)
+
+**Body:**
+Build REST APIs to allow HR/Admin to create/read/update/delete Employee records; also for “list” and “retrieve”.
+
+**Labels:** `api`, `employee`, `rbac`, `tests`
+
+**Sub-issues:**
+
+1. Create DRF serializers and viewsets for Employee model, with correct fields.
+2. Setup URLs under `/api/employees/` maybe, ensuring router registrations.
+3. Enforce permissions: only roles HR/Admin/PayrollOfficer can write; others read-only or none.
+
+---
+
+### Issue: Self-Service Employee Profile Endpoint
+
+**Body:**
+Allow authenticated employee user to view their own Employee profile, and update allowed fields (not everything).
+
+**Labels:** `api`, `employee`, `auth`, `tests`
+
+**Sub-issues:**
+
+1. Add endpoint `/api/employees/me/` (or similar) that returns own profile.
+2. Allow limited updates: fields like `bank_account_info`, maybe `contact details` but *not* changing status, manager, etc.
+3. Write tests: ensure user cannot change other employees’ records; ensure only permitted fields updated.
+
+---
+
+### Issue: EmployeeDocument Model & Upload Functionality
+
+**Body:**
+Support uploading documents for employees: contracts, certificates, IDs, etc. Secure storage + validations.
+
+**Labels:** `models`, `feature`, `uploads`, `security`, `tests`
+
+**Sub-issues:**
+
+1. Define `EmployeeDocument` model: fields like `employee` FK, `document_type` (choices), `file` (FileField), `uploaded_at`.
+2. Configure `upload_to` path logic (e.g. `employees/<employee_code>/documents/`) and ensure storage backend works.
+3. Add validations: allowed file types (PDF, JPG, PNG), size limit, possibly content type validation. Use Django `FileExtensionValidator` and/or custom validator. ([GeeksforGeeks][1])
+
+---
+
+### Issue: Secure Document Storage and Access Controls
+
+**Body:**
+Ensure that document files are stored securely, accessible only by proper roles (employee / HR / Admin), not public; secure media settings.
+
+**Labels:** `security`, `uploads`, `api`, `tests`
+
+**Sub-issues:**
+
+1. Configure `MEDIA_ROOT`, `MEDIA_URL` properly; possibly restrict direct file URL access via Django view/auth or serve via protected endpoint.
+2. Test that unauthorized access to a document (wrong user / role) is blocked.
+3. Ensure file names are sanitized, avoid path traversal; potentially rename files to avoid conflicts.
+
+---
+
+### Issue: File Type & Size Validations for Uploaded Documents
+
+**Body:**
+Validate uploads to ensure only allowed file types and size limits. Extra validation for content type if needed.
+
+**Labels:** `validation`, `uploads`, `security`, `tests`
+
+**Sub-issues:**
+
+1. Use `FileExtensionValidator` for allowed extensions (e.g. `.pdf`, `.jpg`, `.jpeg`, `.png`). ([GeeksforGeeks][1])
+2. Enforce max file size in validator (e.g. ≤ 10MB).
+3. (Optional) Validate inside file content (if applicable) for PDF signature or image correctness; or ensure non-malicious content.
+
+---
+
+### Issue: Tests for Employee CRUD, Document Upload & Access
+
+**Body:**
+Add unit + integration tests that cover employee record management and document upload flows.
+
+**Labels:** `tests`, `employee`, `uploads`, `api`
+
+**Sub-issues:**
+
+1. Write tests for Employee CRUD: HR/Admin creating/updating/deleting, validation errors.
+2. Write tests for document upload: valid, invalid file type, too large file, unauthorized upload.
+3. Write tests for access: employee can access own documents; HR/Admin can access; others blocked.
+
+---
+
+### Issue: i18n for Employee Module Fields & Messages
+
+**Body:**
+Ensure all user-facing strings in Employee module (field labels, error messages, document upload messages) are wrapped in translation functions; add initial translations.
+
+**Labels:** `i18n`, `employee`, `validation`, `docs`
+
+**Sub-issues:**
+
+1. Wrap model verbose\_names, serializer field names, error messages in gettext / gettext\_lazy.
+2. Run `makemessages`, add translation for at least one non-English locale (e.g. French).
+3. Tests: switch locale in test and assert translated messages appear.
+
+---
+
+### Issue: Documentation: Employee Onboarding & Documents Guide
+
+**Body:**
+Write documentation that describes employee model usage, document upload, allowed file types, how to use self-service endpoints, admin actions.
+
+**Labels:** `docs`, `employee`, `api`
+
+**Sub-issues:**
+
+1. Write API usage examples: creating employee, uploading document, retrieving document.
+2. Document validation rules: file size, type, access rights.
+3. Update README/docs/users.rst or a new file `employee.rst` with workflows (onboard user, assign job/title/department, document upload).
+
+---

@@ -1,0 +1,142 @@
+---
+
+## Iteration 3 – Organization Setup: Issues & Subissues
+
+**Goal:** Create the organizational master data structure: Departments, Job Titles & Grades; provide Admin + API CRUD; enforce hierarchy, constraints, and provide fixtures & docs.
+
+---
+
+### Issue: Build Department Model with Hierarchy & Constraints
+
+**Body:**
+Implement the Department model so that it supports hierarchical departments, with fields and constraints as required. Enforce no cycles, valid parent references, unique codes, etc.
+
+**Labels:** `models`, `org`, `validation`, `db`
+
+**Sub-issues:**
+
+1. **Model Fields & Migrations** — Add fields: `id`, `code` (unique, uppercase, case-insensitive), `name`, `parent` (nullable FK to same model), `is_active` (boolean), `created_at`, `updated_at`. Create and apply migrations.
+2. **Validation: parent constraints & cycle detection** — In model `clean()` or via serializer validate: a department cannot be its own parent; detect cycles in ancestry; ensure parent is active if needed.
+3. **Indexes & Unique Constraint** — Unique constraint on `code`, index on `(code, is_active)`, possibly index on `parent`.
+
+---
+
+### Issue: Build JobTitle & Grade Models
+
+**Body:**
+Define JobTitle and Grade models. JobTitle links to Department and optionally Grade. Include constraints, and enforce relations.
+
+**Labels:** `models`, `org`, `db`, `validation`
+
+**Sub-issues:**
+
+1. **Grade Model & Migration** — Fields: `id`, `code` (unique), `description`, `level` (numeric or text), `is_active`, timestamps. Migration.
+2. **JobTitle Model & Migration** — Fields: `id`, `code` (unique), `name`, FK to Department (with `PROTECT` or suitable on delete), FK to Grade (nullable), `is_active`, timestamps.
+3. **Validation & Constraints** — Enforce `code` regex (e.g. uppercase, allowed characters), ensure Department for JobTitle is active; ensure unique code; maybe prevent deletion if JobTitle is in use.
+
+---
+
+### Issue: Admin UI Setup for Organization Models
+
+**Body:**
+Provide Django admin interfaces for Department, JobTitle, Grade. Ensure usability (filters, search, actions).
+
+**Labels:** `admin`, `org`, `ui`
+
+**Sub-issues:**
+
+1. **Admin Registration** — Register models in `admin.py` with `list_display`, `list_filter`, `search_fields`, ordering.
+2. **Bulk Actions** — Implement bulk activate / deactivate for Departments & JobTitles in admin.
+3. **Protect Deletion & Permissions** — If a Department or JobTitle is used (e.g. has employees), prevent or override deletion; tests for admin behavior.
+
+---
+
+### Issue: API Endpoints for Department, JobTitle, Grade
+
+**Body:**
+Create REST APIs for CRUD operations on Department, JobTitle, and Grade. Include list, retrieve, create, update, delete (if allowed) and enforce permissions.
+
+**Labels:** `api`, `org`, `rbac`, `tests`
+
+**Sub-issues:**
+
+1. **Serializers & ViewSets** — Write serializers and viewsets for the three models with proper fields and validation.
+2. **Routing & URLs** — Set up routers under `/api/organization/` (e.g. `/api/organization/departments/`, `/job-titles/`, `/grades/`).
+3. **Permissions & RBAC enforcement** — Only Admin and HR roles can write; others read-only; test forbidden access.
+
+---
+
+### Issue: Filtering, Search, Pagination for Org APIs
+
+**Body:**
+Add list filtering/search/order functionality to organization APIs to support filtering by `is_active`, parent, code, department, grade, etc.
+
+**Labels:** `api`, `org`, `performance`, `tests`
+
+**Sub-issues:**
+
+1. **Implement Filtering & Ordering** — Use Django filters (e.g. `django-filter`) or DRF filtering to filter by fields like `is_active`, `code__icontains`, parent, etc.
+2. **Pagination Settings** — Ensure default pagination; allow page size param if needed.
+3. **Tests for filters/order/pagination** — Write tests exercising filter combinations, ordering by code/name/grade, pagination behaviour.
+
+---
+
+### Issue: RBAC Permissions & Groups Seeding for Org Models
+
+**Body:**
+Ensure that proper roles/groups have correct permissions on organization models and seed these in the database.
+
+**Labels:** `rbac`, `data`, `fixtures`, `security`
+
+**Sub-issues:**
+
+1. **Define role-permission mapping** — Decide which roles (Admin, HR, possibly Payroll Officer) can add/change/delete/view Departments, JobTitles, Grades.
+2. **Seed groups & permissions** — Use fixtures or data migration or management command to create groups and assign permissions.
+3. **Tests for RBAC enforcement** — Test that each role’s access behaves correctly (allowed/disallowed).
+
+---
+
+### Issue: Fixtures & Management Commands for Org Data
+
+**Body:**
+Provide sample data fixtures + command to load them so dev environments are seeded with example Departments, JobTitles, and Grades.
+
+**Labels:** `fixtures`, `data`, `infra`, `org`
+
+**Sub-issues:**
+
+1. **Create fixture files** — Provide JSON or YAML fixtures with a few sample Departments (including nested), JobTitles, Grades.
+2. **Management command** — Write a command like `load_org_fixtures` that populates these, and is idempotent.
+3. **Tests for fixture command** — Ensure that repeated runs do not duplicate entries, tests that the loaded data matches expected formats.
+
+---
+
+### Issue: Documentation & ERD for Organization Module
+
+**Body:**
+Document the organization models and APIs: ERD diagram, example data, sample API usage; include validation rules.
+
+**Labels:** `docs`, `org`, `schema`, `validation`
+
+**Sub-issues:**
+
+1. **ERD Diagram** — Create a diagram (e.g. using draw\.io or PlantUML) showing Department, JobTitle, Grade relationships.
+2. **API Usage Examples** — Write example curl / HTTP requests and responses for Org endpoints.
+3. **Specify Validation Rules in Docs** — Document code regex, active parent requirement, unique constraints, preventing cycles.
+
+---
+
+### Issue: i18n for Org Module
+
+**Body:**
+Internationalize all user-facing strings in the Org module: model verbose names, field names, serializer error messages, admin labels.
+
+**Labels:** `i18n`, `org`, `feature`, `tests`
+
+**Sub-issues:**
+
+1. **Wrap strings with gettext / gettext\_lazy** — For model verbose\_name, help\_text, serializer error messages.
+2. **Extract and add translation files** — Run `makemessages`, add translations for at least one additional locale.
+3. **Tests for translated output** — Switch locale in tests to ensure translated labels/errors appear.
+
+---
