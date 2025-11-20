@@ -320,7 +320,12 @@ class AttendanceViewSet(
             inst.save(update_fields=["status", "updated_at"])
         return Response({"status": inst.status})
 
-    @action(detail=False, methods=["get"], url_path="my/summary")
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="my/summary",
+        permission_classes=[IsAuthenticated],
+    )
     @extend_schema(
         tags=["Attendance Reports"],
         parameters=[
