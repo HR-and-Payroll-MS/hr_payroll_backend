@@ -81,7 +81,10 @@ class TestEmployeeRBACScoping(APITestCase):
 
     def test_manager_sees_managed_dept_and_direct_reports(self):
         r = self._list(self.manager)
-        usernames = {e["email"].split("@")[0] for e in r.data.get("results", [])}
+        usernames = {
+            e["general"]["emailaddress"].split("@")[0]
+            for e in r.data.get("results", [])
+        }
         # Should include emp2 (deptB managed) and manager themselves
         # May not include emp1 (not direct report of manager)
         assert "emp2" in usernames
@@ -89,7 +92,10 @@ class TestEmployeeRBACScoping(APITestCase):
 
     def test_line_manager_sees_department_and_direct_reports(self):
         r = self._list(self.line_manager)
-        usernames = {e["email"].split("@")[0] for e in r.data.get("results", [])}
+        usernames = {
+            e["general"]["emailaddress"].split("@")[0]
+            for e in r.data.get("results", [])
+        }
         assert "emp1" in usernames  # direct report
         assert "linemgr" in usernames
         # Should not see emp2 from other department
@@ -97,5 +103,8 @@ class TestEmployeeRBACScoping(APITestCase):
 
     def test_regular_employee_sees_only_self(self):
         r = self._list(self.emp1)
-        usernames = {e["email"].split("@")[0] for e in r.data.get("results", [])}
+        usernames = {
+            e["general"]["emailaddress"].split("@")[0]
+            for e in r.data.get("results", [])
+        }
         assert usernames == {"emp1"}

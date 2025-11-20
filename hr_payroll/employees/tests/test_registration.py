@@ -64,22 +64,21 @@ class TestEmployeeRegistration(APITestCase):
         assert creds is not None
         assert {"username", "email", "password"}.issubset(creds.keys())
         # Employee created and linked to user
-        emp_id = r.data.get("employee_id")
+        emp_id = r.data.get("job", {}).get("employeeid")
         assert emp_id
         emp = Employee.objects.get(employee_id=emp_id)
         assert emp.user.username == creds["username"]
-        # Full detail fields present
-        for key in [
-            "full_name",
-            "status",
-            "email",
-            "department",
-            "employment_type",
-            "job_title",
-            "total_compensation",
-            "documents",
-        ]:
-            assert key in r.data
+        # Full detail fields present in nested structure
+        assert "general" in r.data
+        assert "job" in r.data
+        assert "payroll" in r.data
+        assert "documents" in r.data
+        # Check specific nested fields
+        assert r.data["general"]["fullname"]
+        assert r.data["general"]["emailaddress"]
+        assert r.data["job"]["jobtitle"]
+        assert r.data["job"]["employmenttype"]
+        assert r.data["payroll"]["employeestatus"]
 
     def test_missing_names_is_error(self):
         url = "/api/v1/employees/register/"
