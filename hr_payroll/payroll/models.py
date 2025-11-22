@@ -1,257 +1,366 @@
 import uuid
+from datetime import timedelta
 from decimal import Decimal
 
-from django.conf import settings
 from django.db import models
-from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 
-class Compensation(models.Model):
-    employee = models.ForeignKey(
-        "employees.Employee", on_delete=models.CASCADE, related_name="compensations"
+class PayrollGeneralSetting(models.Model):
+    """Global payroll configuration (singleton pattern)."""
+
+    currency = models.CharField(
+        max_length=3, default="USD", help_text=_("ISO Currency Code")
     )
-    total_compensation = models.DecimalField(
-        max_digits=12, decimal_places=2, default=Decimal("0.00")
+    proration_policy = models.CharField(
+        max_length=20,
+        choices=[
+            ("fixed_day", _("Fixed Day")),
+            ("actual_days", _("Actual Days")),
+        ],
+        default="fixed_day",
+        help_text=_("Proration policy for partial months"),
     )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    working_days_basis = models.IntegerField(
+        default=20, help_text=_("Standard working days per month")
+    )
 
     class Meta:
-        ordering = ["-created_at"]
+        verbose_name = _("Payroll General Setting")
+        verbose_name_plural = _("Payroll General Settings")
 
-    def __str__(self) -> str:  # pragma: no cover - representation
-        return (
-            f"Compensation(id={self.id}, employee_id={self.employee_id}, "
-            f"total={self.total_compensation})"
-        )
+    def __str__(self):
+        return f"Payroll Settings ({self.currency})"
 
-    def recalc_total(self) -> Decimal:
-        total = sum((c.amount for c in self.components.all()), Decimal("0.00"))
-        self.total_compensation = total
-        self.save(update_fields=["total_compensation"])
-        return total
+    def save(self, *args, **kwargs):
+        # Ensure only one settings object exists (singleton pattern)
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+
+class BankMaster(models.Model):
+    """
+    Centralized bank registry.
+    Prevents typos and standardizes bank information.
+    """
+
+    name = models.CharField(
+        max_length=200, unique=True, help_text=_('Bank name (e.g., "Chase Bank")')
+    )
+    swift_code = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text=_("SWIFT/BIC code for international transfers"),
+    )
+    code = models.CharField(
+        max_length=50, blank=True, help_text=_("Local bank code or routing number")
+    )
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name = _("Bank Master")
+        verbose_name_plural = _("Bank Masters")
+
+    def __str__(self):
+        return self.name
+
+
+class SalaryComponent(models.Model):
+    """
+    Master list of salary components (earnings and deductions).
+    e.g., "Basic Salary", "Transport", "Tax".
+    """
+
+    class Type(models.TextChoices):
+        EARNING = "earning", _("Earning")
+        DEDUCTION = "deduction", _("Deduction")
+
+    name = models.CharField(
+        max_length=100,
+        help_text=_('Component name (e.g., "Basic Salary", "Transport Allowance")'),
+    )
+    component_type = models.CharField(
+        max_length=20,
+        choices=Type.choices,
+        default=Type.EARNING,
+        help_text=_("Type of component"),
+    )
+    is_taxable = models.BooleanField(
+        default=True, help_text=_("Whether this component is subject to tax")
+    )
+    is_recurring = models.BooleanField(
+        default=True, help_text=_("False for one-off payments like bonuses")
+    )
+
+    class Meta:
+        ordering = ["component_type", "name"]
+        verbose_name = _("Salary Component")
+        verbose_name_plural = _("Salary Components")
+
+    def __str__(self):
+        return f"{self.name} ({self.component_type})"
 
 
 class BankDetail(models.Model):
-    """Bank details for direct deposit linked to an employee.
-
-    Sensitive data should be handled carefully; this model stores plain fields
-    but the project should enable encrypted fields in production if required.
+    """
+    Employee bank account information.
+    One-to-one with Employee, uses FK to BankMaster.
     """
 
-    employee = models.ForeignKey(
-        "employees.Employee", on_delete=models.CASCADE, related_name="bank_details"
+    employee = models.OneToOneField(
+        "employees.Employee", on_delete=models.CASCADE, related_name="bank_detail"
     )
-    bank_name = models.CharField(max_length=200)
-    branch = models.CharField(max_length=200, blank=True)
-    swift_bic = models.CharField(max_length=50, blank=True)
-    account_name = models.CharField(max_length=200)
-    account_number = models.CharField(max_length=100)
-    iban = models.CharField(max_length=128, blank=True)
+    bank = models.ForeignKey(
+        BankMaster, on_delete=models.PROTECT, help_text=_("Bank where account is held")
+    )
+    branch_name = models.CharField(
+        max_length=200, blank=True, help_text=_("Specific branch location")
+    )
+    account_holder = models.CharField(
+        max_length=200, help_text=_("Name on the account")
+    )
+    account_number = models.CharField(
+        max_length=100, help_text=_("Bank account number")
+    )
+    iban = models.CharField(
+        max_length=100, blank=True, help_text=_("International Bank Account Number")
+    )
 
-    created_at = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        verbose_name = _("Bank Detail")
+        verbose_name_plural = _("Bank Details")
+
+    def __str__(self):
+        return f"{self.employee} - {self.bank.name}"
+
+
+class EmployeeSalaryStructure(models.Model):
+    """
+    Defines the employee's salary structure.
+    Replaces old Compensation model.
+    """
+
+    employee = models.OneToOneField(
+        "employees.Employee", on_delete=models.CASCADE, related_name="salary_structure"
+    )
+    base_salary = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text=_("Base monthly salary"),
+    )
+    components = models.ManyToManyField(
+        SalaryComponent, through="SalaryStructureItem", related_name="structures"
+    )
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["employee_id"]
+        verbose_name = _("Employee Salary Structure")
+        verbose_name_plural = _("Employee Salary Structures")
 
-    def __str__(self) -> str:  # pragma: no cover - simple repr
-        return f"BankDetail({self.employee_id} {self.bank_name} {self.account_number})"
+    def __str__(self):
+        return f"Structure: {self.employee}"
+
+
+class SalaryStructureItem(models.Model):
+    """
+    Through table for EmployeeSalaryStructure and SalaryComponent.
+    Stores the specific amount for each component.
+    """
+
+    structure = models.ForeignKey(
+        EmployeeSalaryStructure, on_delete=models.CASCADE, related_name="items"
+    )
+    component = models.ForeignKey(SalaryComponent, on_delete=models.PROTECT)
+    amount = models.DecimalField(
+        max_digits=12, decimal_places=2, help_text=_("Amount for this component")
+    )
+
+    class Meta:
+        unique_together = ("structure", "component")
+        verbose_name = _("Salary Structure Item")
+        verbose_name_plural = _("Salary Structure Items")
+
+    def __str__(self):
+        return f"{self.structure.employee} - {self.component.name}: {self.amount}"
 
 
 class Dependent(models.Model):
-    """Tax/dependent information for an employee."""
+    """
+    Employee dependents for insurance and tax purposes.
+    """
 
     employee = models.ForeignKey(
         "employees.Employee", on_delete=models.CASCADE, related_name="dependents"
     )
-    name = models.CharField(max_length=200)
-    relationship = models.CharField(max_length=100, blank=True)
-    date_of_birth = models.DateField(null=True, blank=True)
-
+    name = models.CharField(max_length=200, help_text=_("Dependent's full name"))
+    relationship = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text=_('Relationship (e.g., "Spouse", "Child")'),
+    )
+    date_of_birth = models.DateField(
+        null=True, blank=True, help_text=_("Date of birth")
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["employee_id", "name"]
+        verbose_name = _("Dependent")
+        verbose_name_plural = _("Dependents")
 
-    def __str__(self) -> str:  # pragma: no cover - simple repr
-        return f"Dependent({self.employee_id} {self.name})"
-
-
-class SalaryComponent(models.Model):
-    class Kind(models.TextChoices):
-        BASE = "base", "Base"
-        RECURRING = "recurring", "Recurring"
-        ONE_OFF = "one_off", "One-off"
-        OFFSET = "offset", "Offset"
-
-    compensation = models.ForeignKey(
-        Compensation, on_delete=models.CASCADE, related_name="components"
-    )
-    kind = models.CharField(max_length=20, choices=Kind.choices)
-    amount = models.DecimalField(max_digits=12, decimal_places=2)
-    label = models.CharField(max_length=100, blank=True)
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        ordering = ["id"]
-
-    def __str__(self) -> str:  # pragma: no cover - representation
-        return (
-            f"SalaryComponent(id={self.id}, compensation_id={self.compensation_id}, "
-            f"kind={self.kind}, amount={self.amount}, label={self.label!r})"
-        )
+    def __str__(self):
+        return f"{self.employee} - {self.name}"
 
 
-class PayrollCycle(models.Model):
-    """A payroll cycle (e.g., monthly) with an optional eligibility list.
-
-    - UUID primary key
-    - Tracks the processing window (period_start/end) and cut-off dates
-    - Maintains the person in charge for approvals
-    - Supports either criteria 'all' or an explicit M2M list of employees
+class PayCycle(models.Model):
     """
-
-    class Frequency(models.TextChoices):
-        MONTHLY = "monthly", "Monthly"
-        WEEKLY = "weekly", "Weekly"
-        BIWEEKLY = "biweekly", "Bi-Weekly"
+    Represents a payroll cycle (e.g., monthly period).
+    """
 
     class Status(models.TextChoices):
-        DRAFT = "draft", "Draft"
-        OPEN = "open", "Open"
-        CLOSED = "closed", "Closed"
+        DRAFT = "draft", _("Draft")
+        PROCESSING = "processing", _("Processing")
+        CLOSED = "closed", _("Closed")
 
-    class Eligibility(models.TextChoices):
-        ALL = "all", "All Employees"
-        LIST = "list", "Selected Employees"
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    name = models.CharField(max_length=150)
-    description = models.TextField(blank=True)
-    frequency = models.CharField(
-        max_length=20, choices=Frequency.choices, default=Frequency.MONTHLY
+    name = models.CharField(
+        max_length=150, help_text=_('Cycle name (e.g., "January 2025")')
     )
-    person_in_charge = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True
-    )
-    period_start = models.DateField()
-    period_end = models.DateField()
-    cutoff_date = models.DateField()
-    review_cutoff_date = models.DateField(null=True, blank=True)
-    review_cutoff_enabled = models.BooleanField(default=False)
-    eligibility_criteria = models.CharField(
-        max_length=10, choices=Eligibility.choices, default=Eligibility.ALL
-    )
-    eligible_employees = models.ManyToManyField(
-        "employees.Employee", blank=True, related_name="eligible_cycles"
+    start_date = models.DateField(help_text=_("Cycle start date"))
+    end_date = models.DateField(help_text=_("Cycle end date"))
+    cutoff_date = models.DateField(help_text=_("Cut-off date for processing"))
+    manager_in_charge = models.ForeignKey(
+        "employees.Employee",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="managed_cycles",
+        help_text=_("Manager responsible for this cycle"),
     )
     status = models.CharField(
-        max_length=10, choices=Status.choices, default=Status.DRAFT
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        help_text=_("Cycle status"),
     )
-
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["-period_end", "-created_at"]
+        ordering = ["-end_date", "-created_at"]
+        verbose_name = _("Pay Cycle")
+        verbose_name_plural = _("Pay Cycles")
 
-    def __str__(self) -> str:  # pragma: no cover - representation
-        # Use a standard hyphen to avoid ambiguous Unicode dash warnings
-        return f"PayrollCycle({self.name} {self.period_start}-{self.period_end})"
-
-    @property
-    def days_in_period(self) -> int:
-        return (self.period_end - self.period_start).days + 1
+    def __str__(self):
+        return f"{self.name} ({self.start_date} to {self.end_date})"
 
 
-class PayrollRecord(models.Model):
-    """A per-employee payslip for a given cycle.
-
-    Uses UUID primary key and supports soft-delete via deleted_at.
-    Numerical amounts are stored as Decimal in currency minor units.
-    Attendance aggregates are stored as seconds for precision.
+class PayrollSlip(models.Model):
+    """
+    A payroll slip for an employee in a specific cycle.
+    Snapshot of salary structure + attendance data.
     """
 
+    class Status(models.TextChoices):
+        DRAFT = "draft", _("Draft")
+        PAID = "paid", _("Paid")
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    cycle = models.ForeignKey(
-        PayrollCycle, on_delete=models.CASCADE, related_name="records"
-    )
+    cycle = models.ForeignKey(PayCycle, on_delete=models.CASCADE, related_name="slips")
     employee = models.ForeignKey(
-        "employees.Employee", on_delete=models.CASCADE, related_name="payroll_records"
+        "employees.Employee", on_delete=models.CASCADE, related_name="payslips"
     )
 
-    # Components aligning to UI columns
-    salary = models.DecimalField(
-        max_digits=12, decimal_places=2, default=Decimal("0.00")
+    # Financial snapshots
+    base_salary = models.DecimalField(
+        max_digits=12, decimal_places=2, help_text=_("Base salary snapshot")
     )
-    actual = models.DecimalField(
-        max_digits=12, decimal_places=2, default=Decimal("0.00")
+    total_earnings = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text=_("Total earnings"),
     )
-    recurring = models.DecimalField(
-        max_digits=12, decimal_places=2, default=Decimal("0.00")
+    total_deductions = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text=_("Total deductions"),
     )
-    one_off = models.DecimalField(
-        max_digits=12, decimal_places=2, default=Decimal("0.00")
-    )
-    offset = models.DecimalField(
-        max_digits=12, decimal_places=2, default=Decimal("0.00")
-    )
-    ot = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
-    total_compensation = models.DecimalField(
-        max_digits=12, decimal_places=2, default=Decimal("0.00")
+    net_pay = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text=_("Net pay (earnings - deductions)"),
     )
 
-    # Attendance integration (seconds for accurate arithmetic)
-    period_start = models.DateField()
-    period_end = models.DateField()
-    actual_work_seconds = models.IntegerField(default=0)
-    overtime_seconds = models.IntegerField(default=0)
-    deficit_seconds = models.IntegerField(default=0)
-    carry_over_overtime_seconds = models.IntegerField(default=0)
+    # Attendance integration (using DurationField)
+    total_work_duration = models.DurationField(
+        default=timedelta(0), help_text=_("Total work time")
+    )
+    total_overtime_duration = models.DurationField(
+        default=timedelta(0), help_text=_("Total overtime")
+    )
+    total_deficit_duration = models.DurationField(
+        default=timedelta(0), help_text=_("Total deficit time")
+    )
 
-    deleted_at = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        help_text=_("Slip status"),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["-cycle__period_end", "employee_id", "-created_at"]
         unique_together = ("cycle", "employee")
+        ordering = ["-cycle__end_date", "employee_id", "-created_at"]
+        verbose_name = _("Payroll Slip")
+        verbose_name_plural = _("Payroll Slips")
 
-    def __str__(self) -> str:  # pragma: no cover - representation
-        e = getattr(self, "employee_id", None)
-        c = getattr(self, "cycle_id", None)
-        return f"PayrollRecord({e} @ {c})"
+    def __str__(self):
+        return f"{self.employee} - {self.cycle.name}"
 
-    @property
-    def is_deleted(self) -> bool:
-        return self.deleted_at is not None
 
-    def soft_delete(self):
-        self.deleted_at = timezone.now()
-        self.save(update_fields=["deleted_at"])
+class PayslipLineItem(models.Model):
+    """
+    Individual line items on a payroll slip.
+    e.g., recurring allowance, one-off bonus, overtime pay.
+    """
 
-    def recalc_total(self) -> Decimal:
-        """Recompute the total compensation following the UI groups.
+    class Category(models.TextChoices):
+        RECURRING = "recurring", _("Recurring")
+        ONE_OFF = "one_off", _("One-off")
+        OVERTIME = "overtime", _("Overtime")
+        TAX = "tax", _("Tax")
 
-        Total = Salary + Actual + Recurring + One-off + OT - Offset
-        (Assume offset is a deduction by convention.)
-        """
+    slip = models.ForeignKey(
+        PayrollSlip, on_delete=models.CASCADE, related_name="line_items"
+    )
+    component = models.ForeignKey(
+        SalaryComponent,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        help_text=_("Reference to salary component"),
+    )
+    label = models.CharField(
+        max_length=100, help_text=_('Display label (e.g., "Overtime (10 hours)")')
+    )
+    amount = models.DecimalField(
+        max_digits=12, decimal_places=2, help_text=_("Line item amount")
+    )
+    category = models.CharField(
+        max_length=20, choices=Category.choices, help_text=_("Category for grouping")
+    )
 
-        total = (
-            (self.salary or 0)
-            + (self.actual or 0)
-            + (self.recurring or 0)
-            + (self.one_off or 0)
-            + (self.ot or 0)
-            - (self.offset or 0)
-        )
-        # Coerce to Decimal to avoid type churn if fields are None
-        if not isinstance(total, Decimal):
-            total = Decimal(total)
-        self.total_compensation = total
-        self.save(update_fields=["total_compensation"])
-        return total
+    class Meta:
+        ordering = ["slip", "category", "id"]
+        verbose_name = _("Payslip Line Item")
+        verbose_name_plural = _("Payslip Line Items")
+
+    def __str__(self):
+        return f"{self.slip.employee} - {self.label}"

@@ -7,8 +7,8 @@ from django.http import HttpResponse
 from django.utils.html import format_html
 
 from hr_payroll.payroll.models import BankDetail
-from hr_payroll.payroll.models import Compensation
 from hr_payroll.payroll.models import Dependent
+from hr_payroll.payroll.models import EmployeeSalaryStructure
 
 from .models import Contract
 from .models import Employee
@@ -60,20 +60,20 @@ class BankDetailInline(admin.TabularInline):
     model = BankDetail
     extra = 0
     fields = (
-        "bank_name",
-        "branch",
-        "swift_bic",
-        "account_name",
+        "bank",
+        "branch_name",
+        "account_holder",
         "account_number",
         "iban",
     )
+    autocomplete_fields = ("bank",)
 
 
-class CompensationInline(admin.TabularInline):
-    model = Compensation
+class SalaryStructureInline(admin.TabularInline):
+    model = EmployeeSalaryStructure
     extra = 0
-    fields = ("total_compensation", "created_at")
-    readonly_fields = ("total_compensation", "created_at", "updated_at")
+    fields = ("base_salary", "updated_at")
+    readonly_fields = ("updated_at",)
     can_delete = True
     show_change_link = True
 
@@ -178,7 +178,7 @@ class EmployeeAdmin(admin.ModelAdmin):
         DependentInline,
         BankDetailInline,
         EmployeeDocumentInline,
-        CompensationInline,
+        SalaryStructureInline,
     ]
     autocomplete_fields = ("user", "department", "line_manager")
     list_select_related = ("user", "department", "line_manager")
@@ -273,15 +273,11 @@ class EmployeeAdmin(admin.ModelAdmin):
         )
 
     def recalc_compensations(self, request, queryset):
-        total = 0
-        for emp in queryset:
-            for comp in emp.compensations.all():
-                comp.recalc_total()
-                total += 1
+        # TODO: Update for new salary structure model
         self.message_user(
             request,
-            f"Recalculated {total} compensation records",
-            level=messages.SUCCESS,
+            "Recalculation feature needs to be updated for new salary structure",
+            level=messages.WARNING,
         )
 
     def export_csv(self, request, queryset):

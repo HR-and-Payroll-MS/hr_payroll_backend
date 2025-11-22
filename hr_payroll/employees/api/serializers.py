@@ -1,4 +1,5 @@
 from contextlib import suppress
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -17,9 +18,11 @@ from hr_payroll.employees.models import EmployeeDocument
 from hr_payroll.employees.models import JobHistory
 from hr_payroll.org.models import Department
 from hr_payroll.payroll.models import BankDetail
-from hr_payroll.payroll.models import Compensation
+from hr_payroll.payroll.models import BankMaster
 from hr_payroll.payroll.models import Dependent
+from hr_payroll.payroll.models import EmployeeSalaryStructure
 from hr_payroll.payroll.models import SalaryComponent
+from hr_payroll.payroll.models import SalaryStructureItem
 from hr_payroll.users.models import User
 from hr_payroll.users.models import UserProfile
 
@@ -278,18 +281,34 @@ class EmployeeRegistrationSerializer(serializers.Serializer):
                 end_date=validated.get("contract_end_date"),
             )
 
-        # Compensation components
+        # Salary structure and components
         comps = validated.get("components") or []
         if comps:
-            comp = Compensation.objects.create(employee=emp)
+            structure = EmployeeSalaryStructure.objects.create(
+                employee=emp,
+                base_salary=Decimal("0.00"),  # Will be calculated from components
+            )
+            total_base = Decimal("0.00")
             for c in comps:
-                SalaryComponent.objects.create(
-                    compensation=comp,
-                    kind=c["kind"],
-                    amount=c["amount"],
-                    label=c.get("label", ""),
+                # Lookup or create SalaryComponent
+                component, _ = SalaryComponent.objects.get_or_create(
+                    name=c.get("label") or f"{c['kind']} component",
+                    defaults={
+                        "component_type": "earning",
+                        "is_recurring": c["kind"] in ["base", "recurring"],
+                        "is_taxable": True,
+                    },
                 )
-            comp.recalc_total()
+                # Create structure item
+                SalaryStructureItem.objects.create(
+                    structure=structure, component=component, amount=c["amount"]
+                )
+                # Sum up base salary
+                if c["kind"] == "base":
+                    total_base += c["amount"]
+            # Update base salary
+            structure.base_salary = total_base
+            structure.save(update_fields=["base_salary"])
 
         # Dependents
         for d in validated.get("dependents", []) or []:
@@ -305,15 +324,24 @@ class EmployeeRegistrationSerializer(serializers.Serializer):
 
         # Bank detail
         if validated.get("bank_name") or validated.get("account_number"):
-            BankDetail.objects.create(
-                employee=emp,
-                bank_name=validated.get("bank_name", ""),
-                branch=validated.get("branch", ""),
-                swift_bic=validated.get("swift_bic", ""),
-                account_name=validated.get("account_name", ""),
-                account_number=validated.get("account_number", ""),
-                iban=validated.get("iban", ""),
-            )
+            bank_name = validated.get("bank_name", "").strip()
+            # Lookup or create BankMaster
+            if bank_name:
+                bank, _ = BankMaster.objects.get_or_create(
+                    name=bank_name,
+                    defaults={
+                        "swift_code": validated.get("swift_bic", ""),
+                        "code": "",
+                    },
+                )
+                BankDetail.objects.create(
+                    employee=emp,
+                    bank=bank,
+                    branch_name=validated.get("branch", ""),
+                    account_holder=validated.get("account_name", "") or emp.user.name,
+                    account_number=validated.get("account_number", ""),
+                    iban=validated.get("iban", ""),
+                )
 
         # Single document (if provided)
         doc_file = validated.get("document_file")
