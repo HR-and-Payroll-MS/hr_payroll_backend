@@ -41,6 +41,9 @@ jobs:
       - name: Checkout Code Repository
         uses: actions/checkout@v4
 
+      - name: Create .envs/.local/.django from example
+        run: cp .envs/.local/.django.example .envs/.local/.django
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
