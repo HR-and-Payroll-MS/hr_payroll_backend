@@ -109,6 +109,7 @@ LOCAL_APPS = [
     "hr_payroll.employees",
     "hr_payroll.payroll",
     "hr_payroll.attendance",
+    "hr_payroll.leaves",
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
