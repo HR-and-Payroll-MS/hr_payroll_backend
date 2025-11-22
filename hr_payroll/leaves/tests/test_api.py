@@ -36,7 +36,7 @@ class TestLeaveAPI:
     def test_leave_type_crud_admin(self):
         self.client.force_authenticate(user=self.admin_user)
         res = self.client.post(
-            "/api/v1/leave-types/",
+            "/api/v1/leaves/types/",
             {"name": "Sick", "is_paid": True, "unit": "Days", "color_code": "#FF0000"},
         )
         assert res.status_code == 201
@@ -45,7 +45,7 @@ class TestLeaveAPI:
     def test_leave_type_forbidden_user(self):
         self.client.force_authenticate(user=self.user)
         res = self.client.post(
-            "/api/v1/leave-types/",
+            "/api/v1/leaves/types/",
             {"name": "Sick", "is_paid": True, "unit": "Days", "color_code": "#FF0000"},
         )
         assert res.status_code == 403
@@ -53,7 +53,7 @@ class TestLeaveAPI:
     def test_leave_request_create(self):
         self.client.force_authenticate(user=self.user)
         res = self.client.post(
-            "/api/v1/leave-requests/",
+            "/api/v1/leaves/requests/",
             {
                 "policy": self.policy.id,
                 "start_date": "2025-06-01",
@@ -70,6 +70,6 @@ class TestLeaveAPI:
             employee=self.employee, policy=self.policy, entitled_days=20
         )
         self.client.force_authenticate(user=self.user)
-        res = self.client.get("/api/v1/employee-balances/")
+        res = self.client.get("/api/v1/leaves/employee-balances/")
         assert res.status_code == 200
         assert len(res.data["results"]) == 1
