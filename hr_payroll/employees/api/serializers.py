@@ -303,7 +303,7 @@ class EmployeeRegistrationSerializer(serializers.Serializer):
                 SalaryStructureItem.objects.create(
                     structure=structure, component=component, amount=c["amount"]
                 )
-                # Sum up base salary
+                # Sum up base salary ok
                 if c["kind"] == "base":
                     total_base += c["amount"]
             # Update base salary
