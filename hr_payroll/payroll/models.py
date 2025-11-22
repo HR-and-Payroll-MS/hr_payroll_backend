@@ -1,3 +1,11 @@
+"""
+Payroll models with relational architecture.
+
+This module implements a robust payroll system with master tables for banks
+and salary components, employee-specific salary structures, and transactional
+tables for pay cycles and payroll slips.
+"""
+
 import uuid
 from datetime import timedelta
 from decimal import Decimal
