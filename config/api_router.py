@@ -8,33 +8,27 @@ from hr_payroll.attendance.api.views import AttendanceViewSet
 from hr_payroll.employees.api.views import EmployeeRegistrationViewSet
 from hr_payroll.leaves.api.views import LeavesPlaceholderViewSet
 from hr_payroll.org.api.views import DepartmentViewSet
-from hr_payroll.payroll.api.views import PayrollCycleViewSet
-from hr_payroll.payroll.api.views import PayrollRecordViewSet
-from hr_payroll.payroll.api.views import PayrollReportViewSet
+from hr_payroll.payroll.api.views import PayrollPlaceholderViewSet
 from hr_payroll.users.api.views import UserViewSet
 
 router = DefaultRouter() if settings.DEBUG else SimpleRouter()
 
 router.register("users", UserViewSet)
 router.register("leaves", LeavesPlaceholderViewSet, basename="leaves")
+router.register("payroll", PayrollPlaceholderViewSet, basename="payroll")
 router.register("departments", DepartmentViewSet)
 # Top-level canonical endpoints.
 # Retain top-level 'attendances' to expose collection summary actions
 # (e.g. /api/v1/attendances/my/summary/) without forcing a nested lookup.
 router.register("attendances", AttendanceViewSet)
-
-router.register(r"payroll/cycles", PayrollCycleViewSet, basename="payroll-cycle")
-router.register(r"payroll/records", PayrollRecordViewSet, basename="payroll-record")
-router.register(r"payroll/reports", PayrollReportViewSet, basename="payroll-report")
 # New clean employees endpoint using registration viewset
 router.register("employees", EmployeeRegistrationViewSet, basename="employees")
-# Remove nested attendances to avoid duplication; rely on top-level with
-# filters.
 
 
 app_name = "api"
-# Prepend leaves include to ensure it takes precedence over the placeholder
+# Prepend includes to ensure they take precedence over placeholders
 urlpatterns = [
     path("leaves/", include("hr_payroll.leaves.api.urls")),
+    path("payroll/", include("hr_payroll.payroll.api.urls")),
     *router.urls,
 ]
