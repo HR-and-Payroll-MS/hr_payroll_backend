@@ -53,7 +53,7 @@ class Attendance(models.Model):
             return None
         ci = self.clock_in
         co = self.clock_out
-        # Normalize to timezone-aware to avoid naive/aware subtraction errors
+
         if timezone.is_naive(ci):
             try:
                 ci = timezone.make_aware(ci, timezone.get_current_timezone())
