@@ -1,0 +1,47 @@
+# General
+# ------------------------------------------------------------------------------
+USE_DOCKER=
+IPYTHONDIR=/app/.ipython
+DJANGO_SETTINGS_MODULE=
+# Redis
+# ------------------------------------------------------------------------------
+REDIS_URL=
+
+# Celery
+# ------------------------------------------------------------------------------
+
+# Flower
+CELERY_FLOWER_USER=
+CELERY_FLOWER_PASSWORD=
+
+# Database Switching
+# ------------------------------------------------------------------------------
+# Set to 1 to use Supabase (production), 0 to use local PostgreSQL
+USE_SUPABASE_DB=
+
+# Local PostgreSQL (default)
+DATABASE_URL=
+
+# Supabase (production) - Uncomment and add your Supabase connection string
+# When USE_SUPABASE_DB=1, this will be used instead of local DATABASE_URL
+SUPABASE_DATABASE_URL=
+
+ENABLE_CV_OCR=
+ENABLE_CV_DEBUG=
+CV_OCR_MAX_PAGES=
+CV_OCR_DPI=
+CV_OCR_LANG=
+
+# Turn on the LLM post-processing step in cv_parser
+ENABLE_CV_LLM=
+
+# Provider and model (currently supports gemini)
+LLM_PROVIDER=
+LLM_MODEL=
+
+# Timeouts are in seconds
+LLM_TIMEOUT=
+
+# Your Gemini API key
+GEMINI_API_KEY=
+ENABLE_CV_DEBUG=
