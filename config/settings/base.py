@@ -44,12 +44,15 @@ LOCALE_PATHS = [str(BASE_DIR / "locale")]
 # https://docs.djangoproject.com/en/dev/ref/settings/#databases
 # Prefer dj-database-url for robust parsing and pooled connections
 # Allows override via CONN_MAX_AGE; defaults to 600s but set 0 when using PgBouncer
+# Determine database URL based on flag
+if env.bool("USE_SUPABASE_DB", default=False):
+    db_url = env("SUPABASE_DATABASE_URL")
+else:
+    db_url = env("DATABASE_URL")
+
 DATABASES = {
     "default": dj_database_url.config(
-        default=env(
-            "DATABASE_URL",
-            default="postgresql://postgres:postgres@localhost:5432/mysite",
-        ),
+        default=db_url,
         conn_max_age=env.int("CONN_MAX_AGE", default=600),
     )
 }
