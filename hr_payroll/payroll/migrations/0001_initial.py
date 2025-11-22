@@ -12,7 +12,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('employees', '0005_alter_employee_fingerprint_token'),
+        # No dependencies - this is an initial migration
     ]
 
     operations = [

@@ -34,6 +34,7 @@ class PayrollPlaceholderViewSet(viewsets.ViewSet):
     """
 
     permission_classes = [permissions.IsAuthenticated]
+    serializer_class = None  # Explicitly set to avoid drf_spectacular warning
 
     @extend_schema(exclude=True)
     def list(self, request):

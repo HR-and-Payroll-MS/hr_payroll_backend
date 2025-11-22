@@ -1,5 +1,5 @@
+from drf_spectacular.utils import extend_schema
 from rest_framework import permissions
-from rest_framework import serializers
 from rest_framework import viewsets
 from rest_framework.response import Response
 
@@ -17,15 +17,16 @@ from hr_payroll.leaves.models import LeaveType
 from hr_payroll.leaves.models import PublicHoliday
 
 
-class LeavesPlaceholderViewSet(viewsets.GenericViewSet):
+class LeavesPlaceholderViewSet(viewsets.ViewSet):
     """
-    Placeholder ViewSet to expose 'leaves' in the API root.
-    The actual routing is handled by include() in api_router.py.
+    Placeholder ViewSet to show 'leaves' in API root.
+    Actual endpoints are nested under /api/v1/leaves/
     """
 
     permission_classes = [permissions.IsAuthenticated]
-    serializer_class = serializers.Serializer
+    serializer_class = None  # Explicitly set to avoid drf_spectacular warning
 
+    @extend_schema(exclude=True)
     def list(self, request):
         return Response({"message": "Leaves API Root"})
 
