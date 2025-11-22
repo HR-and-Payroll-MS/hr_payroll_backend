@@ -6,6 +6,7 @@ from rest_framework.routers import SimpleRouter
 
 from hr_payroll.attendance.api.views import AttendanceViewSet
 from hr_payroll.employees.api.views import EmployeeRegistrationViewSet
+from hr_payroll.leaves.api.views import LeavesPlaceholderViewSet
 from hr_payroll.org.api.views import DepartmentViewSet
 from hr_payroll.payroll.api.views import PayrollCycleViewSet
 from hr_payroll.payroll.api.views import PayrollRecordViewSet
@@ -14,8 +15,8 @@ from hr_payroll.users.api.views import UserViewSet
 
 router = DefaultRouter() if settings.DEBUG else SimpleRouter()
 
-
 router.register("users", UserViewSet)
+router.register("leaves", LeavesPlaceholderViewSet, basename="leaves")
 router.register("departments", DepartmentViewSet)
 # Top-level canonical endpoints.
 # Retain top-level 'attendances' to expose collection summary actions
@@ -32,8 +33,8 @@ router.register("employees", EmployeeRegistrationViewSet, basename="employees")
 
 
 app_name = "api"
-urlpatterns = router.urls
-
-urlpatterns += [
+# Prepend leaves include to ensure it takes precedence over the placeholder
+urlpatterns = [
     path("leaves/", include("hr_payroll.leaves.api.urls")),
+    *router.urls,
 ]

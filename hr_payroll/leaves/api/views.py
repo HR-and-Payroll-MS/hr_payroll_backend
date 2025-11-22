@@ -1,5 +1,7 @@
 from rest_framework import permissions
+from rest_framework import serializers
 from rest_framework import viewsets
+from rest_framework.response import Response
 
 from hr_payroll.leaves.api.serializers import BalanceHistorySerializer
 from hr_payroll.leaves.api.serializers import EmployeeBalanceSerializer
@@ -13,6 +15,19 @@ from hr_payroll.leaves.models import LeavePolicy
 from hr_payroll.leaves.models import LeaveRequest
 from hr_payroll.leaves.models import LeaveType
 from hr_payroll.leaves.models import PublicHoliday
+
+
+class LeavesPlaceholderViewSet(viewsets.GenericViewSet):
+    """
+    Placeholder ViewSet to expose 'leaves' in the API root.
+    The actual routing is handled by include() in api_router.py.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = serializers.Serializer
+
+    def list(self, request):
+        return Response({"message": "Leaves API Root"})
 
 
 class IsAdminOrManagerOnly(permissions.BasePermission):
