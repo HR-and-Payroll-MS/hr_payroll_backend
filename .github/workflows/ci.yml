@@ -41,8 +41,21 @@ jobs:
       - name: Checkout Code Repository
         uses: actions/checkout@v4
 
-      - name: Create .envs/.local/.django from example
-        run: cp .envs/.local/.django.example .envs/.local/.django
+      - name: Create .envs/.local/.django for CI
+        run: |
+          # Create a dummy env file for CI/CD to satisfy docker-compose.local.yml
+          # These values are only used for running tests in GitHub Actions
+          cat <<EOF > .envs/.local/.django
+          USE_DOCKER=yes
+          IPYTHONDIR=/app/.ipython
+          DJANGO_SETTINGS_MODULE=config.settings.local
+          REDIS_URL=redis://redis:6379/0
+          CELERY_FLOWER_USER=debug
+          CELERY_FLOWER_PASSWORD=debug
+          DATABASE_URL=postgres://debug:debug@postgres:5432/hr_payroll
+          USE_SUPABASE_DB=0
+          GEMINI_API_KEY=dummy_key_for_ci
+          EOF
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
