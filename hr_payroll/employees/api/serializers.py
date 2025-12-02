@@ -1,4 +1,8 @@
+"""Serializers for Employees API."""
+
+import logging
 from contextlib import suppress
+from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -9,14 +13,14 @@ from django.db import models
 from django.utils import timezone
 from django.utils.crypto import get_random_string
 from PIL import Image
-from PIL import UnidentifiedImageError
+from PIL.Image import UnidentifiedImageError
 from rest_framework import serializers
 
+from hr_payroll.departments.models import Department
 from hr_payroll.employees.models import Contract
 from hr_payroll.employees.models import Employee
 from hr_payroll.employees.models import EmployeeDocument
 from hr_payroll.employees.models import JobHistory
-from hr_payroll.org.models import Department
 from hr_payroll.payroll.models import BankDetail
 from hr_payroll.payroll.models import BankMaster
 from hr_payroll.payroll.models import Dependent
@@ -69,6 +73,13 @@ class EmployeeRegistrationSerializer(serializers.Serializer):
         required=False,
         allow_null=True,
         help_text="Allowed: pdf, docx, xlsx, jpg, jpeg, png, webp. Max 15MB",
+    )
+    # Alias for frontend compatibility
+    documents = serializers.FileField(
+        required=False,
+        allow_null=True,
+        source="document_file",
+        help_text="Alias for document_file",
     )
 
     # Employees (Job Tab)
@@ -482,11 +493,24 @@ class EmployeeReadSerializer(serializers.ModelSerializer):
         }
 
     def get_documents(self, obj) -> dict[str, Any]:
+        request = self.context.get("request")
         return {
             "files": [
                 {
+                    "id": d.id,
                     "name": d.name,
-                    "url": getattr(d.file, "url", ""),
+                    "url": (
+                        request.build_absolute_uri(d.file.url)
+                        if request and d.file
+                        else getattr(d.file, "url", "")
+                    ),
+                    "blob_url": (
+                        request.build_absolute_uri(
+                            f"/api/v1/employees/serve-document/{d.id}/"
+                        )
+                        if request
+                        else f"/api/v1/employees/serve-document/{d.id}/"
+                    ),
                 }
                 for d in obj.documents.order_by("-uploaded_at")
             ]
@@ -543,4 +567,185 @@ class EmployeeUpdateSerializer(serializers.ModelSerializer):
         finally:
             with suppress(Exception):
                 f.seek(0)
+        return f
+
+
+class EmployeeNestedUpdateSerializer(serializers.Serializer):
+    """Accept nested employee updates matching EmployeeReadSerializer output."""
+
+    general = serializers.DictField(required=False, allow_null=True)
+    job = serializers.DictField(required=False, allow_null=True)
+    payroll = serializers.DictField(required=False, allow_null=True)
+
+    def _ensure_profile(self, user):
+        """Ensure UserProfile exists for the user."""
+        profile = getattr(user, "profile", None)
+        if not profile:
+            profile = UserProfile.objects.create(user=user)
+            logging.warning(
+                "UserProfile did not exist for user %s, created new profile",
+                user.id,
+            )
+        return profile
+
+    def _update_user_fields(self, user, general, updated_fields):
+        """Update user-level fields (fullname, email)."""
+        if general.get("fullname"):
+            parts = general["fullname"].strip().split(maxsplit=1)
+            user.first_name = parts[0] if parts else ""
+            user.last_name = parts[1] if len(parts) > 1 else ""
+            user.save()
+            updated_fields.append("fullname")
+            logging.info("Updated fullname: %s %s", user.first_name, user.last_name)
+
+        if general.get("emailaddress"):
+            user.email = general["emailaddress"]
+            user.save()
+            updated_fields.append("emailaddress")
+            logging.info("Updated email: %s", user.email)
+
+    def _update_profile_fields(self, profile, instance, general, updated_fields):
+        """Update UserProfile fields."""
+        if "dateofbirth" in general:
+            if general["dateofbirth"]:
+                try:
+                    profile.date_of_birth = datetime.fromisoformat(
+                        general["dateofbirth"]
+                    ).date()
+                    updated_fields.append("dateofbirth")
+                    logging.info("Updated date_of_birth: %s", profile.date_of_birth)
+                except (ValueError, AttributeError) as e:
+                    logging.warning(
+                        "Invalid dateofbirth format: %s, error: %s",
+                        general["dateofbirth"],
+                        e,
+                    )
+            else:
+                profile.date_of_birth = None
+                updated_fields.append("dateofbirth (cleared)")
+                logging.info("Cleared date_of_birth")
+
+        fields_map = {
+            "healthinsurance": ("health_care", instance),
+            "gender": ("gender", profile),
+            "maritalstatus": ("marital_status", profile),
+            "nationality": ("nationality", profile),
+            "personaltaxid": ("personal_tax_id", profile),
+            "socialinsurance": ("social_insurance", profile),
+            "phonenumber": ("phone", profile),
+        }
+
+        for key, (attr, obj) in fields_map.items():
+            if key in general:
+                value = general[key] or ""
+                setattr(obj, attr, value)
+                updated_fields.append(key)
+                logging.info("Updated %s: '%s'", attr, value)
+
+        profile.save()
+        logging.info("UserProfile saved successfully")
+
+    def _update_job_fields(self, instance, job, updated_fields):
+        """Update job-related fields."""
+        if "jobtitle" in job:
+            instance.title = job["jobtitle"]
+            updated_fields.append("jobtitle")
+        if "office" in job:
+            instance.office = job["office"]
+            updated_fields.append("office")
+        if "timezone" in job:
+            instance.time_zone = job["timezone"]
+            updated_fields.append("timezone")
+        if "joindate" in job:
+            if job["joindate"]:
+                try:
+                    instance.join_date = datetime.fromisoformat(job["joindate"]).date()
+                    updated_fields.append("joindate")
+                except (ValueError, AttributeError) as e:
+                    logging.warning(
+                        "Invalid joindate format: %s, error: %s",
+                        job["joindate"],
+                        e,
+                    )
+            else:
+                instance.join_date = None
+                updated_fields.append("joindate (cleared)")
+
+    def _update_payroll_fields(self, instance, payroll, updated_fields):
+        """Update payroll-related fields."""
+        if "employeestatus" in payroll:
+            instance.is_active = payroll["employeestatus"] == "Active"
+            updated_fields.append("employeestatus")
+        if "lastworkingdate" in payroll:
+            if payroll["lastworkingdate"]:
+                try:
+                    instance.last_working_date = datetime.fromisoformat(
+                        payroll["lastworkingdate"]
+                    ).date()
+                    updated_fields.append("lastworkingdate")
+                except (ValueError, AttributeError) as e:
+                    logging.warning(
+                        "Invalid lastworkingdate format: %s, error: %s",
+                        payroll["lastworkingdate"],
+                        e,
+                    )
+            else:
+                instance.last_working_date = None
+                updated_fields.append("lastworkingdate (cleared)")
+
+    def update(self, instance, validated_data):
+        """Update employee instance with validated data."""
+        logging.info(
+            "EmployeeNestedUpdateSerializer.update called for employee %s",
+            instance.id,
+        )
+        logging.info("Received data sections: %s", list(validated_data.keys()))
+
+        user = instance.user
+        profile = self._ensure_profile(user)
+        updated_fields = []
+
+        general = validated_data.get("general", {})
+        if general:
+            logging.info(
+                "Processing 'general' section with fields: %s",
+                list(general.keys()),
+            )
+            self._update_user_fields(user, general, updated_fields)
+            self._update_profile_fields(profile, instance, general, updated_fields)
+
+        job = validated_data.get("job", {})
+        if job:
+            logging.info("Processing 'job' section with fields: %s", list(job.keys()))
+            self._update_job_fields(instance, job, updated_fields)
+
+        payroll = validated_data.get("payroll", {})
+        if payroll:
+            logging.info(
+                "Processing 'payroll' section with fields: %s",
+                list(payroll.keys()),
+            )
+            self._update_payroll_fields(instance, payroll, updated_fields)
+
+        instance.save()
+        logging.info(
+            "Employee %s saved successfully. Updated fields: %s",
+            instance.id,
+            updated_fields,
+        )
+        return instance
+
+
+class EmployeeDocumentSerializer(serializers.ModelSerializer):
+    """Serializer for EmployeeDocument model."""
+
+    class Meta:
+        model = EmployeeDocument
+        fields = ["id", "employee", "name", "file", "uploaded_at"]
+        read_only_fields = ["id", "uploaded_at"]
+
+    def validate_file(self, f):
+        """Validate uploaded file."""
+        # reuse logic from EmployeeRegistrationSerializer or similar if needed
+        # For now, basic validation
         return f

@@ -1,5 +1,12 @@
-from django.db import models
+"""Views for Employees API."""
+
+import logging
+import mimetypes
+
 from django.db import transaction
+from django.db.models import Q
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import OpenApiExample
 from drf_spectacular.utils import extend_schema
@@ -15,14 +22,48 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from hr_payroll.employees.models import Employee
+from hr_payroll.employees.models import EmployeeDocument
 
 from .filters import EmployeeFilter
 from .permissions import IsAdminOrManagerCanWrite
 from .permissions import IsSelfEmployeeOrElevated
 from .permissions import _user_in_groups
+from .serializers import EmployeeDocumentSerializer
+from .serializers import EmployeeNestedUpdateSerializer
 from .serializers import EmployeeReadSerializer
 from .serializers import EmployeeRegistrationSerializer
-from .serializers import EmployeeUpdateSerializer
+
+
+def _log_file_upload(request_type, request):
+    """Log file upload details for debugging."""
+    logger.info("%s Request Data Keys: %s", request_type, list(request.data.keys()))
+    logger.info("%s Request FILES Keys: %s", request_type, list(request.FILES.keys()))
+
+    # Check for document (handling both keys)
+    if "document_file" in request.FILES:
+        doc_file = request.FILES["document_file"]
+        logger.info(
+            "Document File received: %s, size: %s", doc_file.name, doc_file.size
+        )
+    elif "documents" in request.FILES:
+        doc_file = request.FILES["documents"]
+        logger.info(
+            "Document File received (as 'documents'): %s, size: %s",
+            doc_file.name,
+            doc_file.size,
+        )
+    else:
+        logger.warning("No 'document_file' or 'documents' found in request.FILES")
+
+    # Check for photo
+    if "photo" in request.FILES:
+        photo_file = request.FILES["photo"]
+        logger.info("Photo received: %s, size: %s", photo_file.name, photo_file.size)
+    else:
+        logger.warning("No 'photo' found in request.FILES")
+
+
+logger = logging.getLogger(__name__)
 
 
 @extend_schema_view(
@@ -69,17 +110,17 @@ class EmployeeRegistrationViewSet(viewsets.ModelViewSet):
             # Employees in departments I manage + my direct reports
             dept_ids = list(req_emp.managed_departments.values_list("id", flat=True))
             return qs.filter(
-                models.Q(department_id__in=dept_ids)
-                | models.Q(line_manager_id=req_emp.id)
-                | models.Q(user_id=u.id)
+                Q(department_id__in=dept_ids)
+                | Q(line_manager_id=req_emp.id)
+                | Q(user_id=u.id)
             )
         if is_line_manager:
             # My department employees + my direct reports
             dept_id = getattr(req_emp, "department_id", None)
             return qs.filter(
-                models.Q(department_id=dept_id)
-                | models.Q(line_manager_id=req_emp.id)
-                | models.Q(user_id=u.id)
+                Q(department_id=dept_id)
+                | Q(line_manager_id=req_emp.id)
+                | Q(user_id=u.id)
             )
         # Default employee: only self
         return qs.filter(user_id=u.id)
@@ -89,7 +130,7 @@ class EmployeeRegistrationViewSet(viewsets.ModelViewSet):
         if getattr(self, "action", None) in {"register", "create"}:
             return EmployeeRegistrationSerializer
         if getattr(self, "action", None) in {"update", "partial_update"}:
-            return EmployeeUpdateSerializer
+            return EmployeeNestedUpdateSerializer
         return EmployeeReadSerializer
 
     def get_permissions(self):
@@ -155,6 +196,8 @@ class EmployeeRegistrationViewSet(viewsets.ModelViewSet):
         permission_classes=[IsAuthenticated, IsAdminOrManagerCanWrite],
     )
     def register(self, request):
+        _log_file_upload("Register", request)
+
         ser = EmployeeRegistrationSerializer(
             data=request.data, context={"request": request}
         )
@@ -175,6 +218,8 @@ class EmployeeRegistrationViewSet(viewsets.ModelViewSet):
         responses={201: EmployeeReadSerializer},
     )
     def create(self, request, *args, **kwargs):
+        _log_file_upload("Create", request)
+
         ser = EmployeeRegistrationSerializer(
             data=request.data, context={"request": request}
         )
@@ -191,32 +236,51 @@ class EmployeeRegistrationViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         tags=["Employees"],
-        request=EmployeeUpdateSerializer,
+        request=EmployeeNestedUpdateSerializer,
         responses={200: EmployeeReadSerializer},
     )
     def update(self, request, *args, **kwargs):
-        partial = False
-        inst = self.get_object()
-        ser = EmployeeUpdateSerializer(inst, data=request.data, partial=partial)
+        logger.info("=" * 80)
+        logger.info("UPDATE (PUT) request for employee %s", kwargs.get("pk", "unknown"))
+        logger.info("Request data keys: %s", list(request.data.keys()))
+        logger.info("Full request data: %s", request.data)
+        logger.info("=" * 80)
+
+        instance = self.get_object()
+        ser = EmployeeNestedUpdateSerializer(
+            instance, data=request.data, partial=False, context={"request": request}
+        )
         ser.is_valid(raise_exception=True)
-        with transaction.atomic():
-            emp = ser.save()
+        emp = ser.save()
         read = EmployeeReadSerializer(emp, context={"request": request})
+
+        logger.info("UPDATE completed successfully for employee %s", emp.id)
         return Response(read.data)
 
     @extend_schema(
         tags=["Employees"],
-        request=EmployeeUpdateSerializer,
+        request=EmployeeNestedUpdateSerializer,
         responses={200: EmployeeReadSerializer},
     )
     def partial_update(self, request, *args, **kwargs):
-        partial = True
-        inst = self.get_object()
-        ser = EmployeeUpdateSerializer(inst, data=request.data, partial=partial)
+        logger.info("=" * 80)
+        logger.info(
+            "PARTIAL_UPDATE (PATCH) request for employee %s",
+            kwargs.get("pk", "unknown"),
+        )
+        logger.info("Request data keys: %s", list(request.data.keys()))
+        logger.info("Full request data: %s", request.data)
+        logger.info("=" * 80)
+
+        instance = self.get_object()
+        ser = EmployeeNestedUpdateSerializer(
+            instance, data=request.data, partial=True, context={"request": request}
+        )
         ser.is_valid(raise_exception=True)
-        with transaction.atomic():
-            emp = ser.save()
+        emp = ser.save()
         read = EmployeeReadSerializer(emp, context={"request": request})
+
+        logger.info("PARTIAL_UPDATE completed successfully for employee %s", emp.id)
         return Response(read.data)
 
     @extend_schema(tags=["Employees"], responses={204: None})
@@ -224,4 +288,101 @@ class EmployeeRegistrationViewSet(viewsets.ModelViewSet):
         inst = self.get_object()
         with transaction.atomic():
             inst.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=["get"], url_path=r"serve-document/(?P<doc_id>\d+)")
+    def serve_document(self, request, doc_id=None):
+        """Serve document content globally (no employee ID needed in URL)."""
+        doc = get_object_or_404(EmployeeDocument, pk=doc_id)
+
+        # Check permissions (proxies to employee check)
+        self.check_object_permissions(request, doc)
+
+        if not doc.file:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        # Detect content type from file extension
+        content_type, _ = mimetypes.guess_type(doc.file.name)
+        if not content_type:
+            content_type = "application/octet-stream"
+
+        # Open the file and create response
+        file_handle = doc.file.open("rb")
+        response = HttpResponse(file_handle.read(), content_type=content_type)
+
+        # Set Content-Disposition to inline for viewing in browser
+        response["Content-Disposition"] = f'inline; filename="{doc.name}"'
+
+        # Remove X-Frame-Options to allow iframe embedding
+        response.xframe_options_exempt = True
+
+        file_handle.close()
+        return response
+
+    @extend_schema(
+        tags=["Employees"],
+        request=EmployeeDocumentSerializer,
+        responses={201: EmployeeDocumentSerializer},
+    )
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="upload-document",
+        parser_classes=[MultiPartParser],
+    )
+    def upload_document(self, request, pk=None):
+        """Upload a new document for an employee."""
+        employee = self.get_object()
+        # Check write permissions for the employee
+        self.check_object_permissions(request, employee)
+
+        # Add employee ID to data
+        data = request.data.copy()
+        data["employee"] = employee.id
+
+        ser = EmployeeDocumentSerializer(data=data)
+        ser.is_valid(raise_exception=True)
+        ser.save()
+
+        return Response(ser.data, status=status.HTTP_201_CREATED)
+
+    @extend_schema(
+        tags=["Employees"],
+        request=EmployeeDocumentSerializer,
+        responses={200: EmployeeDocumentSerializer},
+    )
+    @action(
+        detail=False,
+        methods=["put", "patch"],
+        url_path=r"update-document/(?P<doc_id>\d+)",
+        parser_classes=[MultiPartParser],
+    )
+    def update_document(self, request, doc_id=None):
+        """Update an existing document (name or file)."""
+        doc = get_object_or_404(EmployeeDocument, pk=doc_id)
+        # Check permissions on the document
+        self.check_object_permissions(request, doc)
+
+        partial = request.method == "PATCH"
+        ser = EmployeeDocumentSerializer(doc, data=request.data, partial=partial)
+        ser.is_valid(raise_exception=True)
+        ser.save()
+
+        return Response(ser.data)
+
+    @extend_schema(
+        tags=["Employees"],
+        responses={204: None},
+    )
+    @action(
+        detail=False, methods=["delete"], url_path=r"delete-document/(?P<doc_id>\d+)"
+    )
+    def delete_document(self, request, doc_id=None):
+        """Delete a document."""
+
+        doc = get_object_or_404(EmployeeDocument, pk=doc_id)
+        # Check permissions on the document
+        self.check_object_permissions(request, doc)
+
+        doc.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)

@@ -8,6 +8,7 @@ module.exports = {
   entry: {
     project: path.resolve(__dirname, '../hr_payroll/static/js/project'),
     vendors: path.resolve(__dirname, '../hr_payroll/static/js/vendors'),
+    admin_login: path.resolve(__dirname, '../hr_payroll/static/js/admin_login'),
   },
   output: {
     path: path.resolve(

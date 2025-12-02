@@ -31,7 +31,7 @@ certificatesResolvers:
 http:
   routers:
     web-secure-router:
-      rule: 'Host(`hr-payroll.com`) || Host(`www.hr-payroll.com`)'
+      rule: 'Host(`hr-payroll.com`) || Host(`www.hr-payroll.com`) || Host(`localhost`)'
       entryPoints:
         - web-secure
       middlewares:

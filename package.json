@@ -2,10 +2,12 @@
   "name": "hr_payroll",
   "version": "0.1.0",
   "devDependencies": {
-    "@babel/core": "^7.16.5",
-    "@babel/preset-env": "^7.16.5",
+    "@babel/core": "^7.28.5",
+    "@babel/preset-env": "^7.28.5",
+    "@babel/preset-react": "^7.28.5",
     "@popperjs/core": "^2.10.2",
     "autoprefixer": "^10.4.0",
+    "axios": "^1.13.2",
     "babel-loader": "^10.0.0",
     "bootstrap": "^5.2.3",
     "css-loader": "^7.1.2",
@@ -15,6 +17,9 @@
     "postcss": "^8.3.11",
     "postcss-loader": "^8.0.0",
     "postcss-preset-env": "^10.0.3",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.9.6",
     "sass": "1.77.6",
     "sass-loader": "^16.0.1",
     "webpack": "^5.82.0",
@@ -31,7 +36,8 @@
   ],
   "babel": {
     "presets": [
-      "@babel/preset-env"
+      "@babel/preset-env",
+      "@babel/preset-react"
     ]
   },
   "scripts": {

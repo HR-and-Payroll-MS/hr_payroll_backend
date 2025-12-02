@@ -22,7 +22,7 @@ SECRET_KEY = env("DJANGO_SECRET_KEY")
 # Include Render wildcard by default
 ALLOWED_HOSTS = env.list(
     "DJANGO_ALLOWED_HOSTS",
-    default=["hr-payroll.com", ".onrender.com"],
+    default=["*"],
 )
 
 # DATABASES

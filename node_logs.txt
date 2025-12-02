@@ -1,0 +1,777 @@
+hr_payroll_local_node  |
+hr_payroll_local_node  | > hr_payroll@0.1.0 dev
+hr_payroll_local_node  | > webpack serve --config webpack/dev.config.js
+hr_payroll_local_node  |
+hr_payroll_local_node  | <i> [webpack-dev-server] [HPM] Proxy created: /  -> http://django:8000
+hr_payroll_local_node  | <i> [webpack-dev-server] Project is running at:
+hr_payroll_local_node  | <i> [webpack-dev-server] Loopback: http://localhost:3000/, http://[::1]:3000/
+hr_payroll_local_node  | <i> [webpack-dev-server] On Your Network (IPv4): http://172.18.0.9:3000/
+hr_payroll_local_node  | <i> [webpack-dev-server] Content not from webpack is served from '/app/public' directory
+hr_payroll_local_node  | asset js/vendors-1fdcfb330d695745a3e7.js 1.23 MiB [emitted] [immutable] (name: vendors)
+hr_payroll_local_node  | asset css/project.4f45d6bce3a5585e21ab.css 856 KiB [emitted] [immutable] (name: project)
+hr_payroll_local_node  | asset js/project-1fdcfb330d695745a3e7.js 416 KiB [emitted] [immutable] (name: project)
+hr_payroll_local_node  | Entrypoint project 1.24 MiB = css/project.4f45d6bce3a5585e21ab.css 856 KiB js/project-1fdcfb330d695745a3e7.js 416 KiB
+hr_payroll_local_node  | Entrypoint vendors 1.23 MiB = js/vendors-1fdcfb330d695745a3e7.js
+hr_payroll_local_node  | orphan modules 780 KiB (javascript) 975 bytes (runtime) [orphan] 28 modules
+hr_payroll_local_node  | runtime modules 1.94 KiB 10 modules
+hr_payroll_local_node  | modules by path ./node_modules/ 311 KiB
+hr_payroll_local_node  |   modules by path ./node_modules/@popperjs/core/lib/ 68.5 KiB 57 modules
+hr_payroll_local_node  |   modules by path ./node_modules/webpack-dev-server/client/ 90.1 KiB 8 modules
+hr_payroll_local_node  |   modules by path ./node_modules/webpack/hot/*.js 1.82 KiB 2 modules
+hr_payroll_local_node  |   + 3 modules
+hr_payroll_local_node  | modules by path ./hr_payroll/static/ 170 bytes (javascript) 354 KiB (css/mini-extract)
+hr_payroll_local_node  |   modules by path ./hr_payroll/static/js/*.js 120 bytes
+hr_payroll_local_node  |     ./hr_payroll/static/js/project.js 76 bytes [built] [code generated]
+hr_payroll_local_node  |     ./hr_payroll/static/js/vendors.js 44 bytes [built] [code generated]
+hr_payroll_local_node  |   modules by path ./hr_payroll/static/sass/*.scss 50 bytes (javascript) 354 KiB (css/mini-extract)
+hr_payroll_local_node  |     ./hr_payroll/static/sass/project.scss 50 bytes [built] [code generated]
+hr_payroll_local_node  |     css ./node_modules/css-loader/dist/cjs.js!./node_modules/postcss-loader/dist/cjs.js??ruleSet[1].rules[1].use[2]!./node_modules/sass-loader/dist/cjs.js!./hr_payroll/static/sass/project.scss 354 KiB [built] [code generated]
+hr_payroll_local_node  | webpack 5.102.1 compiled successfully in 19403 ms
+hr_payroll_local_node  | (node:18) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
+hr_payroll_local_node  | (Use `node --trace-deprecation ...` to show where the warning was created)
+hr_payroll_local_node  |
+hr_payroll_local_node  | > hr_payroll@0.1.0 dev
+hr_payroll_local_node  | > webpack serve --config webpack/dev.config.js
+hr_payroll_local_node  |
+hr_payroll_local_node  | <i> [webpack-dev-server] [HPM] Proxy created: /  -> http://django:8000
+hr_payroll_local_node  | <i> [webpack-dev-server] Project is running at:
+hr_payroll_local_node  | <i> [webpack-dev-server] Loopback: http://localhost:3000/, http://[::1]:3000/
+hr_payroll_local_node  | <i> [webpack-dev-server] On Your Network (IPv4): http://172.18.0.9:3000/
+hr_payroll_local_node  | <i> [webpack-dev-server] Content not from webpack is served from '/app/public' directory
+hr_payroll_local_node  | <i> [webpack-dev-middleware] wait until bundle finished: /api/v1/employees/
+hr_payroll_local_node  | <i> [webpack-dev-middleware] wait until bundle finished: /api/v1/employees/
+hr_payroll_local_node  | asset js/vendors-1fdcfb330d695745a3e7.js 1.23 MiB [emitted] [immutable] (name: vendors)
+hr_payroll_local_node  | asset css/project.4f45d6bce3a5585e21ab.css 856 KiB [emitted] [immutable] (name: project)
+hr_payroll_local_node  | asset js/project-1fdcfb330d695745a3e7.js 416 KiB [emitted] [immutable] (name: project)
+hr_payroll_local_node  | Entrypoint project 1.24 MiB = css/project.4f45d6bce3a5585e21ab.css 856 KiB js/project-1fdcfb330d695745a3e7.js 416 KiB
+hr_payroll_local_node  | Entrypoint vendors 1.23 MiB = js/vendors-1fdcfb330d695745a3e7.js
+hr_payroll_local_node  | orphan modules 780 KiB (javascript) 975 bytes (runtime) [orphan] 28 modules
+hr_payroll_local_node  | runtime modules 1.94 KiB 10 modules
+hr_payroll_local_node  | modules by path ./node_modules/ 311 KiB
+hr_payroll_local_node  |   modules by path ./node_modules/@popperjs/core/lib/ 68.5 KiB 57 modules
+hr_payroll_local_node  |   modules by path ./node_modules/webpack-dev-server/client/ 90.1 KiB 8 modules
+hr_payroll_local_node  |   modules by path ./node_modules/webpack/hot/*.js 1.82 KiB 2 modules
+hr_payroll_local_node  |   + 3 modules
+hr_payroll_local_node  | modules by path ./hr_payroll/static/ 170 bytes (javascript) 354 KiB (css/mini-extract)
+hr_payroll_local_node  |   modules by path ./hr_payroll/static/js/*.js 120 bytes
+hr_payroll_local_node  |     ./hr_payroll/static/js/project.js 76 bytes [built] [code generated]
+hr_payroll_local_node  |     ./hr_payroll/static/js/vendors.js 44 bytes [built] [code generated]
+hr_payroll_local_node  |   modules by path ./hr_payroll/static/sass/*.scss 50 bytes (javascript) 354 KiB (css/mini-extract)
+hr_payroll_local_node  |     ./hr_payroll/static/sass/project.scss 50 bytes [built] [code generated]
+hr_payroll_local_node  |     css ./node_modules/css-loader/dist/cjs.js!./node_modules/postcss-loader/dist/cjs.js??ruleSet[1].rules[1].use[2]!./node_modules/sass-loader/dist/cjs.js!./hr_payroll/static/sass/project.scss 354 KiB [built] [code generated]
+hr_payroll_local_node  | webpack 5.102.1 compiled successfully in 20240 ms
+hr_payroll_local_node  | (node:18) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
+hr_payroll_local_node  | (Use `node --trace-deprecation ...` to show where the warning was created)
+hr_payroll_local_node  |
+hr_payroll_local_node  | > hr_payroll@0.1.0 dev
+hr_payroll_local_node  | > webpack serve --config webpack/dev.config.js
+hr_payroll_local_node  |
+hr_payroll_local_node  | <i> [webpack-dev-server] [HPM] Proxy created: /  -> http://django:8000
+hr_payroll_local_node  | <i> [webpack-dev-server] Project is running at:
+hr_payroll_local_node  | <i> [webpack-dev-server] Loopback: http://localhost:3000/, http://[::1]:3000/
+hr_payroll_local_node  | <i> [webpack-dev-server] On Your Network (IPv4): http://172.18.0.9:3000/
+hr_payroll_local_node  | <i> [webpack-dev-server] Content not from webpack is served from '/app/public' directory
+hr_payroll_local_node  | asset js/vendors-1fdcfb330d695745a3e7.js 1.23 MiB [emitted] [immutable] (name: vendors)
+hr_payroll_local_node  | asset css/project.4f45d6bce3a5585e21ab.css 856 KiB [emitted] [immutable] (name: project)
+hr_payroll_local_node  | asset js/project-1fdcfb330d695745a3e7.js 416 KiB [emitted] [immutable] (name: project)
+hr_payroll_local_node  | Entrypoint project 1.24 MiB = css/project.4f45d6bce3a5585e21ab.css 856 KiB js/project-1fdcfb330d695745a3e7.js 416 KiB
+hr_payroll_local_node  | Entrypoint vendors 1.23 MiB = js/vendors-1fdcfb330d695745a3e7.js
+hr_payroll_local_node  | orphan modules 780 KiB (javascript) 975 bytes (runtime) [orphan] 28 modules
+hr_payroll_local_node  | runtime modules 1.94 KiB 10 modules
+hr_payroll_local_node  | modules by path ./node_modules/ 311 KiB
+hr_payroll_local_node  |   modules by path ./node_modules/@popperjs/core/lib/ 68.5 KiB 57 modules
+hr_payroll_local_node  |   modules by path ./node_modules/webpack-dev-server/client/ 90.1 KiB 8 modules
+hr_payroll_local_node  |   modules by path ./node_modules/webpack/hot/*.js 1.82 KiB 2 modules
+hr_payroll_local_node  |   + 3 modules
+hr_payroll_local_node  | modules by path ./hr_payroll/static/ 170 bytes (javascript) 354 KiB (css/mini-extract)
+hr_payroll_local_node  |   modules by path ./hr_payroll/static/js/*.js 120 bytes
+hr_payroll_local_node  |     ./hr_payroll/static/js/project.js 76 bytes [built] [code generated]
+hr_payroll_local_node  |     ./hr_payroll/static/js/vendors.js 44 bytes [built] [code generated]
+hr_payroll_local_node  |   modules by path ./hr_payroll/static/sass/*.scss 50 bytes (javascript) 354 KiB (css/mini-extract)
+hr_payroll_local_node  |     ./hr_payroll/static/sass/project.scss 50 bytes [built] [code generated]
+hr_payroll_local_node  |     css ./node_modules/css-loader/dist/cjs.js!./node_modules/postcss-loader/dist/cjs.js??ruleSet[1].rules[1].use[2]!./node_modules/sass-loader/dist/cjs.js!./hr_payroll/static/sass/project.scss 354 KiB [built] [code generated]
+hr_payroll_local_node  | webpack 5.102.1 compiled successfully in 131286 ms
+hr_payroll_local_node  | (node:19) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
+hr_payroll_local_node  | (Use `node --trace-deprecation ...` to show where the warning was created)
+hr_payroll_local_node  |
+hr_payroll_local_node  | > hr_payroll@0.1.0 dev
+hr_payroll_local_node  | > webpack serve --config webpack/dev.config.js
+hr_payroll_local_node  |
+hr_payroll_local_node  | <i> [webpack-dev-server] [HPM] Proxy created: /  -> http://django:8000
+hr_payroll_local_node  | <i> [webpack-dev-server] Project is running at:
+hr_payroll_local_node  | <i> [webpack-dev-server] Loopback: http://localhost:3000/, http://[::1]:3000/
+hr_payroll_local_node  | <i> [webpack-dev-server] On Your Network (IPv4): http://172.18.0.9:3000/
+hr_payroll_local_node  | <i> [webpack-dev-server] Content not from webpack is served from '/app/public' directory
+hr_payroll_local_node  | asset js/vendors-1fdcfb330d695745a3e7.js 1.23 MiB [emitted] [immutable] (name: vendors)
+hr_payroll_local_node  | asset css/project.4f45d6bce3a5585e21ab.css 856 KiB [emitted] [immutable] (name: project)
+hr_payroll_local_node  | asset js/project-1fdcfb330d695745a3e7.js 416 KiB [emitted] [immutable] (name: project)
+hr_payroll_local_node  | Entrypoint project 1.24 MiB = css/project.4f45d6bce3a5585e21ab.css 856 KiB js/project-1fdcfb330d695745a3e7.js 416 KiB
+hr_payroll_local_node  | Entrypoint vendors 1.23 MiB = js/vendors-1fdcfb330d695745a3e7.js
+hr_payroll_local_node  | orphan modules 780 KiB (javascript) 975 bytes (runtime) [orphan] 28 modules
+hr_payroll_local_node  | runtime modules 1.94 KiB 10 modules
+hr_payroll_local_node  | modules by path ./node_modules/ 311 KiB
+hr_payroll_local_node  |   modules by path ./node_modules/@popperjs/core/lib/ 68.5 KiB 57 modules
+hr_payroll_local_node  |   modules by path ./node_modules/webpack-dev-server/client/ 90.1 KiB 8 modules
+hr_payroll_local_node  |   modules by path ./node_modules/webpack/hot/*.js 1.82 KiB 2 modules
+hr_payroll_local_node  |   + 3 modules
+hr_payroll_local_node  | modules by path ./hr_payroll/static/ 170 bytes (javascript) 354 KiB (css/mini-extract)
+hr_payroll_local_node  |   modules by path ./hr_payroll/static/js/*.js 120 bytes
+hr_payroll_local_node  |     ./hr_payroll/static/js/project.js 76 bytes [built] [code generated]
+hr_payroll_local_node  |     ./hr_payroll/static/js/vendors.js 44 bytes [built] [code generated]
+hr_payroll_local_node  |   modules by path ./hr_payroll/static/sass/*.scss 50 bytes (javascript) 354 KiB (css/mini-extract)
+hr_payroll_local_node  |     ./hr_payroll/static/sass/project.scss 50 bytes [built] [code generated]
+hr_payroll_local_node  |     css ./node_modules/css-loader/dist/cjs.js!./node_modules/postcss-loader/dist/cjs.js??ruleSet[1].rules[1].use[2]!./node_modules/sass-loader/dist/cjs.js!./hr_payroll/static/sass/project.scss 354 KiB [built] [code generated]
+hr_payroll_local_node  | webpack 5.102.1 compiled successfully in 27488 ms
+hr_payroll_local_node  | (node:19) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
+hr_payroll_local_node  | (Use `node --trace-deprecation ...` to show where the warning was created)
+hr_payroll_local_node  |
+hr_payroll_local_node  | > hr_payroll@0.1.0 dev
+hr_payroll_local_node  | > webpack serve --config webpack/dev.config.js
+hr_payroll_local_node  |
+hr_payroll_local_node  | <i> [webpack-dev-server] [HPM] Proxy created: /  -> http://django:8000
+hr_payroll_local_node  | <i> [webpack-dev-server] Project is running at:
+hr_payroll_local_node  | <i> [webpack-dev-server] Loopback: http://localhost:3000/, http://[::1]:3000/
+hr_payroll_local_node  | <i> [webpack-dev-server] On Your Network (IPv4): http://172.18.0.11:3000/
+hr_payroll_local_node  | <i> [webpack-dev-server] Content not from webpack is served from '/app/public' directory
+hr_payroll_local_node  | asset js/vendors-1fdcfb330d695745a3e7.js 1.23 MiB [emitted] [immutable] (name: vendors)
+hr_payroll_local_node  | asset css/project.4f45d6bce3a5585e21ab.css 856 KiB [emitted] [immutable] (name: project)
+hr_payroll_local_node  | asset js/project-1fdcfb330d695745a3e7.js 416 KiB [emitted] [immutable] (name: project)
+hr_payroll_local_node  | Entrypoint project 1.24 MiB = css/project.4f45d6bce3a5585e21ab.css 856 KiB js/project-1fdcfb330d695745a3e7.js 416 KiB
+hr_payroll_local_node  | Entrypoint vendors 1.23 MiB = js/vendors-1fdcfb330d695745a3e7.js
+hr_payroll_local_node  | orphan modules 780 KiB (javascript) 975 bytes (runtime) [orphan] 28 modules
+hr_payroll_local_node  | runtime modules 1.94 KiB 10 modules
+hr_payroll_local_node  | modules by path ./node_modules/ 311 KiB
+hr_payroll_local_node  |   modules by path ./node_modules/@popperjs/core/lib/ 68.5 KiB 57 modules
+hr_payroll_local_node  |   modules by path ./node_modules/webpack-dev-server/client/ 90.1 KiB 8 modules
+hr_payroll_local_node  |   modules by path ./node_modules/webpack/hot/*.js 1.82 KiB 2 modules
+hr_payroll_local_node  |   + 3 modules
+hr_payroll_local_node  | modules by path ./hr_payroll/static/ 170 bytes (javascript) 354 KiB (css/mini-extract)
+hr_payroll_local_node  |   modules by path ./hr_payroll/static/js/*.js 120 bytes
+hr_payroll_local_node  |     ./hr_payroll/static/js/project.js 76 bytes [built] [code generated]
+hr_payroll_local_node  |     ./hr_payroll/static/js/vendors.js 44 bytes [built] [code generated]
+hr_payroll_local_node  |   modules by path ./hr_payroll/static/sass/*.scss 50 bytes (javascript) 354 KiB (css/mini-extract)
+hr_payroll_local_node  |     ./hr_payroll/static/sass/project.scss 50 bytes [built] [code generated]
+hr_payroll_local_node  |     css ./node_modules/css-loader/dist/cjs.js!./node_modules/postcss-loader/dist/cjs.js??ruleSet[1].rules[1].use[2]!./node_modules/sass-loader/dist/cjs.js!./hr_payroll/static/sass/project.scss 354 KiB [built] [code generated]
+hr_payroll_local_node  | webpack 5.102.1 compiled successfully in 19824 ms
+hr_payroll_local_node  | (node:19) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
+hr_payroll_local_node  | (Use `node --trace-deprecation ...` to show where the warning was created)
+hr_payroll_local_node  | <i> [webpack-dev-middleware] wait until bundle finished: /api/v1/employees/
+hr_payroll_local_node  | <i> [webpack-dev-middleware] wait until bundle finished: /api/v1/employees/
+hr_payroll_local_node  | assets by status 2.47 MiB [cached] 3 assets
+hr_payroll_local_node  | Entrypoint project 1.24 MiB = css/project.4f45d6bce3a5585e21ab.css 856 KiB js/project-1fdcfb330d695745a3e7.js 416 KiB
+hr_payroll_local_node  | Entrypoint vendors 1.23 MiB = js/vendors-1fdcfb330d695745a3e7.js
+hr_payroll_local_node  | cached modules 320 KiB (javascript) 354 KiB (css/mini-extract) 2.89 KiB (runtime) [cached] 108 modules
+hr_payroll_local_node  | orphan modules 772 KiB [orphan] 1 module
+hr_payroll_local_node  | javascript modules 170 bytes
+hr_payroll_local_node  |   ./hr_payroll/static/js/project.js 76 bytes [built]
+hr_payroll_local_node  |   ./hr_payroll/static/js/vendors.js 44 bytes [built]
+hr_payroll_local_node  |   ./hr_payroll/static/sass/project.scss 50 bytes [built]
+hr_payroll_local_node  | webpack 5.102.1 compiled successfully in 20006 ms
+hr_payroll_local_node  | assets by status 2.47 MiB [cached] 3 assets
+hr_payroll_local_node  | Entrypoint project 1.24 MiB = css/project.4f45d6bce3a5585e21ab.css 856 KiB js/project-1fdcfb330d695745a3e7.js 416 KiB
+hr_payroll_local_node  | Entrypoint vendors 1.23 MiB = js/vendors-1fdcfb330d695745a3e7.js
+hr_payroll_local_node  | cached modules 311 KiB (javascript) 354 KiB (css/mini-extract) 1.94 KiB (runtime) [cached] 84 modules
+hr_payroll_local_node  | webpack 5.102.1 compiled successfully in 44 ms
+hr_payroll_local_node  | asset js/project-5a95eace5290dfdd8cf5.js 420 KiB [emitted] [immutable] (name: project)
+hr_payroll_local_node  | asset js/vendors-5a95eace5290dfdd8cf5.js 420 KiB [emitted] [immutable] (name: vendors)
+hr_payroll_local_node  | cached modules 110 KiB [cached] 12 modules
+hr_payroll_local_node  | runtime modules 1.94 KiB 10 modules
+hr_payroll_local_node  | javascript modules 78 bytes
+hr_payroll_local_node  |   ./hr_payroll/static/js/project.js 39 bytes [built] [code generated] [1 error]
+hr_payroll_local_node  |   ./hr_payroll/static/js/vendors.js 39 bytes [built] [code generated] [1 error]
+hr_payroll_local_node  |
+hr_payroll_local_node  | ERROR in ./hr_payroll/static/js/project.js
+hr_payroll_local_node  | Module build failed (from ./node_modules/babel-loader/lib/index.js):
+hr_payroll_local_node  | Error: Cannot find package '@babel/preset-react' imported from /app/babel-virtual-resolve-base.js
+hr_payroll_local_node  |     at __node_internal_ (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:224:9)
+hr_payroll_local_node  |     at new NodeError (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:194:5)
+hr_payroll_local_node  |     at packageResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:898:9)
+hr_payroll_local_node  |     at moduleResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:938:18)
+hr_payroll_local_node  |     at defaultResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:1016:15)
+hr_payroll_local_node  |     at resolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:1029:12)
+hr_payroll_local_node  |     at tryImportMetaResolve (/app/node_modules/@babel/core/lib/config/files/plugins.js:149:45)
+hr_payroll_local_node  |     at resolveStandardizedNameForImport (/app/node_modules/@babel/core/lib/config/files/plugins.js:174:19)
+hr_payroll_local_node  |     at resolveStandardizedName (/app/node_modules/@babel/core/lib/config/files/plugins.js:186:22)
+hr_payroll_local_node  |     at loadPreset (/app/node_modules/@babel/core/lib/config/files/plugins.js:68:7)
+hr_payroll_local_node  |     at loadPreset.next (<anonymous>)
+hr_payroll_local_node  |     at createDescriptor (/app/node_modules/@babel/core/lib/config/config-descriptors.js:140:16)
+hr_payroll_local_node  |     at createDescriptor.next (<anonymous>)
+hr_payroll_local_node  |     at step (/app/node_modules/gensync/index.js:261:32)
+hr_payroll_local_node  |     at evaluateAsync (/app/node_modules/gensync/index.js:291:5)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:44:11
+hr_payroll_local_node  |     at Array.forEach (<anonymous>)
+hr_payroll_local_node  |     at Function.async (/app/node_modules/gensync/index.js:43:15)
+hr_payroll_local_node  |     at Function.all (/app/node_modules/gensync/index.js:216:13)
+hr_payroll_local_node  |     at Generator.next (<anonymous>)
+hr_payroll_local_node  |     at createDescriptors (/app/node_modules/@babel/core/lib/config/config-descriptors.js:102:41)
+hr_payroll_local_node  |     at createDescriptors.next (<anonymous>)
+hr_payroll_local_node  |     at createPresetDescriptors (/app/node_modules/@babel/core/lib/config/config-descriptors.js:96:17)
+hr_payroll_local_node  |     at createPresetDescriptors.next (<anonymous>)
+hr_payroll_local_node  |     at /app/node_modules/@babel/core/lib/gensync-utils/functional.js:39:27
+hr_payroll_local_node  |     at Generator.next (<anonymous>)
+hr_payroll_local_node  |     at mergeChainOpts (/app/node_modules/@babel/core/lib/config/config-chain.js:350:34)
+hr_payroll_local_node  |     at mergeChainOpts.next (<anonymous>)
+hr_payroll_local_node  |     at chainWalker (/app/node_modules/@babel/core/lib/config/config-chain.js:316:14)
+hr_payroll_local_node  |     at chainWalker.next (<anonymous>)
+hr_payroll_local_node  |     at loadFileChain (/app/node_modules/@babel/core/lib/config/config-chain.js:191:24)
+hr_payroll_local_node  |     at loadFileChain.next (<anonymous>)
+hr_payroll_local_node  |     at buildRootChain (/app/node_modules/@babel/core/lib/config/config-chain.js:108:31)
+hr_payroll_local_node  |     at buildRootChain.next (<anonymous>)
+hr_payroll_local_node  |     at loadPrivatePartialConfig (/app/node_modules/@babel/core/lib/config/partial.js:72:62)
+hr_payroll_local_node  |     at loadPrivatePartialConfig.next (<anonymous>)
+hr_payroll_local_node  |     at loadPartialConfig (/app/node_modules/@babel/core/lib/config/partial.js:115:25)
+hr_payroll_local_node  |     at loadPartialConfig.next (<anonymous>)
+hr_payroll_local_node  |     at step (/app/node_modules/gensync/index.js:269:25)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:273:13
+hr_payroll_local_node  |     at async.call.result.err.err (/app/node_modules/gensync/index.js:223:11)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:37:40
+hr_payroll_local_node  |
+hr_payroll_local_node  | ERROR in ./hr_payroll/static/js/vendors.js
+hr_payroll_local_node  | Module build failed (from ./node_modules/babel-loader/lib/index.js):
+hr_payroll_local_node  | Error: Cannot find package '@babel/preset-react' imported from /app/babel-virtual-resolve-base.js
+hr_payroll_local_node  |     at __node_internal_ (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:224:9)
+hr_payroll_local_node  |     at new NodeError (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:194:5)
+hr_payroll_local_node  |     at packageResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:898:9)
+hr_payroll_local_node  |     at moduleResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:938:18)
+hr_payroll_local_node  |     at defaultResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:1016:15)
+hr_payroll_local_node  |     at resolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:1029:12)
+hr_payroll_local_node  |     at tryImportMetaResolve (/app/node_modules/@babel/core/lib/config/files/plugins.js:149:45)
+hr_payroll_local_node  |     at resolveStandardizedNameForImport (/app/node_modules/@babel/core/lib/config/files/plugins.js:174:19)
+hr_payroll_local_node  |     at resolveStandardizedName (/app/node_modules/@babel/core/lib/config/files/plugins.js:186:22)
+hr_payroll_local_node  |     at loadPreset (/app/node_modules/@babel/core/lib/config/files/plugins.js:68:7)
+hr_payroll_local_node  |     at loadPreset.next (<anonymous>)
+hr_payroll_local_node  |     at createDescriptor (/app/node_modules/@babel/core/lib/config/config-descriptors.js:140:16)
+hr_payroll_local_node  |     at createDescriptor.next (<anonymous>)
+hr_payroll_local_node  |     at step (/app/node_modules/gensync/index.js:261:32)
+hr_payroll_local_node  |     at evaluateAsync (/app/node_modules/gensync/index.js:291:5)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:44:11
+hr_payroll_local_node  |     at Array.forEach (<anonymous>)
+hr_payroll_local_node  |     at Function.async (/app/node_modules/gensync/index.js:43:15)
+hr_payroll_local_node  |     at Function.all (/app/node_modules/gensync/index.js:216:13)
+hr_payroll_local_node  |     at Generator.next (<anonymous>)
+hr_payroll_local_node  |     at createDescriptors (/app/node_modules/@babel/core/lib/config/config-descriptors.js:102:41)
+hr_payroll_local_node  |     at createDescriptors.next (<anonymous>)
+hr_payroll_local_node  |     at createPresetDescriptors (/app/node_modules/@babel/core/lib/config/config-descriptors.js:96:17)
+hr_payroll_local_node  |     at createPresetDescriptors.next (<anonymous>)
+hr_payroll_local_node  |     at /app/node_modules/@babel/core/lib/gensync-utils/functional.js:39:27
+hr_payroll_local_node  |     at Generator.next (<anonymous>)
+hr_payroll_local_node  |     at mergeChainOpts (/app/node_modules/@babel/core/lib/config/config-chain.js:350:34)
+hr_payroll_local_node  |     at mergeChainOpts.next (<anonymous>)
+hr_payroll_local_node  |     at chainWalker (/app/node_modules/@babel/core/lib/config/config-chain.js:316:14)
+hr_payroll_local_node  |     at chainWalker.next (<anonymous>)
+hr_payroll_local_node  |     at loadFileChain (/app/node_modules/@babel/core/lib/config/config-chain.js:191:24)
+hr_payroll_local_node  |     at loadFileChain.next (<anonymous>)
+hr_payroll_local_node  |     at buildRootChain (/app/node_modules/@babel/core/lib/config/config-chain.js:108:31)
+hr_payroll_local_node  |     at buildRootChain.next (<anonymous>)
+hr_payroll_local_node  |     at loadPrivatePartialConfig (/app/node_modules/@babel/core/lib/config/partial.js:72:62)
+hr_payroll_local_node  |     at loadPrivatePartialConfig.next (<anonymous>)
+hr_payroll_local_node  |     at loadPartialConfig (/app/node_modules/@babel/core/lib/config/partial.js:115:25)
+hr_payroll_local_node  |     at loadPartialConfig.next (<anonymous>)
+hr_payroll_local_node  |     at step (/app/node_modules/gensync/index.js:269:25)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:273:13
+hr_payroll_local_node  |     at async.call.result.err.err (/app/node_modules/gensync/index.js:223:11)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:37:40
+hr_payroll_local_node  |
+hr_payroll_local_node  | webpack 5.102.1 compiled with 2 errors in 459 ms
+hr_payroll_local_node  | <e> [webpack-dev-server] [HPM] ECONNRESET: Error: socket hang up
+hr_payroll_local_node  | <e>     at Socket.socketOnEnd (node:_http_client:542:25)
+hr_payroll_local_node  | <e>     at Socket.emit (node:events:530:35)
+hr_payroll_local_node  | <e>     at endReadableNT (node:internal/streams/readable:1698:12)
+hr_payroll_local_node  | <e>     at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+hr_payroll_local_node  | <e>   code: 'ECONNRESET'
+hr_payroll_local_node  | <e> }
+hr_payroll_local_node  | npm error path /app
+hr_payroll_local_node  | npm error command failed
+hr_payroll_local_node  | npm error signal SIGTERM
+hr_payroll_local_node  | npm error command sh -c webpack serve --config webpack/dev.config.js
+hr_payroll_local_node  | npm error A complete log of this run can be found in: /root/.npm/_logs/2025-12-02T09_03_56_901Z-debug-0.log
+hr_payroll_local_node  |
+hr_payroll_local_node  | > hr_payroll@0.1.0 dev
+hr_payroll_local_node  | > webpack serve --config webpack/dev.config.js
+hr_payroll_local_node  |
+hr_payroll_local_node  | <i> [webpack-dev-server] [HPM] Proxy created: /  -> http://django:8000
+hr_payroll_local_node  | <i> [webpack-dev-server] Project is running at:
+hr_payroll_local_node  | <i> [webpack-dev-server] Loopback: http://localhost:3000/, http://[::1]:3000/
+hr_payroll_local_node  | <i> [webpack-dev-server] On Your Network (IPv4): http://172.18.0.9:3000/
+hr_payroll_local_node  | <i> [webpack-dev-server] Content not from webpack is served from '/app/public' directory
+hr_payroll_local_node  | asset js/admin_login-519e4bf3e0c8b90d2066.js 420 KiB [emitted] [immutable] (name: admin_login)
+hr_payroll_local_node  | asset js/project-519e4bf3e0c8b90d2066.js 420 KiB [emitted] [immutable] (name: project)
+hr_payroll_local_node  | asset js/vendors-519e4bf3e0c8b90d2066.js 420 KiB [emitted] [immutable] (name: vendors)
+hr_payroll_local_node  | runtime modules 2.9 KiB 15 modules
+hr_payroll_local_node  | cacheable modules 110 KiB
+hr_payroll_local_node  |   modules by path ./node_modules/ 110 KiB
+hr_payroll_local_node  |     modules by path ./node_modules/webpack-dev-server/client/ 90.1 KiB 8 modules
+hr_payroll_local_node  |     modules by path ./node_modules/webpack/hot/*.js 1.82 KiB
+hr_payroll_local_node  |       ./node_modules/webpack/hot/log.js 1.75 KiB [built] [code generated]
+hr_payroll_local_node  |       ./node_modules/webpack/hot/emitter.js 74 bytes [built] [code generated]
+hr_payroll_local_node  |     ./node_modules/events/events.js 13.9 KiB [built] [code generated]
+hr_payroll_local_node  |     ./node_modules/ansi-html-community/index.js 4.25 KiB [built] [code generated]
+hr_payroll_local_node  |   modules with errors 117 bytes [true errors]
+hr_payroll_local_node  |     ./hr_payroll/static/js/project.js 39 bytes [built] [code generated] [1 error]
+hr_payroll_local_node  |     ./hr_payroll/static/js/vendors.js 39 bytes [built] [code generated] [1 error]
+hr_payroll_local_node  |     ./hr_payroll/static/js/admin_login.js 39 bytes [built] [code generated] [1 error]
+hr_payroll_local_node  |
+hr_payroll_local_node  | ERROR in ./hr_payroll/static/js/admin_login.js
+hr_payroll_local_node  | Module build failed (from ./node_modules/babel-loader/lib/index.js):
+hr_payroll_local_node  | Error: Cannot find package '@babel/preset-react' imported from /app/babel-virtual-resolve-base.js
+hr_payroll_local_node  |     at __node_internal_ (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:224:9)
+hr_payroll_local_node  |     at new NodeError (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:194:5)
+hr_payroll_local_node  |     at packageResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:898:9)
+hr_payroll_local_node  |     at moduleResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:938:18)
+hr_payroll_local_node  |     at defaultResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:1016:15)
+hr_payroll_local_node  |     at resolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:1029:12)
+hr_payroll_local_node  |     at tryImportMetaResolve (/app/node_modules/@babel/core/lib/config/files/plugins.js:149:45)
+hr_payroll_local_node  |     at resolveStandardizedNameForImport (/app/node_modules/@babel/core/lib/config/files/plugins.js:174:19)
+hr_payroll_local_node  |     at resolveStandardizedName (/app/node_modules/@babel/core/lib/config/files/plugins.js:186:22)
+hr_payroll_local_node  |     at loadPreset (/app/node_modules/@babel/core/lib/config/files/plugins.js:68:7)
+hr_payroll_local_node  |     at loadPreset.next (<anonymous>)
+hr_payroll_local_node  |     at createDescriptor (/app/node_modules/@babel/core/lib/config/config-descriptors.js:140:16)
+hr_payroll_local_node  |     at createDescriptor.next (<anonymous>)
+hr_payroll_local_node  |     at step (/app/node_modules/gensync/index.js:261:32)
+hr_payroll_local_node  |     at evaluateAsync (/app/node_modules/gensync/index.js:291:5)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:44:11
+hr_payroll_local_node  |     at Array.forEach (<anonymous>)
+hr_payroll_local_node  |     at Function.async (/app/node_modules/gensync/index.js:43:15)
+hr_payroll_local_node  |     at Function.all (/app/node_modules/gensync/index.js:216:13)
+hr_payroll_local_node  |     at Generator.next (<anonymous>)
+hr_payroll_local_node  |     at createDescriptors (/app/node_modules/@babel/core/lib/config/config-descriptors.js:102:41)
+hr_payroll_local_node  |     at createDescriptors.next (<anonymous>)
+hr_payroll_local_node  |     at createPresetDescriptors (/app/node_modules/@babel/core/lib/config/config-descriptors.js:96:17)
+hr_payroll_local_node  |     at createPresetDescriptors.next (<anonymous>)
+hr_payroll_local_node  |     at /app/node_modules/@babel/core/lib/gensync-utils/functional.js:39:27
+hr_payroll_local_node  |     at Generator.next (<anonymous>)
+hr_payroll_local_node  |     at mergeChainOpts (/app/node_modules/@babel/core/lib/config/config-chain.js:350:34)
+hr_payroll_local_node  |     at mergeChainOpts.next (<anonymous>)
+hr_payroll_local_node  |     at chainWalker (/app/node_modules/@babel/core/lib/config/config-chain.js:316:14)
+hr_payroll_local_node  |     at chainWalker.next (<anonymous>)
+hr_payroll_local_node  |     at loadFileChain (/app/node_modules/@babel/core/lib/config/config-chain.js:191:24)
+hr_payroll_local_node  |     at loadFileChain.next (<anonymous>)
+hr_payroll_local_node  |     at buildRootChain (/app/node_modules/@babel/core/lib/config/config-chain.js:108:31)
+hr_payroll_local_node  |     at buildRootChain.next (<anonymous>)
+hr_payroll_local_node  |     at loadPrivatePartialConfig (/app/node_modules/@babel/core/lib/config/partial.js:72:62)
+hr_payroll_local_node  |     at loadPrivatePartialConfig.next (<anonymous>)
+hr_payroll_local_node  |     at loadPartialConfig (/app/node_modules/@babel/core/lib/config/partial.js:115:25)
+hr_payroll_local_node  |     at loadPartialConfig.next (<anonymous>)
+hr_payroll_local_node  |     at step (/app/node_modules/gensync/index.js:269:25)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:273:13
+hr_payroll_local_node  |     at async.call.result.err.err (/app/node_modules/gensync/index.js:223:11)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:37:40
+hr_payroll_local_node  |
+hr_payroll_local_node  | ERROR in ./hr_payroll/static/js/project.js
+hr_payroll_local_node  | Module build failed (from ./node_modules/babel-loader/lib/index.js):
+hr_payroll_local_node  | Error: Cannot find package '@babel/preset-react' imported from /app/babel-virtual-resolve-base.js
+hr_payroll_local_node  |     at __node_internal_ (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:224:9)
+hr_payroll_local_node  |     at new NodeError (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:194:5)
+hr_payroll_local_node  |     at packageResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:898:9)
+hr_payroll_local_node  |     at moduleResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:938:18)
+hr_payroll_local_node  |     at defaultResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:1016:15)
+hr_payroll_local_node  |     at resolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:1029:12)
+hr_payroll_local_node  |     at tryImportMetaResolve (/app/node_modules/@babel/core/lib/config/files/plugins.js:149:45)
+hr_payroll_local_node  |     at resolveStandardizedNameForImport (/app/node_modules/@babel/core/lib/config/files/plugins.js:174:19)
+hr_payroll_local_node  |     at resolveStandardizedName (/app/node_modules/@babel/core/lib/config/files/plugins.js:186:22)
+hr_payroll_local_node  |     at loadPreset (/app/node_modules/@babel/core/lib/config/files/plugins.js:68:7)
+hr_payroll_local_node  |     at loadPreset.next (<anonymous>)
+hr_payroll_local_node  |     at createDescriptor (/app/node_modules/@babel/core/lib/config/config-descriptors.js:140:16)
+hr_payroll_local_node  |     at createDescriptor.next (<anonymous>)
+hr_payroll_local_node  |     at step (/app/node_modules/gensync/index.js:261:32)
+hr_payroll_local_node  |     at evaluateAsync (/app/node_modules/gensync/index.js:291:5)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:44:11
+hr_payroll_local_node  |     at Array.forEach (<anonymous>)
+hr_payroll_local_node  |     at Function.async (/app/node_modules/gensync/index.js:43:15)
+hr_payroll_local_node  |     at Function.all (/app/node_modules/gensync/index.js:216:13)
+hr_payroll_local_node  |     at Generator.next (<anonymous>)
+hr_payroll_local_node  |     at createDescriptors (/app/node_modules/@babel/core/lib/config/config-descriptors.js:102:41)
+hr_payroll_local_node  |     at createDescriptors.next (<anonymous>)
+hr_payroll_local_node  |     at createPresetDescriptors (/app/node_modules/@babel/core/lib/config/config-descriptors.js:96:17)
+hr_payroll_local_node  |     at createPresetDescriptors.next (<anonymous>)
+hr_payroll_local_node  |     at /app/node_modules/@babel/core/lib/gensync-utils/functional.js:39:27
+hr_payroll_local_node  |     at Generator.next (<anonymous>)
+hr_payroll_local_node  |     at mergeChainOpts (/app/node_modules/@babel/core/lib/config/config-chain.js:350:34)
+hr_payroll_local_node  |     at mergeChainOpts.next (<anonymous>)
+hr_payroll_local_node  |     at chainWalker (/app/node_modules/@babel/core/lib/config/config-chain.js:316:14)
+hr_payroll_local_node  |     at chainWalker.next (<anonymous>)
+hr_payroll_local_node  |     at loadFileChain (/app/node_modules/@babel/core/lib/config/config-chain.js:191:24)
+hr_payroll_local_node  |     at loadFileChain.next (<anonymous>)
+hr_payroll_local_node  |     at buildRootChain (/app/node_modules/@babel/core/lib/config/config-chain.js:108:31)
+hr_payroll_local_node  |     at buildRootChain.next (<anonymous>)
+hr_payroll_local_node  |     at loadPrivatePartialConfig (/app/node_modules/@babel/core/lib/config/partial.js:72:62)
+hr_payroll_local_node  |     at loadPrivatePartialConfig.next (<anonymous>)
+hr_payroll_local_node  |     at loadPartialConfig (/app/node_modules/@babel/core/lib/config/partial.js:115:25)
+hr_payroll_local_node  |     at loadPartialConfig.next (<anonymous>)
+hr_payroll_local_node  |     at step (/app/node_modules/gensync/index.js:269:25)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:273:13
+hr_payroll_local_node  |     at async.call.result.err.err (/app/node_modules/gensync/index.js:223:11)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:37:40
+hr_payroll_local_node  |
+hr_payroll_local_node  | ERROR in ./hr_payroll/static/js/vendors.js
+hr_payroll_local_node  | Module build failed (from ./node_modules/babel-loader/lib/index.js):
+hr_payroll_local_node  | Error: Cannot find package '@babel/preset-react' imported from /app/babel-virtual-resolve-base.js
+hr_payroll_local_node  |     at __node_internal_ (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:224:9)
+hr_payroll_local_node  |     at new NodeError (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:194:5)
+hr_payroll_local_node  |     at packageResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:898:9)
+hr_payroll_local_node  |     at moduleResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:938:18)
+hr_payroll_local_node  |     at defaultResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:1016:15)
+hr_payroll_local_node  |     at resolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:1029:12)
+hr_payroll_local_node  |     at tryImportMetaResolve (/app/node_modules/@babel/core/lib/config/files/plugins.js:149:45)
+hr_payroll_local_node  |     at resolveStandardizedNameForImport (/app/node_modules/@babel/core/lib/config/files/plugins.js:174:19)
+hr_payroll_local_node  |     at resolveStandardizedName (/app/node_modules/@babel/core/lib/config/files/plugins.js:186:22)
+hr_payroll_local_node  |     at loadPreset (/app/node_modules/@babel/core/lib/config/files/plugins.js:68:7)
+hr_payroll_local_node  |     at loadPreset.next (<anonymous>)
+hr_payroll_local_node  |     at createDescriptor (/app/node_modules/@babel/core/lib/config/config-descriptors.js:140:16)
+hr_payroll_local_node  |     at createDescriptor.next (<anonymous>)
+hr_payroll_local_node  |     at step (/app/node_modules/gensync/index.js:261:32)
+hr_payroll_local_node  |     at evaluateAsync (/app/node_modules/gensync/index.js:291:5)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:44:11
+hr_payroll_local_node  |     at Array.forEach (<anonymous>)
+hr_payroll_local_node  |     at Function.async (/app/node_modules/gensync/index.js:43:15)
+hr_payroll_local_node  |     at Function.all (/app/node_modules/gensync/index.js:216:13)
+hr_payroll_local_node  |     at Generator.next (<anonymous>)
+hr_payroll_local_node  |     at createDescriptors (/app/node_modules/@babel/core/lib/config/config-descriptors.js:102:41)
+hr_payroll_local_node  |     at createDescriptors.next (<anonymous>)
+hr_payroll_local_node  |     at createPresetDescriptors (/app/node_modules/@babel/core/lib/config/config-descriptors.js:96:17)
+hr_payroll_local_node  |     at createPresetDescriptors.next (<anonymous>)
+hr_payroll_local_node  |     at /app/node_modules/@babel/core/lib/gensync-utils/functional.js:39:27
+hr_payroll_local_node  |     at Generator.next (<anonymous>)
+hr_payroll_local_node  |     at mergeChainOpts (/app/node_modules/@babel/core/lib/config/config-chain.js:350:34)
+hr_payroll_local_node  |     at mergeChainOpts.next (<anonymous>)
+hr_payroll_local_node  |     at chainWalker (/app/node_modules/@babel/core/lib/config/config-chain.js:316:14)
+hr_payroll_local_node  |     at chainWalker.next (<anonymous>)
+hr_payroll_local_node  |     at loadFileChain (/app/node_modules/@babel/core/lib/config/config-chain.js:191:24)
+hr_payroll_local_node  |     at loadFileChain.next (<anonymous>)
+hr_payroll_local_node  |     at buildRootChain (/app/node_modules/@babel/core/lib/config/config-chain.js:108:31)
+hr_payroll_local_node  |     at buildRootChain.next (<anonymous>)
+hr_payroll_local_node  |     at loadPrivatePartialConfig (/app/node_modules/@babel/core/lib/config/partial.js:72:62)
+hr_payroll_local_node  |     at loadPrivatePartialConfig.next (<anonymous>)
+hr_payroll_local_node  |     at loadPartialConfig (/app/node_modules/@babel/core/lib/config/partial.js:115:25)
+hr_payroll_local_node  |     at loadPartialConfig.next (<anonymous>)
+hr_payroll_local_node  |     at step (/app/node_modules/gensync/index.js:269:25)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:273:13
+hr_payroll_local_node  |     at async.call.result.err.err (/app/node_modules/gensync/index.js:223:11)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:37:40
+hr_payroll_local_node  |
+hr_payroll_local_node  | webpack 5.102.1 compiled with 3 errors in 2527 ms
+hr_payroll_local_node  | (node:18) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
+hr_payroll_local_node  | (Use `node --trace-deprecation ...` to show where the warning was created)
+hr_payroll_local_node  | assets by status 1.23 MiB [cached] 3 assets
+hr_payroll_local_node  | cached modules 110 KiB (javascript) 2.9 KiB (runtime) [cached] 27 modules
+hr_payroll_local_node  | javascript modules 117 bytes
+hr_payroll_local_node  |   ./hr_payroll/static/js/project.js 39 bytes [built] [1 error]
+hr_payroll_local_node  |   ./hr_payroll/static/js/vendors.js 39 bytes [built] [1 error]
+hr_payroll_local_node  |   ./hr_payroll/static/js/admin_login.js 39 bytes [built] [1 error]
+hr_payroll_local_node  |
+hr_payroll_local_node  | ERROR in ./hr_payroll/static/js/admin_login.js
+hr_payroll_local_node  | Module build failed (from ./node_modules/babel-loader/lib/index.js):
+hr_payroll_local_node  | Error: Cannot find package '@babel/preset-react' imported from /app/babel-virtual-resolve-base.js
+hr_payroll_local_node  |     at __node_internal_ (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:224:9)
+hr_payroll_local_node  |     at new NodeError (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:194:5)
+hr_payroll_local_node  |     at packageResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:898:9)
+hr_payroll_local_node  |     at moduleResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:938:18)
+hr_payroll_local_node  |     at defaultResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:1016:15)
+hr_payroll_local_node  |     at resolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:1029:12)
+hr_payroll_local_node  |     at tryImportMetaResolve (/app/node_modules/@babel/core/lib/config/files/plugins.js:149:45)
+hr_payroll_local_node  |     at resolveStandardizedNameForImport (/app/node_modules/@babel/core/lib/config/files/plugins.js:174:19)
+hr_payroll_local_node  |     at resolveStandardizedName (/app/node_modules/@babel/core/lib/config/files/plugins.js:186:22)
+hr_payroll_local_node  |     at loadPreset (/app/node_modules/@babel/core/lib/config/files/plugins.js:68:7)
+hr_payroll_local_node  |     at loadPreset.next (<anonymous>)
+hr_payroll_local_node  |     at createDescriptor (/app/node_modules/@babel/core/lib/config/config-descriptors.js:140:16)
+hr_payroll_local_node  |     at createDescriptor.next (<anonymous>)
+hr_payroll_local_node  |     at step (/app/node_modules/gensync/index.js:261:32)
+hr_payroll_local_node  |     at evaluateAsync (/app/node_modules/gensync/index.js:291:5)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:44:11
+hr_payroll_local_node  |     at Array.forEach (<anonymous>)
+hr_payroll_local_node  |     at Function.async (/app/node_modules/gensync/index.js:43:15)
+hr_payroll_local_node  |     at Function.all (/app/node_modules/gensync/index.js:216:13)
+hr_payroll_local_node  |     at Generator.next (<anonymous>)
+hr_payroll_local_node  |     at createDescriptors (/app/node_modules/@babel/core/lib/config/config-descriptors.js:102:41)
+hr_payroll_local_node  |     at createDescriptors.next (<anonymous>)
+hr_payroll_local_node  |     at createPresetDescriptors (/app/node_modules/@babel/core/lib/config/config-descriptors.js:96:17)
+hr_payroll_local_node  |     at createPresetDescriptors.next (<anonymous>)
+hr_payroll_local_node  |     at /app/node_modules/@babel/core/lib/gensync-utils/functional.js:39:27
+hr_payroll_local_node  |     at Generator.next (<anonymous>)
+hr_payroll_local_node  |     at mergeChainOpts (/app/node_modules/@babel/core/lib/config/config-chain.js:350:34)
+hr_payroll_local_node  |     at mergeChainOpts.next (<anonymous>)
+hr_payroll_local_node  |     at chainWalker (/app/node_modules/@babel/core/lib/config/config-chain.js:316:14)
+hr_payroll_local_node  |     at chainWalker.next (<anonymous>)
+hr_payroll_local_node  |     at loadFileChain (/app/node_modules/@babel/core/lib/config/config-chain.js:191:24)
+hr_payroll_local_node  |     at loadFileChain.next (<anonymous>)
+hr_payroll_local_node  |     at buildRootChain (/app/node_modules/@babel/core/lib/config/config-chain.js:108:31)
+hr_payroll_local_node  |     at buildRootChain.next (<anonymous>)
+hr_payroll_local_node  |     at loadPrivatePartialConfig (/app/node_modules/@babel/core/lib/config/partial.js:72:62)
+hr_payroll_local_node  |     at loadPrivatePartialConfig.next (<anonymous>)
+hr_payroll_local_node  |     at loadPartialConfig (/app/node_modules/@babel/core/lib/config/partial.js:115:25)
+hr_payroll_local_node  |     at loadPartialConfig.next (<anonymous>)
+hr_payroll_local_node  |     at step (/app/node_modules/gensync/index.js:269:25)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:273:13
+hr_payroll_local_node  |     at async.call.result.err.err (/app/node_modules/gensync/index.js:223:11)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:37:40
+hr_payroll_local_node  |
+hr_payroll_local_node  | ERROR in ./hr_payroll/static/js/project.js
+hr_payroll_local_node  | Module build failed (from ./node_modules/babel-loader/lib/index.js):
+hr_payroll_local_node  | Error: Cannot find package '@babel/preset-react' imported from /app/babel-virtual-resolve-base.js
+hr_payroll_local_node  |     at __node_internal_ (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:224:9)
+hr_payroll_local_node  |     at new NodeError (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:194:5)
+hr_payroll_local_node  |     at packageResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:898:9)
+hr_payroll_local_node  |     at moduleResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:938:18)
+hr_payroll_local_node  |     at defaultResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:1016:15)
+hr_payroll_local_node  |     at resolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:1029:12)
+hr_payroll_local_node  |     at tryImportMetaResolve (/app/node_modules/@babel/core/lib/config/files/plugins.js:149:45)
+hr_payroll_local_node  |     at resolveStandardizedNameForImport (/app/node_modules/@babel/core/lib/config/files/plugins.js:174:19)
+hr_payroll_local_node  |     at resolveStandardizedName (/app/node_modules/@babel/core/lib/config/files/plugins.js:186:22)
+hr_payroll_local_node  |     at loadPreset (/app/node_modules/@babel/core/lib/config/files/plugins.js:68:7)
+hr_payroll_local_node  |     at loadPreset.next (<anonymous>)
+hr_payroll_local_node  |     at createDescriptor (/app/node_modules/@babel/core/lib/config/config-descriptors.js:140:16)
+hr_payroll_local_node  |     at createDescriptor.next (<anonymous>)
+hr_payroll_local_node  |     at step (/app/node_modules/gensync/index.js:261:32)
+hr_payroll_local_node  |     at evaluateAsync (/app/node_modules/gensync/index.js:291:5)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:44:11
+hr_payroll_local_node  |     at Array.forEach (<anonymous>)
+hr_payroll_local_node  |     at Function.async (/app/node_modules/gensync/index.js:43:15)
+hr_payroll_local_node  |     at Function.all (/app/node_modules/gensync/index.js:216:13)
+hr_payroll_local_node  |     at Generator.next (<anonymous>)
+hr_payroll_local_node  |     at createDescriptors (/app/node_modules/@babel/core/lib/config/config-descriptors.js:102:41)
+hr_payroll_local_node  |     at createDescriptors.next (<anonymous>)
+hr_payroll_local_node  |     at createPresetDescriptors (/app/node_modules/@babel/core/lib/config/config-descriptors.js:96:17)
+hr_payroll_local_node  |     at createPresetDescriptors.next (<anonymous>)
+hr_payroll_local_node  |     at /app/node_modules/@babel/core/lib/gensync-utils/functional.js:39:27
+hr_payroll_local_node  |     at Generator.next (<anonymous>)
+hr_payroll_local_node  |     at mergeChainOpts (/app/node_modules/@babel/core/lib/config/config-chain.js:350:34)
+hr_payroll_local_node  |     at mergeChainOpts.next (<anonymous>)
+hr_payroll_local_node  |     at chainWalker (/app/node_modules/@babel/core/lib/config/config-chain.js:316:14)
+hr_payroll_local_node  |     at chainWalker.next (<anonymous>)
+hr_payroll_local_node  |     at loadFileChain (/app/node_modules/@babel/core/lib/config/config-chain.js:191:24)
+hr_payroll_local_node  |     at loadFileChain.next (<anonymous>)
+hr_payroll_local_node  |     at buildRootChain (/app/node_modules/@babel/core/lib/config/config-chain.js:108:31)
+hr_payroll_local_node  |     at buildRootChain.next (<anonymous>)
+hr_payroll_local_node  |     at loadPrivatePartialConfig (/app/node_modules/@babel/core/lib/config/partial.js:72:62)
+hr_payroll_local_node  |     at loadPrivatePartialConfig.next (<anonymous>)
+hr_payroll_local_node  |     at loadPartialConfig (/app/node_modules/@babel/core/lib/config/partial.js:115:25)
+hr_payroll_local_node  |     at loadPartialConfig.next (<anonymous>)
+hr_payroll_local_node  |     at step (/app/node_modules/gensync/index.js:269:25)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:273:13
+hr_payroll_local_node  |     at async.call.result.err.err (/app/node_modules/gensync/index.js:223:11)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:37:40
+hr_payroll_local_node  |
+hr_payroll_local_node  | ERROR in ./hr_payroll/static/js/vendors.js
+hr_payroll_local_node  | Module build failed (from ./node_modules/babel-loader/lib/index.js):
+hr_payroll_local_node  | Error: Cannot find package '@babel/preset-react' imported from /app/babel-virtual-resolve-base.js
+hr_payroll_local_node  |     at __node_internal_ (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:224:9)
+hr_payroll_local_node  |     at new NodeError (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:194:5)
+hr_payroll_local_node  |     at packageResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:898:9)
+hr_payroll_local_node  |     at moduleResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:938:18)
+hr_payroll_local_node  |     at defaultResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:1016:15)
+hr_payroll_local_node  |     at resolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:1029:12)
+hr_payroll_local_node  |     at tryImportMetaResolve (/app/node_modules/@babel/core/lib/config/files/plugins.js:149:45)
+hr_payroll_local_node  |     at resolveStandardizedNameForImport (/app/node_modules/@babel/core/lib/config/files/plugins.js:174:19)
+hr_payroll_local_node  |     at resolveStandardizedName (/app/node_modules/@babel/core/lib/config/files/plugins.js:186:22)
+hr_payroll_local_node  |     at loadPreset (/app/node_modules/@babel/core/lib/config/files/plugins.js:68:7)
+hr_payroll_local_node  |     at loadPreset.next (<anonymous>)
+hr_payroll_local_node  |     at createDescriptor (/app/node_modules/@babel/core/lib/config/config-descriptors.js:140:16)
+hr_payroll_local_node  |     at createDescriptor.next (<anonymous>)
+hr_payroll_local_node  |     at step (/app/node_modules/gensync/index.js:261:32)
+hr_payroll_local_node  |     at evaluateAsync (/app/node_modules/gensync/index.js:291:5)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:44:11
+hr_payroll_local_node  |     at Array.forEach (<anonymous>)
+hr_payroll_local_node  |     at Function.async (/app/node_modules/gensync/index.js:43:15)
+hr_payroll_local_node  |     at Function.all (/app/node_modules/gensync/index.js:216:13)
+hr_payroll_local_node  |     at Generator.next (<anonymous>)
+hr_payroll_local_node  |     at createDescriptors (/app/node_modules/@babel/core/lib/config/config-descriptors.js:102:41)
+hr_payroll_local_node  |     at createDescriptors.next (<anonymous>)
+hr_payroll_local_node  |     at createPresetDescriptors (/app/node_modules/@babel/core/lib/config/config-descriptors.js:96:17)
+hr_payroll_local_node  |     at createPresetDescriptors.next (<anonymous>)
+hr_payroll_local_node  |     at /app/node_modules/@babel/core/lib/gensync-utils/functional.js:39:27
+hr_payroll_local_node  |     at Generator.next (<anonymous>)
+hr_payroll_local_node  |     at mergeChainOpts (/app/node_modules/@babel/core/lib/config/config-chain.js:350:34)
+hr_payroll_local_node  |     at mergeChainOpts.next (<anonymous>)
+hr_payroll_local_node  |     at chainWalker (/app/node_modules/@babel/core/lib/config/config-chain.js:316:14)
+hr_payroll_local_node  |     at chainWalker.next (<anonymous>)
+hr_payroll_local_node  |     at loadFileChain (/app/node_modules/@babel/core/lib/config/config-chain.js:191:24)
+hr_payroll_local_node  |     at loadFileChain.next (<anonymous>)
+hr_payroll_local_node  |     at buildRootChain (/app/node_modules/@babel/core/lib/config/config-chain.js:108:31)
+hr_payroll_local_node  |     at buildRootChain.next (<anonymous>)
+hr_payroll_local_node  |     at loadPrivatePartialConfig (/app/node_modules/@babel/core/lib/config/partial.js:72:62)
+hr_payroll_local_node  |     at loadPrivatePartialConfig.next (<anonymous>)
+hr_payroll_local_node  |     at loadPartialConfig (/app/node_modules/@babel/core/lib/config/partial.js:115:25)
+hr_payroll_local_node  |     at loadPartialConfig.next (<anonymous>)
+hr_payroll_local_node  |     at step (/app/node_modules/gensync/index.js:269:25)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:273:13
+hr_payroll_local_node  |     at async.call.result.err.err (/app/node_modules/gensync/index.js:223:11)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:37:40
+hr_payroll_local_node  |
+hr_payroll_local_node  | webpack 5.102.1 compiled with 3 errors in 133 ms
+hr_payroll_local_node  | npm error path /app
+hr_payroll_local_node  | npm error command failed
+hr_payroll_local_node  | npm error signal SIGTERM
+hr_payroll_local_node  | npm error command sh -c webpack serve --config webpack/dev.config.js
+hr_payroll_local_node  | npm notice
+hr_payroll_local_node  | npm notice New major version of npm available! 10.9.2 -> 11.6.4
+hr_payroll_local_node  | npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.6.4
+hr_payroll_local_node  | npm notice To update run: npm install -g npm@11.6.4
+hr_payroll_local_node  | npm notice
+hr_payroll_local_node  | npm error A complete log of this run can be found in: /root/.npm/_logs/2025-12-02T10_03_55_837Z-debug-0.log
+hr_payroll_local_node  |
+hr_payroll_local_node  | > hr_payroll@0.1.0 dev
+hr_payroll_local_node  | > webpack serve --config webpack/dev.config.js
+hr_payroll_local_node  |
+hr_payroll_local_node  | <i> [webpack-dev-server] [HPM] Proxy created: /  -> http://django:8000
+hr_payroll_local_node  | <i> [webpack-dev-server] Project is running at:
+hr_payroll_local_node  | <i> [webpack-dev-server] Loopback: http://localhost:3000/, http://[::1]:3000/
+hr_payroll_local_node  | <i> [webpack-dev-server] On Your Network (IPv4): http://172.18.0.9:3000/
+hr_payroll_local_node  | <i> [webpack-dev-server] Content not from webpack is served from '/app/public' directory
+hr_payroll_local_node  | asset js/admin_login-519e4bf3e0c8b90d2066.js 420 KiB [emitted] [immutable] (name: admin_login)
+hr_payroll_local_node  | asset js/project-519e4bf3e0c8b90d2066.js 420 KiB [emitted] [immutable] (name: project)
+hr_payroll_local_node  | asset js/vendors-519e4bf3e0c8b90d2066.js 420 KiB [emitted] [immutable] (name: vendors)
+hr_payroll_local_node  | runtime modules 2.9 KiB 15 modules
+hr_payroll_local_node  | cacheable modules 110 KiB
+hr_payroll_local_node  |   modules by path ./node_modules/ 110 KiB
+hr_payroll_local_node  |     modules by path ./node_modules/webpack-dev-server/client/ 90.1 KiB 8 modules
+hr_payroll_local_node  |     modules by path ./node_modules/webpack/hot/*.js 1.82 KiB
+hr_payroll_local_node  |       ./node_modules/webpack/hot/log.js 1.75 KiB [built] [code generated]
+hr_payroll_local_node  |       ./node_modules/webpack/hot/emitter.js 74 bytes [built] [code generated]
+hr_payroll_local_node  |     ./node_modules/events/events.js 13.9 KiB [built] [code generated]
+hr_payroll_local_node  |     ./node_modules/ansi-html-community/index.js 4.25 KiB [built] [code generated]
+hr_payroll_local_node  |   modules with errors 117 bytes [true errors]
+hr_payroll_local_node  |     ./hr_payroll/static/js/project.js 39 bytes [built] [code generated] [1 error]
+hr_payroll_local_node  |     ./hr_payroll/static/js/vendors.js 39 bytes [built] [code generated] [1 error]
+hr_payroll_local_node  |     ./hr_payroll/static/js/admin_login.js 39 bytes [built] [code generated] [1 error]
+hr_payroll_local_node  |
+hr_payroll_local_node  | ERROR in ./hr_payroll/static/js/admin_login.js
+hr_payroll_local_node  | Module build failed (from ./node_modules/babel-loader/lib/index.js):
+hr_payroll_local_node  | Error: Cannot find package '@babel/preset-react' imported from /app/babel-virtual-resolve-base.js
+hr_payroll_local_node  |     at __node_internal_ (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:224:9)
+hr_payroll_local_node  |     at new NodeError (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:194:5)
+hr_payroll_local_node  |     at packageResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:898:9)
+hr_payroll_local_node  |     at moduleResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:938:18)
+hr_payroll_local_node  |     at defaultResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:1016:15)
+hr_payroll_local_node  |     at resolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:1029:12)
+hr_payroll_local_node  |     at tryImportMetaResolve (/app/node_modules/@babel/core/lib/config/files/plugins.js:149:45)
+hr_payroll_local_node  |     at resolveStandardizedNameForImport (/app/node_modules/@babel/core/lib/config/files/plugins.js:174:19)
+hr_payroll_local_node  |     at resolveStandardizedName (/app/node_modules/@babel/core/lib/config/files/plugins.js:186:22)
+hr_payroll_local_node  |     at loadPreset (/app/node_modules/@babel/core/lib/config/files/plugins.js:68:7)
+hr_payroll_local_node  |     at loadPreset.next (<anonymous>)
+hr_payroll_local_node  |     at createDescriptor (/app/node_modules/@babel/core/lib/config/config-descriptors.js:140:16)
+hr_payroll_local_node  |     at createDescriptor.next (<anonymous>)
+hr_payroll_local_node  |     at step (/app/node_modules/gensync/index.js:261:32)
+hr_payroll_local_node  |     at evaluateAsync (/app/node_modules/gensync/index.js:291:5)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:44:11
+hr_payroll_local_node  |     at Array.forEach (<anonymous>)
+hr_payroll_local_node  |     at Function.async (/app/node_modules/gensync/index.js:43:15)
+hr_payroll_local_node  |     at Function.all (/app/node_modules/gensync/index.js:216:13)
+hr_payroll_local_node  |     at Generator.next (<anonymous>)
+hr_payroll_local_node  |     at createDescriptors (/app/node_modules/@babel/core/lib/config/config-descriptors.js:102:41)
+hr_payroll_local_node  |     at createDescriptors.next (<anonymous>)
+hr_payroll_local_node  |     at createPresetDescriptors (/app/node_modules/@babel/core/lib/config/config-descriptors.js:96:17)
+hr_payroll_local_node  |     at createPresetDescriptors.next (<anonymous>)
+hr_payroll_local_node  |     at /app/node_modules/@babel/core/lib/gensync-utils/functional.js:39:27
+hr_payroll_local_node  |     at Generator.next (<anonymous>)
+hr_payroll_local_node  |     at mergeChainOpts (/app/node_modules/@babel/core/lib/config/config-chain.js:350:34)
+hr_payroll_local_node  |     at mergeChainOpts.next (<anonymous>)
+hr_payroll_local_node  |     at chainWalker (/app/node_modules/@babel/core/lib/config/config-chain.js:316:14)
+hr_payroll_local_node  |     at chainWalker.next (<anonymous>)
+hr_payroll_local_node  |     at loadFileChain (/app/node_modules/@babel/core/lib/config/config-chain.js:191:24)
+hr_payroll_local_node  |     at loadFileChain.next (<anonymous>)
+hr_payroll_local_node  |     at buildRootChain (/app/node_modules/@babel/core/lib/config/config-chain.js:108:31)
+hr_payroll_local_node  |     at buildRootChain.next (<anonymous>)
+hr_payroll_local_node  |     at loadPrivatePartialConfig (/app/node_modules/@babel/core/lib/config/partial.js:72:62)
+hr_payroll_local_node  |     at loadPrivatePartialConfig.next (<anonymous>)
+hr_payroll_local_node  |     at loadPartialConfig (/app/node_modules/@babel/core/lib/config/partial.js:115:25)
+hr_payroll_local_node  |     at loadPartialConfig.next (<anonymous>)
+hr_payroll_local_node  |     at step (/app/node_modules/gensync/index.js:269:25)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:273:13
+hr_payroll_local_node  |     at async.call.result.err.err (/app/node_modules/gensync/index.js:223:11)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:37:40
+hr_payroll_local_node  |
+hr_payroll_local_node  | ERROR in ./hr_payroll/static/js/project.js
+hr_payroll_local_node  | Module build failed (from ./node_modules/babel-loader/lib/index.js):
+hr_payroll_local_node  | Error: Cannot find package '@babel/preset-react' imported from /app/babel-virtual-resolve-base.js
+hr_payroll_local_node  |     at __node_internal_ (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:224:9)
+hr_payroll_local_node  |     at new NodeError (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:194:5)
+hr_payroll_local_node  |     at packageResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:898:9)
+hr_payroll_local_node  |     at moduleResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:938:18)
+hr_payroll_local_node  |     at defaultResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:1016:15)
+hr_payroll_local_node  |     at resolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:1029:12)
+hr_payroll_local_node  |     at tryImportMetaResolve (/app/node_modules/@babel/core/lib/config/files/plugins.js:149:45)
+hr_payroll_local_node  |     at resolveStandardizedNameForImport (/app/node_modules/@babel/core/lib/config/files/plugins.js:174:19)
+hr_payroll_local_node  |     at resolveStandardizedName (/app/node_modules/@babel/core/lib/config/files/plugins.js:186:22)
+hr_payroll_local_node  |     at loadPreset (/app/node_modules/@babel/core/lib/config/files/plugins.js:68:7)
+hr_payroll_local_node  |     at loadPreset.next (<anonymous>)
+hr_payroll_local_node  |     at createDescriptor (/app/node_modules/@babel/core/lib/config/config-descriptors.js:140:16)
+hr_payroll_local_node  |     at createDescriptor.next (<anonymous>)
+hr_payroll_local_node  |     at step (/app/node_modules/gensync/index.js:261:32)
+hr_payroll_local_node  |     at evaluateAsync (/app/node_modules/gensync/index.js:291:5)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:44:11
+hr_payroll_local_node  |     at Array.forEach (<anonymous>)
+hr_payroll_local_node  |     at Function.async (/app/node_modules/gensync/index.js:43:15)
+hr_payroll_local_node  |     at Function.all (/app/node_modules/gensync/index.js:216:13)
+hr_payroll_local_node  |     at Generator.next (<anonymous>)
+hr_payroll_local_node  |     at createDescriptors (/app/node_modules/@babel/core/lib/config/config-descriptors.js:102:41)
+hr_payroll_local_node  |     at createDescriptors.next (<anonymous>)
+hr_payroll_local_node  |     at createPresetDescriptors (/app/node_modules/@babel/core/lib/config/config-descriptors.js:96:17)
+hr_payroll_local_node  |     at createPresetDescriptors.next (<anonymous>)
+hr_payroll_local_node  |     at /app/node_modules/@babel/core/lib/gensync-utils/functional.js:39:27
+hr_payroll_local_node  |     at Generator.next (<anonymous>)
+hr_payroll_local_node  |     at mergeChainOpts (/app/node_modules/@babel/core/lib/config/config-chain.js:350:34)
+hr_payroll_local_node  |     at mergeChainOpts.next (<anonymous>)
+hr_payroll_local_node  |     at chainWalker (/app/node_modules/@babel/core/lib/config/config-chain.js:316:14)
+hr_payroll_local_node  |     at chainWalker.next (<anonymous>)
+hr_payroll_local_node  |     at loadFileChain (/app/node_modules/@babel/core/lib/config/config-chain.js:191:24)
+hr_payroll_local_node  |     at loadFileChain.next (<anonymous>)
+hr_payroll_local_node  |     at buildRootChain (/app/node_modules/@babel/core/lib/config/config-chain.js:108:31)
+hr_payroll_local_node  |     at buildRootChain.next (<anonymous>)
+hr_payroll_local_node  |     at loadPrivatePartialConfig (/app/node_modules/@babel/core/lib/config/partial.js:72:62)
+hr_payroll_local_node  |     at loadPrivatePartialConfig.next (<anonymous>)
+hr_payroll_local_node  |     at loadPartialConfig (/app/node_modules/@babel/core/lib/config/partial.js:115:25)
+hr_payroll_local_node  |     at loadPartialConfig.next (<anonymous>)
+hr_payroll_local_node  |     at step (/app/node_modules/gensync/index.js:269:25)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:273:13
+hr_payroll_local_node  |     at async.call.result.err.err (/app/node_modules/gensync/index.js:223:11)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:37:40
+hr_payroll_local_node  |
+hr_payroll_local_node  | ERROR in ./hr_payroll/static/js/vendors.js
+hr_payroll_local_node  | Module build failed (from ./node_modules/babel-loader/lib/index.js):
+hr_payroll_local_node  | Error: Cannot find package '@babel/preset-react' imported from /app/babel-virtual-resolve-base.js
+hr_payroll_local_node  |     at __node_internal_ (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:224:9)
+hr_payroll_local_node  |     at new NodeError (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:194:5)
+hr_payroll_local_node  |     at packageResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:898:9)
+hr_payroll_local_node  |     at moduleResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:938:18)
+hr_payroll_local_node  |     at defaultResolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:1016:15)
+hr_payroll_local_node  |     at resolve (/app/node_modules/@babel/core/lib/vendor/import-meta-resolve.js:1029:12)
+hr_payroll_local_node  |     at tryImportMetaResolve (/app/node_modules/@babel/core/lib/config/files/plugins.js:149:45)
+hr_payroll_local_node  |     at resolveStandardizedNameForImport (/app/node_modules/@babel/core/lib/config/files/plugins.js:174:19)
+hr_payroll_local_node  |     at resolveStandardizedName (/app/node_modules/@babel/core/lib/config/files/plugins.js:186:22)
+hr_payroll_local_node  |     at loadPreset (/app/node_modules/@babel/core/lib/config/files/plugins.js:68:7)
+hr_payroll_local_node  |     at loadPreset.next (<anonymous>)
+hr_payroll_local_node  |     at createDescriptor (/app/node_modules/@babel/core/lib/config/config-descriptors.js:140:16)
+hr_payroll_local_node  |     at createDescriptor.next (<anonymous>)
+hr_payroll_local_node  |     at step (/app/node_modules/gensync/index.js:261:32)
+hr_payroll_local_node  |     at evaluateAsync (/app/node_modules/gensync/index.js:291:5)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:44:11
+hr_payroll_local_node  |     at Array.forEach (<anonymous>)
+hr_payroll_local_node  |     at Function.async (/app/node_modules/gensync/index.js:43:15)
+hr_payroll_local_node  |     at Function.all (/app/node_modules/gensync/index.js:216:13)
+hr_payroll_local_node  |     at Generator.next (<anonymous>)
+hr_payroll_local_node  |     at createDescriptors (/app/node_modules/@babel/core/lib/config/config-descriptors.js:102:41)
+hr_payroll_local_node  |     at createDescriptors.next (<anonymous>)
+hr_payroll_local_node  |     at createPresetDescriptors (/app/node_modules/@babel/core/lib/config/config-descriptors.js:96:17)
+hr_payroll_local_node  |     at createPresetDescriptors.next (<anonymous>)
+hr_payroll_local_node  |     at /app/node_modules/@babel/core/lib/gensync-utils/functional.js:39:27
+hr_payroll_local_node  |     at Generator.next (<anonymous>)
+hr_payroll_local_node  |     at mergeChainOpts (/app/node_modules/@babel/core/lib/config/config-chain.js:350:34)
+hr_payroll_local_node  |     at mergeChainOpts.next (<anonymous>)
+hr_payroll_local_node  |     at chainWalker (/app/node_modules/@babel/core/lib/config/config-chain.js:316:14)
+hr_payroll_local_node  |     at chainWalker.next (<anonymous>)
+hr_payroll_local_node  |     at loadFileChain (/app/node_modules/@babel/core/lib/config/config-chain.js:191:24)
+hr_payroll_local_node  |     at loadFileChain.next (<anonymous>)
+hr_payroll_local_node  |     at buildRootChain (/app/node_modules/@babel/core/lib/config/config-chain.js:108:31)
+hr_payroll_local_node  |     at buildRootChain.next (<anonymous>)
+hr_payroll_local_node  |     at loadPrivatePartialConfig (/app/node_modules/@babel/core/lib/config/partial.js:72:62)
+hr_payroll_local_node  |     at loadPrivatePartialConfig.next (<anonymous>)
+hr_payroll_local_node  |     at loadPartialConfig (/app/node_modules/@babel/core/lib/config/partial.js:115:25)
+hr_payroll_local_node  |     at loadPartialConfig.next (<anonymous>)
+hr_payroll_local_node  |     at step (/app/node_modules/gensync/index.js:269:25)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:273:13
+hr_payroll_local_node  |     at async.call.result.err.err (/app/node_modules/gensync/index.js:223:11)
+hr_payroll_local_node  |     at /app/node_modules/gensync/index.js:37:40
+hr_payroll_local_node  |
+hr_payroll_local_node  | webpack 5.102.1 compiled with 3 errors in 1921 ms
+hr_payroll_local_node  | (node:18) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
+hr_payroll_local_node  | (Use `node --trace-deprecation ...` to show where the warning was created)
