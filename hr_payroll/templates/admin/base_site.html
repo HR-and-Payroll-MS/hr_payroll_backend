@@ -14,37 +14,103 @@
 {% block extrastyle %}
   {{ block.super }}
   <style>
-    /* Green theme for admin header */
+    /* Modern color palette - green as accent */
+    :root {
+      --primary-green: #16a34a;
+      --primary-green-hover: #15803d;
+      --primary-green-light: #dcfce7;
+      --bg-light: #f9fafb;
+      --border-color: #e5e7eb;
+    }
+
+    /* Header - Keep green */
     #header {
-      background: #16a34a !important;
+      background: linear-gradient(135deg, var(--primary-green) 0%, var(--primary-green-hover) 100%) !important;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
     }
 
     #branding h1,
     #branding h1 a:link,
     #branding h1 a:visited {
       color: #ffffff !important;
+      font-weight: 600 !important;
     }
 
     #user-tools a {
       color: #ffffff !important;
+      opacity: 0.9 !important;
     }
 
     #user-tools a:hover {
-      color: #dcfce7 !important;
+      opacity: 1 !important;
+      color: var(--primary-green-light) !important;
     }
 
+    /* Breadcrumbs - Lighter */
     div.breadcrumbs {
-      background: #15803d !important;
+      background: var(--bg-light) !important;
+      color: #374151 !important;
+      border-bottom: 1px solid var(--border-color) !important;
     }
 
-    /* Keep buttons green */
+    div.breadcrumbs a {
+      color: var(--primary-green) !important;
+    }
+
+    /* Content area - Clean background */
+    #content {
+      background: #ffffff !important;
+    }
+
+    /* Dashboard cards - Modern look */
+    .app-list {
+      display: grid !important;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)) !important;
+      gap: 1.5rem !important;
+      padding: 1.5rem !important;
+    }
+
+    .app-list section {
+      background: #ffffff !important;
+      border: 1px solid var(--border-color) !important;
+      border-radius: 8px !important;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+      transition: all 0.2s !important;
+    }
+
+    .app-list section:hover {
+      box-shadow: 0 4px 12px rgba(22, 163, 74, 0.15) !important;
+      transform: translateY(-2px) !important;
+    }
+
+    /* Module headers - Gray with green accent */
+    .module h2,
+    .module caption,
+    .inline-group h2 {
+      background: var(--bg-light) !important;
+      color: #1f2937 !important;
+      font-weight: 600 !important;
+      border-bottom: 2px solid var(--primary-green) !important;
+    }
+
+    .app-list section h2 {
+      background: var(--primary-green) !important;
+      color: white !important;
+      border: none !important;
+    }
+
+    /* Buttons - Green accent only */
     .button,
     input[type=submit],
     input[type=button],
     .submit-row input,
     button {
-      background: #16a34a !important;
+      background: var(--primary-green) !important;
       border: none !important;
+      border-radius: 6px !important;
+      padding: 8px 16px !important;
+      font-weight: 500 !important;
+      transition: all 0.2s !important;
     }
 
     .button:hover,
@@ -52,35 +118,59 @@
     input[type=button]:hover,
     .submit-row input:hover,
     button:hover {
-      background: #15803d !important;
+      background: var(--primary-green-hover) !important;
+      transform: translateY(-1px) !important;
+      box-shadow: 0 2px 8px rgba(22, 163, 74, 0.3) !important;
     }
 
-    .button.default,
-    input[type=submit].default,
-    .submit-row input.default {
-      background: #16a34a !important;
-    }
-
-    /* Links */
+    /* Links - Green accent */
     a:link,
     a:visited {
-      color: #16a34a !important;
+      color: var(--primary-green) !important;
     }
 
     a:hover {
-      color: #15803d !important;
+      color: var(--primary-green-hover) !important;
     }
 
-    /* Module headers */
-    .module h2,
-    .module caption,
-    .inline-group h2 {
-      background: #16a34a !important;
+    /* Tables - Clean modern look */
+    #result_list {
+      border: 1px solid var(--border-color) !important;
+      border-radius: 8px !important;
+      overflow: hidden !important;
     }
 
-    /* Selected items */
+    #result_list thead th {
+      background: var(--bg-light) !important;
+      color: #374151 !important;
+      font-weight: 600 !important;
+      border-bottom: 2px solid var(--border-color) !important;
+    }
+
+    #result_list tbody tr:hover {
+      background: var(--primary-green-light) !important;
+    }
+
+    /* Selected items - Light green highlight */
     .selected {
-      background-color: #dcfce7 !important;
+      background-color: var(--primary-green-light) !important;
+    }
+
+    tr.selected {
+      background-color: var(--primary-green-light) !important;
+    }
+
+    /* Subtle improvements */
+    .module {
+      border: 1px solid var(--border-color) !important;
+      border-radius: 8px !important;
+      margin-bottom: 1.5rem !important;
+      overflow: hidden !important;
+    }
+
+    fieldset {
+      border: 1px solid var(--border-color) !important;
+      border-radius: 6px !important;
     }
   </style>
 {% endblock extrastyle %}
