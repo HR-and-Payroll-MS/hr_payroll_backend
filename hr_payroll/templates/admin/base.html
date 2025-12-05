@@ -2,10 +2,14 @@
 
 {% load static webpack_loader %}
 
-{# Inject custom admin theme assets #}
-{% block extrahead %}
+{# Load CSS after Django's admin CSS for proper override #}
+{% block extrastyle %}
   {{ block.super }}
   {% render_bundle 'admin_theme' 'css' %}
+{% endblock extrastyle %}
+{# Load JS in extrahead #}
+{% block extrahead %}
+  {{ block.super }}
   {% render_bundle 'admin_theme' 'js' %}
 {% endblock extrahead %}
 {# Keep all other Django admin blocks intact #}
