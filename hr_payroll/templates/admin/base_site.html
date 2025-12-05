@@ -7,13 +7,80 @@
   HR and Payroll Administration
 {% endblock title %}
 {% block branding %}
-  <div class="flex items-center space-x-3 px-6 py-4">
-    <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
-      <span class="text-primary font-bold text-lg">HR</span>
-    </div>
-    <h1 class="text-xl font-bold text-white">
-      <a href="{% url 'admin:index' %}"
-         class="text-white hover:text-primary-light transition">HR & Payroll Administration</a>
-    </h1>
-  </div>
+  <h1 id="site-name">
+    <a href="{% url 'admin:index' %}">HR and Payroll Administration</a>
+  </h1>
 {% endblock branding %}
+{% block extrastyle %}
+  {{ block.super }}
+  <style>
+    /* Green theme for admin header */
+    #header {
+      background: #16a34a !important;
+    }
+
+    #branding h1,
+    #branding h1 a:link,
+    #branding h1 a:visited {
+      color: #ffffff !important;
+    }
+
+    #user-tools a {
+      color: #ffffff !important;
+    }
+
+    #user-tools a:hover {
+      color: #dcfce7 !important;
+    }
+
+    div.breadcrumbs {
+      background: #15803d !important;
+    }
+
+    /* Keep buttons green */
+    .button,
+    input[type=submit],
+    input[type=button],
+    .submit-row input,
+    button {
+      background: #16a34a !important;
+      border: none !important;
+    }
+
+    .button:hover,
+    input[type=submit]:hover,
+    input[type=button]:hover,
+    .submit-row input:hover,
+    button:hover {
+      background: #15803d !important;
+    }
+
+    .button.default,
+    input[type=submit].default,
+    .submit-row input.default {
+      background: #16a34a !important;
+    }
+
+    /* Links */
+    a:link,
+    a:visited {
+      color: #16a34a !important;
+    }
+
+    a:hover {
+      color: #15803d !important;
+    }
+
+    /* Module headers */
+    .module h2,
+    .module caption,
+    .inline-group h2 {
+      background: #16a34a !important;
+    }
+
+    /* Selected items */
+    .selected {
+      background-color: #dcfce7 !important;
+    }
+  </style>
+{% endblock extrastyle %}
