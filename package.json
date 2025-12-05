@@ -6,7 +6,8 @@
     "@babel/preset-env": "^7.28.5",
     "@babel/preset-react": "^7.28.5",
     "@popperjs/core": "^2.10.2",
-    "autoprefixer": "^10.4.0",
+    "@tailwindcss/postcss": "^4.1.17",
+    "autoprefixer": "^10.4.22",
     "axios": "^1.13.2",
     "babel-loader": "^10.0.0",
     "bootstrap": "^5.2.3",
@@ -14,7 +15,7 @@
     "mini-css-extract-plugin": "^2.4.5",
     "node-sass-tilde-importer": "^1.0.2",
     "pixrem": "^5.0.0",
-    "postcss": "^8.3.11",
+    "postcss": "^8.5.6",
     "postcss-loader": "^8.0.0",
     "postcss-preset-env": "^10.0.3",
     "react": "^19.2.0",
@@ -22,6 +23,7 @@
     "react-router-dom": "^7.9.6",
     "sass": "1.77.6",
     "sass-loader": "^16.0.1",
+    "tailwindcss": "^4.1.17",
     "webpack": "^5.82.0",
     "webpack-bundle-tracker": "^3.0.1",
     "webpack-cli": "^6.0.1",
@@ -43,5 +45,10 @@
   "scripts": {
     "dev": "webpack serve --config webpack/dev.config.js",
     "build": "webpack --config webpack/prod.config.js"
+  },
+  "dependencies": {
+    "@headlessui/react": "^2.2.9",
+    "clsx": "^2.1.1",
+    "heroicons": "^2.2.0"
   }
 }

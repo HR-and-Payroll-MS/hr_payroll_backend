@@ -16,11 +16,11 @@ from PIL import Image
 from PIL.Image import UnidentifiedImageError
 from rest_framework import serializers
 
-from hr_payroll.departments.models import Department
 from hr_payroll.employees.models import Contract
 from hr_payroll.employees.models import Employee
 from hr_payroll.employees.models import EmployeeDocument
 from hr_payroll.employees.models import JobHistory
+from hr_payroll.org.models import Department
 from hr_payroll.payroll.models import BankDetail
 from hr_payroll.payroll.models import BankMaster
 from hr_payroll.payroll.models import Dependent

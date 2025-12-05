@@ -1,0 +1,11 @@
+{% extends "admin/base.html" %}
+
+{% load static webpack_loader %}
+
+{# Inject custom admin theme assets #}
+{% block extrahead %}
+  {{ block.super }}
+  {% render_bundle 'admin_theme' 'css' %}
+  {% render_bundle 'admin_theme' 'js' %}
+{% endblock extrahead %}
+{# Keep all other Django admin blocks intact #}
