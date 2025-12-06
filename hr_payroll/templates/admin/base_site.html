@@ -1,7 +1,5 @@
 {% extends "admin/base.html" %}
 
-{% load static %}
-
 {% block title %}
   {% if subtitle %}{{ subtitle }} |{% endif %}
   HR and Payroll Administration
@@ -11,49 +9,3 @@
     <a href="{% url 'admin:index' %}">HR and Payroll Administration</a>
   </h1>
 {% endblock branding %}
-{% block extrastyle %}
-  {{ block.super }}
-  <style>
-    /* Minimal green theme - clean and professional */
-
-    /* Header - Simple green */
-    #header {
-      background: #16a34a !important;
-    }
-
-    #branding h1,
-    #branding h1 a {
-      color: white !important;
-    }
-
-    #user-tools a {
-      color: white !important;
-    }
-
-    /* Buttons - Green */
-    .button,
-    input[type="submit"],
-    input[type="button"],
-    button {
-      background: #16a34a !important;
-      border-color: #16a34a !important;
-    }
-
-    .button:hover,
-    input[type="submit"]:hover,
-    input[type="button"]:hover,
-    button:hover {
-      background: #15803d !important;
-      border-color: #15803d !important;
-    }
-
-    /* Links - Subtle green */
-    a {
-      color: #16a34a !important;
-    }
-
-    a:hover {
-      color: #15803d !important;
-    }
-  </style>
-{% endblock extrastyle %}
