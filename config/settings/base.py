@@ -69,10 +69,12 @@ ATTENDANCE_EDIT_WINDOW_DAYS = int(os.getenv("ATTENDANCE_EDIT_WINDOW_DAYS", "31")
 ROOT_URLCONF = "config.urls"
 # https://docs.djangoproject.com/en/dev/ref/settings/#wsgi-application
 WSGI_APPLICATION = "config.wsgi.application"
+ASGI_APPLICATION = "config.asgi.application"
 
 # APPS
 # ------------------------------------------------------------------------------
 DJANGO_APPS = [
+    "daphne",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
@@ -84,6 +86,7 @@ DJANGO_APPS = [
     "django.forms",
 ]
 THIRD_PARTY_APPS = [
+    "channels",
     "crispy_forms",
     "crispy_bootstrap5",
     "allauth",
@@ -113,6 +116,7 @@ LOCAL_APPS = [
     "hr_payroll.payroll",
     "hr_payroll.attendance",
     "hr_payroll.leaves",
+    "hr_payroll.notifications",
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
@@ -303,6 +307,15 @@ LOGGING = {
 
 REDIS_URL = env("REDIS_URL", default="redis://redis:6379/0")
 REDIS_SSL = REDIS_URL.startswith("rediss://")
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [REDIS_URL],
+        },
+    },
+}
 
 # Celery
 # ------------------------------------------------------------------------------

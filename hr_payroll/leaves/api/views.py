@@ -1,6 +1,7 @@
 from drf_spectacular.utils import extend_schema
 from rest_framework import permissions
 from rest_framework import viewsets
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from hr_payroll.leaves.api.serializers import BalanceHistorySerializer
@@ -84,6 +85,10 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         if hasattr(self.request.user, "employee"):
             serializer.save(employee=self.request.user.employee)
+        else:
+            raise ValidationError(
+                {"detail": "User does not have an associated Employee profile."}
+            )
 
 
 class BalanceHistoryViewSet(viewsets.ReadOnlyModelViewSet):

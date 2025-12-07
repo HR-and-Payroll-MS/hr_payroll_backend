@@ -39,3 +39,8 @@ pytesseract==0.3.13  # Tesseract OCR bindings
 
 # Database URL parser
 dj-database-url==2.3.0  # https://github.com/jazzband/dj-database-url
+
+# Real-time Notifications
+channels>=4.0.0
+daphne>=4.0.0
+channels-redis>=4.0.0

@@ -1,10 +1,10 @@
 from django.contrib import admin
 
-from .models import AuditLog
+from hr_payroll.audit import models
 
 
-@admin.register(AuditLog)
+@admin.register(models.AuditLog)
 class AuditLogAdmin(admin.ModelAdmin):
-    list_display = ("created_at", "action", "actor")
-    list_filter = ("action", "created_at")
-    search_fields = ("action", "message", "actor__username", "actor__email")
+    list_display = ["id", "action", "actor", "message", "model_name"]
+    search_fields = ["action", "message", "model_name", "ip_address"]
+    list_filter = ["created_at"]
