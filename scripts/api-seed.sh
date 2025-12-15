@@ -126,10 +126,10 @@ ATT2=$(req POST "$BASE/api/v1/attendances/" \
 ATT2_ID=$(echo "$ATT2" | jq -r .id)
 echo "Attendance 2: id=$ATT2_ID"
 
-# Adjust paid time to 9 hours -> sets status=PENDING and overtime_seconds
+# Adjust paid time to 9 hours -> sets status=PERMITTED and overtime_seconds
 req POST "$BASE/api/v1/attendances/$ATT2_ID/adjust-paid-time/" \
   -d '{"paid_time":"09:00:00","notes":"Overtime due to release"}' | jq .
-# Approve the adjusted attendance (so it counts as approved work)
+# Approve the adjusted attendance (defaults to PRESENT status)
 req POST "$BASE/api/v1/attendances/$ATT2_ID/approve/" | jq .
 
 # Optional: summaries

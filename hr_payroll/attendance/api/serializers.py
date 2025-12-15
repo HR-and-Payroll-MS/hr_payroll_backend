@@ -96,8 +96,20 @@ class EmployeeClockInSerializer(serializers.Serializer):
 
 
 class ManualEntrySerializer(serializers.Serializer):
-    employee = serializers.IntegerField()
     date = serializers.DateField(required=False)
     clock_in = serializers.DateTimeField(required=False)
     clock_in_location = serializers.CharField()
+    notes = serializers.CharField(required=False, allow_blank=True)
+
+
+class SelfAttendanceQuerySerializer(serializers.Serializer):
+    date = serializers.DateField(required=False)
+
+
+class SelfAttendanceActionSerializer(serializers.Serializer):
+    action = serializers.ChoiceField(choices=["check_in", "check_out"])
+    location = serializers.CharField()
+    date = serializers.DateField(required=False)
+    time = serializers.TimeField(required=False)
+    timestamp = serializers.DateTimeField(required=False)
     notes = serializers.CharField(required=False, allow_blank=True)

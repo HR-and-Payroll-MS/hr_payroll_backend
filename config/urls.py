@@ -124,6 +124,15 @@ employee_attendance_clock_out = EmployeeAttendanceViewSet.as_view({"post": "cloc
 employee_attendance_fingerprint_scan = EmployeeAttendanceViewSet.as_view(
     {"post": "fingerprint_scan"}
 )
+employee_attendance_network_status = EmployeeAttendanceViewSet.as_view(
+    {"get": "network_status"}
+)
+employee_attendance_manual_entry = EmployeeAttendanceViewSet.as_view(
+    {"post": "manual_entry"}
+)
+employee_attendance_actions = EmployeeAttendanceViewSet.as_view({"get": "actions"})
+employee_attendance_today = EmployeeAttendanceViewSet.as_view({"get": "today"})
+employee_attendance_check = EmployeeAttendanceViewSet.as_view({"post": "check"})
 
 urlpatterns += [
     path(
@@ -140,6 +149,31 @@ urlpatterns += [
         "api/v1/employees/<int:employee_id>/attendances/fingerprint/scan/",
         employee_attendance_fingerprint_scan,
         name="employee-attendance-fingerprint-scan",
+    ),
+    path(
+        "api/v1/employees/<int:employee_id>/attendances/network-status/",
+        employee_attendance_network_status,
+        name="employee-attendance-network-status",
+    ),
+    path(
+        "api/v1/employees/<int:employee_id>/attendances/manual-entry/",
+        employee_attendance_manual_entry,
+        name="employee-attendance-manual-entry",
+    ),
+    path(
+        "api/v1/employees/<int:employee_id>/attendances/actions/",
+        employee_attendance_actions,
+        name="employee-attendance-actions",
+    ),
+    path(
+        "api/v1/employees/<int:employee_id>/attendances/today/",
+        employee_attendance_today,
+        name="employee-attendance-today",
+    ),
+    path(
+        "api/v1/employees/<int:employee_id>/attendances/check/",
+        employee_attendance_check,
+        name="employee-attendance-check",
     ),
     path(
         "api/v1/employees/<int:employee_id>/attendances/<int:pk>/",

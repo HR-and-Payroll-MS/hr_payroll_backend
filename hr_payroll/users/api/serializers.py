@@ -12,6 +12,7 @@ class UserSerializer(serializers.ModelSerializer[User]):
         read_only=True,
         slug_field="name",
     )
+    id = serializers.IntegerField(read_only=True)
 
     # Make username & email explicitly read-only to preserve auto-generation invariant
     username = serializers.CharField(read_only=True)
@@ -20,6 +21,7 @@ class UserSerializer(serializers.ModelSerializer[User]):
     class Meta:
         model = User
         fields = [
+            "id",
             "username",
             "first_name",
             "last_name",

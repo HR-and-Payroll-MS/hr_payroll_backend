@@ -15,8 +15,9 @@ class Attendance(models.Model):
     """
 
     class Status(models.TextChoices):
-        PENDING = "PENDING", "Pending"
-        APPROVED = "APPROVED", "Approved"
+        PRESENT = "PRESENT", "Present"
+        ABSENT = "ABSENT", "Absent"
+        PERMITTED = "PERMITTED", "Permitted"
 
     employee = models.ForeignKey(
         "employees.Employee",
@@ -32,7 +33,7 @@ class Attendance(models.Model):
     paid_time = models.DurationField(default=timedelta(0))
     notes = models.TextField(blank=True)
     status = models.CharField(
-        max_length=16, choices=Status.choices, default=Status.PENDING
+        max_length=16, choices=Status.choices, default=Status.PRESENT
     )
     overtime_seconds = models.IntegerField(default=0)
 

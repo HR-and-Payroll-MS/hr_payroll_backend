@@ -4,6 +4,12 @@ from rest_framework import viewsets
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
+from hr_payroll.employees.api.permissions import ROLE_ADMIN
+from hr_payroll.employees.api.permissions import ROLE_LINE_MANAGER
+from hr_payroll.employees.api.permissions import ROLE_MANAGER
+from hr_payroll.employees.api.permissions import IsAdminOrManagerOnly
+from hr_payroll.employees.api.permissions import _user_in_groups
+from hr_payroll.employees.models import Employee
 from hr_payroll.leaves.api.serializers import BalanceHistorySerializer
 from hr_payroll.leaves.api.serializers import EmployeeBalanceSerializer
 from hr_payroll.leaves.api.serializers import LeavePolicySerializer
@@ -18,6 +24,41 @@ from hr_payroll.leaves.models import LeaveType
 from hr_payroll.leaves.models import PublicHoliday
 
 
+def _is_leave_admin(user) -> bool:
+    return bool(
+        getattr(user, "is_superuser", False)
+        or getattr(user, "is_staff", False)
+        or _user_in_groups(user, [ROLE_ADMIN, ROLE_MANAGER])
+    )
+
+
+def _managed_employee_ids(user) -> list[int]:
+    employee = getattr(user, "employee", None)
+    if employee is None:
+        return []
+    ids: set[int] = set()
+    dept_ids = list(employee.managed_departments.values_list("id", flat=True))
+    if dept_ids:
+        ids.update(
+            Employee.objects.filter(department_id__in=dept_ids).values_list(
+                "id", flat=True
+            )
+        )
+    dept_id = getattr(employee, "department_id", None)
+    if dept_id:
+        ids.update(
+            Employee.objects.filter(department_id=dept_id).values_list("id", flat=True)
+        )
+    ids.update(
+        Employee.objects.filter(line_manager_id=employee.id).values_list(
+            "id", flat=True
+        )
+    )
+    if employee.id:
+        ids.add(employee.id)
+    return list(ids)
+
+
 class LeavesPlaceholderViewSet(viewsets.ViewSet):
     """
     Placeholder ViewSet to show 'leaves' in API root.
@@ -30,13 +71,6 @@ class LeavesPlaceholderViewSet(viewsets.ViewSet):
     @extend_schema(exclude=True)
     def list(self, request):
         return Response({"message": "Leaves API Root"})
-
-
-class IsAdminOrManagerOnly(permissions.BasePermission):
-    def has_permission(self, request, view):
-        return request.user.is_authenticated and (
-            request.user.is_superuser or request.user.is_staff
-        )
 
 
 class LeaveTypeViewSet(viewsets.ModelViewSet):
@@ -63,8 +97,12 @@ class EmployeeBalanceViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_superuser or user.is_staff:
+        if _is_leave_admin(user):
             return EmployeeBalance.objects.all()
+        if _user_in_groups(user, [ROLE_LINE_MANAGER]):
+            employee_ids = _managed_employee_ids(user)
+            if employee_ids:
+                return EmployeeBalance.objects.filter(employee_id__in=employee_ids)
         if hasattr(user, "employee"):
             return EmployeeBalance.objects.filter(employee=user.employee)
         return EmployeeBalance.objects.none()
@@ -76,8 +114,12 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_superuser or user.is_staff:
+        if _is_leave_admin(user):
             return LeaveRequest.objects.all()
+        if _user_in_groups(user, [ROLE_LINE_MANAGER]):
+            employee_ids = _managed_employee_ids(user)
+            if employee_ids:
+                return LeaveRequest.objects.filter(employee_id__in=employee_ids)
         if hasattr(user, "employee"):
             return LeaveRequest.objects.filter(employee=user.employee)
         return LeaveRequest.objects.none()
@@ -97,8 +139,12 @@ class BalanceHistoryViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_superuser or user.is_staff:
+        if _is_leave_admin(user):
             return BalanceHistory.objects.all()
+        if _user_in_groups(user, [ROLE_LINE_MANAGER]):
+            employee_ids = _managed_employee_ids(user)
+            if employee_ids:
+                return BalanceHistory.objects.filter(employee_id__in=employee_ids)
         if hasattr(user, "employee"):
             return BalanceHistory.objects.filter(employee=user.employee)
         return BalanceHistory.objects.none()

@@ -25,6 +25,10 @@ from hr_payroll.employees.models import Employee
 from hr_payroll.employees.models import EmployeeDocument
 
 from .filters import EmployeeFilter
+from .permissions import ROLE_ADMIN
+from .permissions import ROLE_LINE_MANAGER
+from .permissions import ROLE_MANAGER
+from .permissions import ROLE_PAYROLL
 from .permissions import IsAdminOrManagerCanWrite
 from .permissions import IsSelfEmployeeOrElevated
 from .permissions import _user_in_groups
@@ -87,9 +91,8 @@ class EmployeeRegistrationViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Scope employees by role.
 
-        - Admin/staff: all employees
-                - Manager group: employees in departments managed by my
-                    employee record or my direct reports
+        - Admin/Payroll/staff: all employees
+        - Manager group: employees in departments I manage or my direct reports
         - Line Manager group: my department employees or my direct reports
         - Employee (default): only myself
         """
@@ -97,15 +100,17 @@ class EmployeeRegistrationViewSet(viewsets.ModelViewSet):
         u = getattr(self.request, "user", None)
         if not (u and getattr(u, "is_authenticated", False)):
             return qs.none()
-        # Admin/staff gets all
-        if getattr(u, "is_staff", False) or _user_in_groups(u, ["Admin"]):
+        # Admin/Payroll/staff get all
+        if getattr(u, "is_staff", False) or _user_in_groups(
+            u, [ROLE_ADMIN, ROLE_PAYROLL]
+        ):
             return qs
         # Resolve requester employee
         req_emp = getattr(u, "employee", None)
         if req_emp is None:
             return qs.none()
-        is_manager = _user_in_groups(u, ["Manager"])
-        is_line_manager = _user_in_groups(u, ["Line Manager"])
+        is_manager = _user_in_groups(u, [ROLE_MANAGER])
+        is_line_manager = _user_in_groups(u, [ROLE_LINE_MANAGER])
         if is_manager:
             # Employees in departments I manage + my direct reports
             dept_ids = list(req_emp.managed_departments.values_list("id", flat=True))

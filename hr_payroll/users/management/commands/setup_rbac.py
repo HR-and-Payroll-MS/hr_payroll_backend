@@ -1,5 +1,7 @@
+from collections import defaultdict
 from contextlib import suppress
 
+from django.apps import apps
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.contrib.auth.models import Permission
@@ -7,165 +9,162 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.management.base import BaseCommand
 from django.utils.translation import gettext as _
 
+FULL_ACTIONS = ("add", "change", "delete", "view")
+MANAGE_ACTIONS = ("add", "change", "view")
+APPROVE_ACTIONS = ("change", "view")
+READ_ACTIONS = ("view",)
+ROLE_EMPLOYEE = "Employee"
+
+ROLE_APP_ACTIONS = {
+    "Manager": {
+        "attendance": FULL_ACTIONS,
+        "employees": FULL_ACTIONS,
+        "leaves": FULL_ACTIONS,
+        "org": FULL_ACTIONS,
+        "notifications": MANAGE_ACTIONS,
+        "users": MANAGE_ACTIONS,
+    },
+    "Payroll": {
+        "payroll": FULL_ACTIONS,
+        "employees": READ_ACTIONS,
+        "org": READ_ACTIONS,
+        "notifications": READ_ACTIONS,
+    },
+    "Line Manager": {
+        "attendance": APPROVE_ACTIONS,
+        "employees": APPROVE_ACTIONS,
+        "leaves": APPROVE_ACTIONS,
+        "org": READ_ACTIONS,
+        "notifications": READ_ACTIONS,
+    },
+    "Employee": {
+        "attendance": READ_ACTIONS,
+        "employees": READ_ACTIONS,
+        "leaves": READ_ACTIONS,
+        "notifications": READ_ACTIONS,
+        "payroll": READ_ACTIONS,
+    },
+}
+
+ROLE_MODEL_ACTIONS = {
+    ("employees", "employeedocument"): {
+        "Employee": ("add", "view"),
+        "Line Manager": ("add", "change", "view"),
+    },
+    ("employees", "employee"): {
+        "Payroll": ("view",),
+    },
+    ("leaves", "leaverequest"): {
+        "Employee": ("add", "change", "view"),
+        "Line Manager": ("change", "view"),
+    },
+}
+
 
 class Command(BaseCommand):
     help = _("Create default RBAC groups and permissions")
 
     def handle(self, *args, **options):
         user_model = get_user_model()
-
-        (
-            models,
-            department_model,
-            emp_model,
-            employee_document_model,
-            job_history_model,
-            contract_model,
-            has_employee_document,
-        ) = self._collect_models(user_model)
-
-        context = {
-            "department_model": department_model,
-            "emp_model": emp_model,
-            "employee_document_model": employee_document_model,
-            "job_history_model": job_history_model,
-            "contract_model": contract_model,
-            "has_employee_document": has_employee_document,
-        }
-
-        roles = self._build_roles(models, context)
-
+        models = self._collect_models(user_model)
+        roles = self._build_roles(models, user_model)
         self._apply_roles(roles)
-
         self.stdout.write(self.style.SUCCESS("RBAC setup complete"))
 
     def _collect_models(self, user_model):
-        """Collect optional models from other apps if available.
+        """Gather models from target apps to drive permission creation."""
 
-        Returns a tuple: (models, department_model, emp_model,
-        employee_document_model, job_history_model, contract_model,
-        has_employee_document)
-        """
-        models = [user_model]
-        department_model = None
-        emp_model = None
-        employee_document_model = None
-        job_history_model = None
-        contract_model = None
-        has_employee_document = False
+        seen_models: set[type] = set()
+        collected: list[type] = []
 
-        with suppress(Exception):
-            # Imported dynamically to avoid hard dependency on org app
-            from hr_payroll.org.models import (  # noqa: PLC0415
-                Department as DepartmentModel,
-            )
+        def add_model(model):
+            if model not in seen_models:
+                seen_models.add(model)
+                collected.append(model)
 
-            department_model = DepartmentModel
-            models.append(DepartmentModel)
+        add_model(user_model)
 
-        with suppress(Exception):
-            # Imported dynamically to avoid hard dependency on employees app
-            from hr_payroll.employees.models import (  # noqa: PLC0415
-                Contract as ContractModel,
-            )
-            from hr_payroll.employees.models import (  # noqa: PLC0415
-                Employee as EmpModel,
-            )
-            from hr_payroll.employees.models import (  # noqa: PLC0415
-                EmployeeDocument as EmployeeDocumentModel,
-            )
-            from hr_payroll.employees.models import (  # noqa: PLC0415
-                JobHistory as JobHistoryModel,
-            )
+        for label in sorted(self._target_app_labels()):
+            for model in self._collect_app_models(label):
+                add_model(model)
 
-            emp_model = EmpModel
-            employee_document_model = EmployeeDocumentModel
-            job_history_model = JobHistoryModel
-            contract_model = ContractModel
-            models.extend(
-                [
-                    EmpModel,
-                    EmployeeDocumentModel,
-                    JobHistoryModel,
-                    ContractModel,
-                ]
-            )
-            has_employee_document = True
+        return collected
 
-        return (
-            models,
-            department_model,
-            emp_model,
-            employee_document_model,
-            job_history_model,
-            contract_model,
-            has_employee_document,
-        )
+    def _target_app_labels(self):
+        labels = set()
+        for rules in ROLE_APP_ACTIONS.values():
+            labels.update(rules.keys())
+        for app_label, _unused in ROLE_MODEL_ACTIONS:
+            labels.add(app_label)
+        return labels
 
-    def _build_roles(self, models, context):
-        """Build a mapping of roles to permission querysets."""
-        admin_perms: list[Permission] = []
-        manager_perms: list[Permission] = []
-        employee_perms: list[Permission] = []
-        line_manager_perms: list[Permission] = []
+    def _collect_app_models(self, label):
+        with suppress(LookupError):
+            app_config = apps.get_app_config(label)
+            return list(app_config.get_models())
+        return []
 
-        department_model = context.get("department_model")
-        emp_model = context.get("emp_model")
-        employee_document_model = context.get("employee_document_model")
-        job_history_model = context.get("job_history_model")
-        contract_model = context.get("contract_model")
-        has_employee_document = context.get("has_employee_document")
+    def _build_roles(self, models, user_model):
+        """Construct per-role permission querysets."""
+
+        admin_perm_ids: set[int] = set()
+        role_perm_ids: dict[str, set[int]] = defaultdict(set)
 
         for model in models:
             ct = ContentType.objects.get_for_model(model)
-            model_perms = Permission.objects.filter(content_type=ct)
-            admin_perms.extend(model_perms)
+            model_perms = list(Permission.objects.filter(content_type=ct))
+            if not model_perms:
+                continue
+
+            admin_perm_ids.update(perm.pk for perm in model_perms)
 
             model_name = model._meta.model_name  # noqa: SLF001
-            manager_perms.extend(
-                model_perms.filter(
-                    codename__in=[f"view_{model_name}", f"change_{model_name}"],
-                ),
-            )
+            app_label = model._meta.app_label  # noqa: SLF001
+            perms_by_codename = {perm.codename: perm for perm in model_perms}
 
-            employee_perms.extend(model_perms.filter(codename=f"view_{model_name}"))
-
-            if (
-                has_employee_document
-                and employee_document_model is not None
-                and model is employee_document_model
-            ):
-                employee_perms.extend(model_perms.filter(codename=f"add_{model_name}"))
-
-            if emp_model is not None and model is emp_model:
-                line_manager_perms.extend(
-                    model_perms.filter(
-                        codename__in=[f"view_{model_name}", f"change_{model_name}"],
+            for role_name, app_rules in ROLE_APP_ACTIONS.items():
+                actions = app_rules.get(app_label)
+                if actions:
+                    self._add_actions(
+                        role_perm_ids[role_name], perms_by_codename, model_name, actions
                     )
-                )
-            elif department_model is not None and model is department_model:
-                line_manager_perms.extend(
-                    model_perms.filter(codename__in=[f"view_{model_name}"])
-                )
-            elif (job_history_model is not None and model is job_history_model) or (
-                contract_model is not None and model is contract_model
-            ):
-                line_manager_perms.extend(
-                    model_perms.filter(
-                        codename__in=[
-                            f"view_{model_name}",
-                            f"add_{model_name}",
-                            f"change_{model_name}",
-                        ]
-                    )
-                )
 
-        return {
-            "Admin": {"permissions": admin_perms},
-            "Manager": {"permissions": manager_perms},
-            "Employee": {"permissions": employee_perms},
-            "Line Manager": {"permissions": line_manager_perms},
+            for (
+                rule_app_label,
+                rule_model_name,
+            ), role_actions in ROLE_MODEL_ACTIONS.items():
+                if (rule_app_label, rule_model_name) != (app_label, model_name):
+                    continue
+                for role_name, actions in role_actions.items():
+                    self._add_actions(
+                        role_perm_ids[role_name], perms_by_codename, model_name, actions
+                    )
+
+        # Guarantee employees retain at least read access to their own user records.
+        employee_view_perm = Permission.objects.filter(
+            content_type=ContentType.objects.get_for_model(user_model),
+            codename=f"view_{user_model._meta.model_name}",  # noqa: SLF001
+        ).first()
+        if employee_view_perm:
+            role_perm_ids[ROLE_EMPLOYEE].add(employee_view_perm.pk)
+
+        roles = {
+            "Admin": {"permissions": Permission.objects.filter(pk__in=admin_perm_ids)}
         }
+
+        for role_name, perm_ids in role_perm_ids.items():
+            roles[role_name] = {
+                "permissions": Permission.objects.filter(pk__in=perm_ids)
+            }
+
+        return roles
+
+    def _add_actions(self, bucket, perms_by_codename, model_name, actions):
+        for action in actions:
+            codename = f"{action}_{model_name}"
+            perm = perms_by_codename.get(codename)
+            if perm:
+                bucket.add(perm.pk)
 
     def _apply_roles(self, roles):
         """Create/update groups and assign permissions."""

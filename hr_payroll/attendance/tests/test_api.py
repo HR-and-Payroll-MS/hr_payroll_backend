@@ -51,7 +51,7 @@ def test_manager_can_approve_direct_report_attendance():
     res = client.post(url)
     assert res.status_code == status.HTTP_200_OK
     att.refresh_from_db()
-    assert att.status == Attendance.Status.APPROVED
+    assert att.status == Attendance.Status.PRESENT
 
 
 @pytest.mark.django_db

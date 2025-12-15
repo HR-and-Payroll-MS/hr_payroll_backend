@@ -4,6 +4,7 @@ from rest_framework import permissions
 from rest_framework import viewsets
 from rest_framework.response import Response
 
+from hr_payroll.employees.api.permissions import IsAdminOrPayrollOnly
 from hr_payroll.payroll.models import BankDetail
 from hr_payroll.payroll.models import BankMaster
 from hr_payroll.payroll.models import Dependent
@@ -41,17 +42,6 @@ class PayrollPlaceholderViewSet(viewsets.ViewSet):
         return Response({"message": "Payroll API Root"})
 
 
-class IsAdminOrManagerOnly(permissions.BasePermission):
-    """Permission: Only Admin or Manager groups can access"""
-
-    def has_permission(self, request, view):
-        if not request.user or not request.user.is_authenticated:
-            return False
-        if request.user.is_staff:
-            return True
-        return request.user.groups.filter(name__in=["Admin", "Manager"]).exists()
-
-
 @extend_schema_view(
     list=extend_schema(tags=["Payroll • Bank Masters"]),
     retrieve=extend_schema(tags=["Payroll • Bank Masters"]),
@@ -63,7 +53,7 @@ class IsAdminOrManagerOnly(permissions.BasePermission):
 class BankMasterViewSet(viewsets.ModelViewSet):
     queryset = BankMaster.objects.all()
     serializer_class = BankMasterSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdminOrManagerOnly]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrPayrollOnly]
     search_fields = ["name", "swift_code"]
     ordering_fields = ["name"]
     ordering = ["name"]
@@ -80,7 +70,7 @@ class BankMasterViewSet(viewsets.ModelViewSet):
 class SalaryComponentViewSet(viewsets.ModelViewSet):
     queryset = SalaryComponent.objects.all()
     serializer_class = SalaryComponentSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdminOrManagerOnly]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrPayrollOnly]
     filterset_fields = ["component_type", "is_taxable", "is_recurring"]
     search_fields = ["name"]
     ordering_fields = ["name", "component_type"]
@@ -96,7 +86,7 @@ class SalaryComponentViewSet(viewsets.ModelViewSet):
 class PayrollGeneralSettingViewSet(viewsets.ModelViewSet):
     queryset = PayrollGeneralSetting.objects.all()
     serializer_class = PayrollGeneralSettingSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdminOrManagerOnly]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrPayrollOnly]
     http_method_names = ["get", "put", "patch", "head", "options"]  # No create/delete
 
 
@@ -113,7 +103,7 @@ class EmployeeSalaryStructureViewSet(viewsets.ModelViewSet):
         "employee__user"
     ).prefetch_related("items__component")
     serializer_class = EmployeeSalaryStructureSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdminOrManagerOnly]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrPayrollOnly]
     filterset_fields = ["employee"]
     search_fields = ["employee__user__username", "employee__user__email"]
     ordering = ["-updated_at"]
@@ -130,7 +120,7 @@ class EmployeeSalaryStructureViewSet(viewsets.ModelViewSet):
 class SalaryStructureItemViewSet(viewsets.ModelViewSet):
     queryset = SalaryStructureItem.objects.select_related("structure", "component")
     serializer_class = SalaryStructureItemSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdminOrManagerOnly]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrPayrollOnly]
     filterset_fields = ["structure", "component"]
     ordering = ["id"]
 
@@ -146,7 +136,7 @@ class SalaryStructureItemViewSet(viewsets.ModelViewSet):
 class BankDetailViewSet(viewsets.ModelViewSet):
     queryset = BankDetail.objects.select_related("employee__user", "bank")
     serializer_class = BankDetailSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdminOrManagerOnly]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrPayrollOnly]
     filterset_fields = ["employee", "bank"]
     search_fields = ["employee__user__username", "account_number"]
     ordering = ["employee"]
@@ -163,7 +153,7 @@ class BankDetailViewSet(viewsets.ModelViewSet):
 class DependentViewSet(viewsets.ModelViewSet):
     queryset = Dependent.objects.select_related("employee__user")
     serializer_class = DependentSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdminOrManagerOnly]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrPayrollOnly]
     filterset_fields = ["employee"]
     search_fields = ["employee__user__username", "name"]
     ordering = ["employee", "name"]
@@ -180,7 +170,7 @@ class DependentViewSet(viewsets.ModelViewSet):
 class PayCycleViewSet(viewsets.ModelViewSet):
     queryset = PayCycle.objects.select_related("manager_in_charge__user")
     serializer_class = PayCycleSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdminOrManagerOnly]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrPayrollOnly]
     filterset_fields = ["status"]
     search_fields = ["name"]
     ordering = ["-start_date"]
@@ -199,7 +189,7 @@ class PayrollSlipViewSet(viewsets.ModelViewSet):
         "employee__user", "cycle"
     ).prefetch_related("line_items")
     serializer_class = PayrollSlipSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdminOrManagerOnly]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrPayrollOnly]
     filterset_fields = ["employee", "cycle", "status"]
     search_fields = ["employee__user__username", "employee__user__email"]
     ordering = ["-cycle__start_date", "employee"]
@@ -216,7 +206,7 @@ class PayrollSlipViewSet(viewsets.ModelViewSet):
 class PayslipLineItemViewSet(viewsets.ModelViewSet):
     queryset = PayslipLineItem.objects.select_related("slip", "component")
     serializer_class = PayslipLineItemSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdminOrManagerOnly]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrPayrollOnly]
     filterset_fields = ["slip", "category", "component"]
     search_fields = ["label"]
     ordering = ["slip", "category"]

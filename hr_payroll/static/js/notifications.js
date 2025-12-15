@@ -26,8 +26,14 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     notificationSocket.onclose = function (e) {
-        console.error('Notification socket closed unexpectedly');
-        // Optional: Reconnect logic could go here
+        console.error('Notification socket closed unexpectedly. Reconnecting in 3s...');
+        setTimeout(function () {
+            console.log('Attempting Reconnect...');
+            // Reloading page or re-running function would work.
+            // For this simple script, a reload is easiest,
+            // OR we can wrap the connection logic in a function called connect().
+            window.location.reload();
+        }, 3000);
     };
 
     function showNotification(data) {

@@ -88,6 +88,12 @@ To run the tests, check your test coverage, and generate an HTML coverage report
 
     pytest
 
+#### Permission matrix regression tests
+
+Run the dedicated RBAC regression suite to verify that Admin, HR, Payroll, Line Manager, and Employee roles hit the expected allow/deny paths across attendance, employees, leaves, payroll, and org endpoints:
+
+    pytest hr_payroll/tests/test_permissions_matrix.py -vv
+
 ### Live reloading and Sass CSS compilation
 
 Moved to [Live reloading and SASS compilation](https://cookiecutter-django.readthedocs.io/en/latest/2-local-development/developing-locally.html#using-webpack-or-gulp).
