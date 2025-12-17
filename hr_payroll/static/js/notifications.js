@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (window.location.port === '3000') {
         host = window.location.hostname + ':8000';
     }
-    const wsUrl = protocol + '//' + host + '/ws/notifications/';
+    const wsUrl = protocol + '//' + host + '/ws/notifications/raw/';
 
     // Only connect if user is authenticated (can check via template variable or just try)
     // For now, we try to connect. The consumer disconnects anonymous users.

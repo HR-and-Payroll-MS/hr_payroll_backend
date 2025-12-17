@@ -44,3 +44,6 @@ dj-database-url==2.3.0  # https://github.com/jazzband/dj-database-url
 channels>=4.0.0
 daphne>=4.0.0
 channels-redis>=4.0.0
+
+# Socket.IO (frontend uses socket.io-client)
+python-socketio[asgi]==5.11.2
