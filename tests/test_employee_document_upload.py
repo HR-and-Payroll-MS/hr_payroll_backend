@@ -7,7 +7,9 @@ from hr_payroll.users.models import User
 
 
 @pytest.mark.django_db
-def test_employee_upload_document_multipart_tempfile_no_deepcopy_error(settings):
+def test_employee_upload_document_multipart_tempfile_no_deepcopy_error(
+    settings, tmp_path
+):
     """Uploading via multipart should not crash with deepcopy/pickle errors.
 
     Django can store uploaded files as TemporaryUploadedFile (BufferedRandom-backed)
@@ -15,6 +17,10 @@ def test_employee_upload_document_multipart_tempfile_no_deepcopy_error(settings)
     request.data for multipart requests could trigger:
     TypeError: cannot pickle 'BufferedRandom' instances
     """
+
+    # Ensure uploads always write to a writable location (CI containers may not
+    # have permissions for the default /app/hr_payroll/media).
+    settings.MEDIA_ROOT = str(tmp_path / "media")
 
     settings.FILE_UPLOAD_MAX_MEMORY_SIZE = 1  # force temp-file uploads
 
@@ -47,7 +53,8 @@ def test_employee_upload_document_multipart_tempfile_no_deepcopy_error(settings)
 
 
 @pytest.mark.django_db
-def test_employee_upload_document_accepts_frontend_alias_fields(settings):
+def test_employee_upload_document_accepts_frontend_alias_fields(settings, tmp_path):
+    settings.MEDIA_ROOT = str(tmp_path / "media")
     settings.FILE_UPLOAD_MAX_MEMORY_SIZE = 1  # force temp-file uploads
 
     user = User.objects.create_user(
@@ -77,7 +84,8 @@ def test_employee_upload_document_accepts_frontend_alias_fields(settings):
 
 
 @pytest.mark.django_db
-def test_employee_upload_document_missing_file_returns_clear_400():
+def test_employee_upload_document_missing_file_returns_clear_400(settings, tmp_path):
+    settings.MEDIA_ROOT = str(tmp_path / "media")
     user = User.objects.create_user(
         username="docuser3",
         email="docuser3@example.com",
