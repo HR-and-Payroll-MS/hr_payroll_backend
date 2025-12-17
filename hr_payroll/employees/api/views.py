@@ -1,5 +1,6 @@
 """Views for Employees API."""
 
+import contextlib
 import logging
 import mimetypes
 
@@ -21,6 +22,7 @@ from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from hr_payroll.audit.utils import log_action
 from hr_payroll.employees.models import Employee
 from hr_payroll.employees.models import EmployeeDocument
 
@@ -209,6 +211,27 @@ class EmployeeRegistrationViewSet(viewsets.ModelViewSet):
         ser.is_valid(raise_exception=True)
         with transaction.atomic():
             emp = ser.save()
+
+        with contextlib.suppress(Exception):
+            created_user = getattr(emp, "user", None)
+            display = (
+                (created_user.get_full_name() or "").strip()
+                if created_user and hasattr(created_user, "get_full_name")
+                else ""
+            )
+            if not display and created_user:
+                display = getattr(created_user, "username", "")
+            message = (
+                f"Employee registered: {display}" if display else "Employee registered"
+            )
+            log_action(
+                "employee_registered",
+                actor=request.user,
+                message=message,
+                model_name="Employee",
+                record_id=getattr(emp, "pk", None),
+                ip_address=request.META.get("REMOTE_ADDR", "") or "",
+            )
         read = EmployeeReadSerializer(emp, context={"request": request})
         data = read.data
         creds = getattr(ser, "created_credentials", None)
@@ -231,6 +254,25 @@ class EmployeeRegistrationViewSet(viewsets.ModelViewSet):
         ser.is_valid(raise_exception=True)
         with transaction.atomic():
             emp = ser.save()
+
+        with contextlib.suppress(Exception):
+            created_user = getattr(emp, "user", None)
+            display = (
+                (created_user.get_full_name() or "").strip()
+                if created_user and hasattr(created_user, "get_full_name")
+                else ""
+            )
+            if not display and created_user:
+                display = getattr(created_user, "username", "")
+            message = f"Employee created: {display}" if display else "Employee created"
+            log_action(
+                "employee_created",
+                actor=request.user,
+                message=message,
+                model_name="Employee",
+                record_id=getattr(emp, "pk", None),
+                ip_address=request.META.get("REMOTE_ADDR", "") or "",
+            )
         read = EmployeeReadSerializer(emp, context={"request": request})
         data = read.data
         creds = getattr(ser, "created_credentials", None)
@@ -341,13 +383,42 @@ class EmployeeRegistrationViewSet(viewsets.ModelViewSet):
         # Check write permissions for the employee
         self.check_object_permissions(request, employee)
 
-        # Add employee ID to data
-        data = request.data.copy()
-        data["employee"] = employee.id
+        # IMPORTANT: avoid request.data.copy() here.
+        # With multipart uploads (especially when Django spills to
+        # TemporaryUploadedFile),
+        # QueryDict.copy() deepcopies its contents and can crash with:
+        # "cannot pickle 'BufferedRandom' instances".
 
-        ser = EmployeeDocumentSerializer(data=data)
+        # Frontend/backward-compatible aliases:
+        # - file: file | documents | document_file
+        # - name: name | document_name
+        file_obj = (
+            request.FILES.get("file")
+            or request.FILES.get("documents")
+            or request.FILES.get("document_file")
+        )
+        name = (
+            request.data.get("name") or request.data.get("document_name") or ""
+        ).strip()
+
+        if not file_obj:
+            return Response(
+                {
+                    "detail": "Missing uploaded file.",
+                    "code": "MISSING_FILE",
+                    "accepted_fields": {
+                        "file": ["file", "documents", "document_file"],
+                        "name": ["name", "document_name"],
+                    },
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not name:
+            name = getattr(file_obj, "name", "Document") or "Document"
+
+        ser = EmployeeDocumentSerializer(data={"name": name, "file": file_obj})
         ser.is_valid(raise_exception=True)
-        ser.save()
+        ser.save(employee=employee)
 
         return Response(ser.data, status=status.HTTP_201_CREATED)
 
@@ -369,7 +440,22 @@ class EmployeeRegistrationViewSet(viewsets.ModelViewSet):
         self.check_object_permissions(request, doc)
 
         partial = request.method == "PATCH"
-        ser = EmployeeDocumentSerializer(doc, data=request.data, partial=partial)
+
+        # Accept alias keys and avoid copying multipart QueryDict.
+        file_obj = (
+            request.FILES.get("file")
+            or request.FILES.get("documents")
+            or request.FILES.get("document_file")
+        )
+        name = request.data.get("name") or request.data.get("document_name")
+
+        payload = {}
+        if name is not None:
+            payload["name"] = str(name)
+        if file_obj is not None:
+            payload["file"] = file_obj
+
+        ser = EmployeeDocumentSerializer(doc, data=payload, partial=partial)
         ser.is_valid(raise_exception=True)
         ser.save()
 

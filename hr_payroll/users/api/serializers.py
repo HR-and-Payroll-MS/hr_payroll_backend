@@ -1,3 +1,4 @@
+from django.core.exceptions import ObjectDoesNotExist
 from django.urls import NoReverseMatch
 from django.urls import reverse
 from rest_framework import serializers
@@ -13,6 +14,7 @@ class UserSerializer(serializers.ModelSerializer[User]):
         slug_field="name",
     )
     id = serializers.IntegerField(read_only=True)
+    employee_id = serializers.SerializerMethodField()
 
     # Make username & email explicitly read-only to preserve auto-generation invariant
     username = serializers.CharField(read_only=True)
@@ -22,6 +24,7 @@ class UserSerializer(serializers.ModelSerializer[User]):
         model = User
         fields = [
             "id",
+            "employee_id",
             "username",
             "first_name",
             "last_name",
@@ -78,6 +81,16 @@ class UserSerializer(serializers.ModelSerializer[User]):
         # to avoid crashing serialization in environments with different router
         # registrations.
         return ""
+
+    def get_employee_id(self, obj: User) -> int | None:
+        # `Employee` is an optional one-to-one reverse relation
+        # (related_name='employee').
+        # Avoid raising if the user has no employee profile yet.
+        try:
+            employee = obj.employee
+        except (AttributeError, ObjectDoesNotExist):  # pragma: no cover
+            return None
+        return getattr(employee, "pk", None)
 
     def update(self, instance, validated_data):
         # Enforce invariant: username & email are system-managed (onboarding rules)

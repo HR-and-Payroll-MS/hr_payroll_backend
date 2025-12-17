@@ -121,6 +121,9 @@ employee_attendance_list = EmployeeAttendanceViewSet.as_view({"get": "list"})
 employee_attendance_detail = EmployeeAttendanceViewSet.as_view({"get": "retrieve"})
 employee_attendance_clock_in = EmployeeAttendanceViewSet.as_view({"post": "clock_in"})
 employee_attendance_clock_out = EmployeeAttendanceViewSet.as_view({"post": "clock_out"})
+employee_attendance_clock_out_today = EmployeeAttendanceViewSet.as_view(
+    {"post": "clock_out_today"}
+)
 employee_attendance_fingerprint_scan = EmployeeAttendanceViewSet.as_view(
     {"post": "fingerprint_scan"}
 )
@@ -144,6 +147,11 @@ urlpatterns += [
         "api/v1/employees/<int:employee_id>/attendances/clock-in/",
         employee_attendance_clock_in,
         name="employee-attendance-clock-in",
+    ),
+    path(
+        "api/v1/employees/<int:employee_id>/attendances/clock-out/",
+        employee_attendance_clock_out_today,
+        name="employee-attendance-clock-out-today",
     ),
     path(
         "api/v1/employees/<int:employee_id>/attendances/fingerprint/scan/",

@@ -1,16 +1,18 @@
 from decimal import Decimal
 
-from django.conf import settings
 from django.db import transaction
 
 from hr_payroll.attendance.models import Attendance
 from hr_payroll.employees.models import Employee
+from hr_payroll.leaves.models import PublicHoliday
 from hr_payroll.payroll.models import PayrollCycle
 from hr_payroll.payroll.models import PayrollRecord
-
-
-def _get_standard_work_hours_per_day() -> int:
-    return int(getattr(settings, "STANDARD_WORK_HOURS_PER_DAY", 8))
+from hr_payroll.policies import holiday_overtime_rate_multiplier
+from hr_payroll.policies import min_overtime_minutes
+from hr_payroll.policies import overtime_rate_multiplier
+from hr_payroll.policies import standard_work_hours_per_day
+from hr_payroll.policies import weekend_overtime_rate_multiplier
+from hr_payroll.policies import weekly_off_weekday_indexes
 
 
 def prorate_amount(base_salary: Decimal, worked_days: int, period_days: int) -> Decimal:
@@ -29,7 +31,7 @@ def prorate_amount(base_salary: Decimal, worked_days: int, period_days: int) -> 
 
 
 @transaction.atomic
-def generate_payroll_for_cycle(cycle_id: str) -> dict[str, int]:
+def generate_payroll_for_cycle(cycle_id: str) -> dict[str, int]:  # noqa: C901, PLR0912, PLR0915
     """Generate payroll records for the given PayrollCycle.
 
     This will iterate eligible employees, compute attendance aggregates for the
@@ -55,7 +57,19 @@ def generate_payroll_for_cycle(cycle_id: str) -> dict[str, int]:
     period_start = cycle.period_start
     period_end = cycle.period_end
     period_days = cycle.days_in_period
-    std_hours = _get_standard_work_hours_per_day()
+    # Policy value is centralized to avoid drift across modules.
+    standard_hours_per_day = standard_work_hours_per_day()
+    weekly_off = weekly_off_weekday_indexes()
+    min_ot_seconds = min_overtime_minutes() * 60
+
+    # Holidays overlapping this cycle window.
+    holidays = list(
+        PublicHoliday.objects.filter(
+            start_date__lte=period_end, end_date__gte=period_start
+        )
+        .only("start_date", "end_date")
+        .iterator()
+    )
 
     for emp in employees.iterator():
         # Aggregate attendance for the employee in the cycle window
@@ -64,9 +78,30 @@ def generate_payroll_for_cycle(cycle_id: str) -> dict[str, int]:
         )
         total_work_seconds = 0
         total_ot_seconds = 0
+        weekday_ot_seconds = 0
+        weekend_ot_seconds = 0
+        holiday_ot_seconds = 0
         for a in attendances:
             total_work_seconds += int(a.paid_time.total_seconds()) if a.paid_time else 0
-            total_ot_seconds += int(a.overtime_seconds or 0)
+
+            ot_seconds = int(a.overtime_seconds or 0)
+            if ot_seconds <= 0:
+                continue
+            total_ot_seconds += ot_seconds
+
+            # Apply minimum overtime threshold per attendance day.
+            if ot_seconds < min_ot_seconds:
+                continue
+
+            # Determine OT multiplier class based on attendance date.
+            day = a.date
+            is_holiday = any(h.start_date <= day <= h.end_date for h in holidays)
+            if is_holiday:
+                holiday_ot_seconds += ot_seconds
+            elif day.weekday() in weekly_off:
+                weekend_ot_seconds += ot_seconds
+            else:
+                weekday_ot_seconds += ot_seconds
 
         # Derive days worked by counting unique attendance days
         days_worked = attendances.values("date").distinct().count()
@@ -90,8 +125,8 @@ def generate_payroll_for_cycle(cycle_id: str) -> dict[str, int]:
         # Actual (hours-based) pay: compute hourly rate from base salary
         hours = Decimal(total_work_seconds) / Decimal(3600)
         denom = (
-            Decimal(period_days * std_hours)
-            if period_days * std_hours > 0
+            Decimal(period_days * standard_hours_per_day)
+            if period_days * standard_hours_per_day > 0
             else Decimal(1)
         )
         hourly_rate = (
@@ -101,9 +136,14 @@ def generate_payroll_for_cycle(cycle_id: str) -> dict[str, int]:
         )
         actual_pay = (hourly_rate * hours).quantize(Decimal("0.01"))
 
-        ot_hours = Decimal(total_ot_seconds) / Decimal(3600)
-        # Overtime premium: assume 1.5x hourly rate for OT
-        ot_pay = (hourly_rate * Decimal("1.5") * ot_hours).quantize(Decimal("0.01"))
+        weekday_ot_hours = Decimal(weekday_ot_seconds) / Decimal(3600)
+        weekend_ot_hours = Decimal(weekend_ot_seconds) / Decimal(3600)
+        holiday_ot_hours = Decimal(holiday_ot_seconds) / Decimal(3600)
+        ot_pay = (
+            (hourly_rate * overtime_rate_multiplier() * weekday_ot_hours)
+            + (hourly_rate * weekend_overtime_rate_multiplier() * weekend_ot_hours)
+            + (hourly_rate * holiday_overtime_rate_multiplier() * holiday_ot_hours)
+        ).quantize(Decimal("0.01"))
 
         # Create or update PayrollRecord
         record, created_flag = PayrollRecord.objects.update_or_create(

@@ -25,8 +25,11 @@ class Attendance(models.Model):
         related_name="attendances",
     )
     date = models.DateField()
-    clock_in = models.DateTimeField()
-    clock_in_location = models.CharField(max_length=255)
+    # clock_in is nullable to support HR corrections such as clearing an
+    # accidental clock-in (or resetting a day). Punch endpoints must treat
+    # clock_in=None as "not clocked-in".
+    clock_in = models.DateTimeField(null=True, blank=True)
+    clock_in_location = models.CharField(max_length=255, blank=True, default="")
     clock_out = models.DateTimeField(null=True, blank=True)
     clock_out_location = models.CharField(max_length=255, blank=True, default="")
     work_schedule_hours = models.IntegerField(default=8)
@@ -50,7 +53,7 @@ class Attendance(models.Model):
     @property
     def logged_time(self) -> timedelta | None:
         """Compute raw logged time (clock_out - clock_in) when clock_out is present."""
-        if not self.clock_out:
+        if not self.clock_out or not self.clock_in:
             return None
         ci = self.clock_in
         co = self.clock_out

@@ -3,7 +3,7 @@ import datetime as dt
 import ipaddress
 from collections import defaultdict
 
-from django.conf import settings
+from django.db import IntegrityError
 from django.db import models
 from django.http import QueryDict
 from django.utils import timezone
@@ -16,26 +16,49 @@ from drf_spectacular.utils import extend_schema_view
 from rest_framework import mixins
 from rest_framework import status
 from rest_framework.decorators import action
+from rest_framework.permissions import BasePermission
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 
 from hr_payroll.attendance.api.serializers import AttendanceAdjustmentSerializer
+from hr_payroll.attendance.api.serializers import AttendanceCorrectionSerializer
 from hr_payroll.attendance.api.serializers import AttendanceSerializer
+from hr_payroll.attendance.api.serializers import DepartmentAttendanceSummarySerializer
+from hr_payroll.attendance.api.serializers import (
+    DepartmentEmployeeAttendanceRowSerializer,
+)
 from hr_payroll.attendance.api.serializers import EmployeeClockInSerializer
 from hr_payroll.attendance.api.serializers import FingerprintScanSerializer
 from hr_payroll.attendance.api.serializers import ManualEntrySerializer
 from hr_payroll.attendance.api.serializers import SelfAttendanceActionSerializer
 from hr_payroll.attendance.api.serializers import SelfAttendanceQuerySerializer
+from hr_payroll.attendance.api.serializers import SelfClockOutSerializer
 from hr_payroll.attendance.models import Attendance
 from hr_payroll.attendance.models import AttendanceAdjustment
 from hr_payroll.attendance.models import OfficeNetwork
+from hr_payroll.audit.utils import log_action
 from hr_payroll.employees.api.permissions import ROLE_LINE_MANAGER
 from hr_payroll.employees.api.permissions import IsAdminOrHROrLineManagerScopedWrite
 from hr_payroll.employees.api.permissions import IsAdminOrManagerOnly
 from hr_payroll.employees.api.permissions import _line_manager_in_scope
 from hr_payroll.employees.api.permissions import _user_in_groups
 from hr_payroll.employees.models import Employee
+from hr_payroll.org.models import Department
+from hr_payroll.policies import attendance_edit_window_days
+from hr_payroll.policies import get_policy_document
+
+MIN_SELF_CLOCK_OUT_HOURS = 7
+
+
+class IsAdminManagerOrLineManagerOnly(BasePermission):
+    def has_permission(self, request, view) -> bool:
+        u = getattr(request, "user", None)
+        if not (u and getattr(u, "is_authenticated", False)):
+            return False
+        if getattr(u, "is_staff", False):
+            return True
+        return _user_in_groups(u, ["Admin", "Manager", ROLE_LINE_MANAGER])
 
 
 def _is_ip_allowed(remote_ip: str) -> bool:
@@ -57,12 +80,22 @@ def _is_ip_allowed(remote_ip: str) -> bool:
 
 
 def _get_remote_ip(request) -> str | None:
-    """Best-effort extraction of the caller IP address from request META."""
+    """Best-effort remote client IP extraction.
+
+    Prefers `X-Forwarded-For` (first hop) when present, otherwise falls back to
+    `REMOTE_ADDR`.
+    """
     meta = getattr(request, "META", {}) or {}
-    forwarded = meta.get("HTTP_X_FORWARDED_FOR")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return meta.get("REMOTE_ADDR")
+    xff = meta.get("HTTP_X_FORWARDED_FOR")
+    if xff:
+        # XFF format: client, proxy1, proxy2
+        first = str(xff).split(",")[0].strip()
+        return first or None
+    real_ip = meta.get("HTTP_X_REAL_IP")
+    if real_ip:
+        return str(real_ip).strip() or None
+    ra = meta.get("REMOTE_ADDR")
+    return str(ra).strip() if ra else None
 
 
 def _ensure_aware(value):
@@ -168,28 +201,55 @@ def _resolve_status_from_request(request, default=Attendance.Status.PRESENT):
 class AttendanceViewSet(
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
     GenericViewSet,
 ):
     """Top-level attendance endpoints for admin/manager level workflows."""
 
     queryset = Attendance.objects.select_related("employee", "employee__user").all()
     serializer_class = AttendanceSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrManagerOnly]
+    permission_classes = [IsAuthenticated, IsAdminManagerOrLineManagerOnly]
+
+    def get_permissions(self):
+        # Editing clock-in/out timestamps and locations must be restricted to
+        # Admin/Manager (HR) only. Line Managers can view department-scoped
+        # lists/reports and approve within scope, but cannot directly alter
+        # punch times.
+        if getattr(self, "action", None) in {
+            "update",
+            "partial_update",
+            "clock_out",
+            "delete_clock_out",
+        }:
+            return [IsAuthenticated(), IsAdminOrManagerOnly()]
+        return super().get_permissions()
+
+    def get_serializer_class(self):
+        if getattr(self, "action", None) in {"update", "partial_update"}:
+            return AttendanceCorrectionSerializer
+        return super().get_serializer_class()
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        inst = self.get_object()
+        ser = AttendanceCorrectionSerializer(inst, data=request.data, partial=partial)
+        ser.is_valid(raise_exception=True)
+        ser.save()
+        return Response(AttendanceSerializer(inst).data, status=200)
 
     def get_queryset(self):  # noqa: C901
         qs = super().get_queryset()
         u = getattr(self.request, "user", None)
-        if u and getattr(u, "is_authenticated", False):
-            groups = getattr(u, "groups", None)
-            is_hr = bool(getattr(u, "is_staff", False)) or bool(
-                groups and groups.filter(name__in=["Admin", "Manager"]).exists()
-            )
-            is_lm = bool(groups and groups.filter(name="Line Manager").exists())
-            if not (is_hr or is_lm):
-                emp = getattr(u, "employee", None)
-                if not emp:
-                    return qs.none()
-                qs = qs.filter(employee=emp)
+        if not (u and getattr(u, "is_authenticated", False)):
+            return qs.none()
+
+        # Line managers are restricted to their own department.
+        if _user_in_groups(u, [ROLE_LINE_MANAGER]) and not _is_elevated_user(u):
+            my_emp = getattr(u, "employee", None)
+            dept_id = getattr(my_emp, "department_id", None)
+            if not dept_id:
+                return qs.none()
+            qs = qs.filter(employee__department_id=dept_id)
         employee = self.kwargs.get("employee_id") or self.request.query_params.get(
             "employee"
         )
@@ -221,11 +281,34 @@ class AttendanceViewSet(
             qs = qs.filter(adjustments__isnull=False)
         return qs
 
-    @action(detail=True, methods=["post"], url_path="clock-out")
+    @action(
+        detail=True,
+        methods=["delete"],
+        url_path="clock-out",
+        permission_classes=[IsAuthenticated, IsAdminManagerOrLineManagerOnly],
+    )
+    @extend_schema(tags=["Attendance"], request=None, responses=AttendanceSerializer)
+    def delete_clock_out(self, request, pk=None):
+        """Clear clock_out fields (does not delete the attendance record)."""
+
+        inst = self.get_object()
+        inst.clock_out = None
+        inst.clock_out_location = ""
+        inst.save(update_fields=["clock_out", "clock_out_location", "updated_at"])
+        return Response(AttendanceSerializer(inst).data, status=200)
+
+    @action(detail=True, methods=["post", "delete"], url_path="clock-out")
     @extend_schema(tags=["Attendance"])
     def clock_out(self, request, pk=None):
         """Set clock_out time and optional location."""
         inst = self.get_object()
+
+        if request.method.upper() == "DELETE":
+            inst.clock_out = None
+            inst.clock_out_location = ""
+            inst.save(update_fields=["clock_out", "clock_out_location", "updated_at"])
+            return Response(self.get_serializer(inst).data, status=200)
+
         u = request.user
         groups = getattr(u, "groups", None)
         is_hr = bool(getattr(u, "is_staff", False)) or bool(
@@ -267,6 +350,242 @@ class AttendanceViewSet(
 
     # Note: no top-level clock-in; use nested employee endpoints instead.
 
+    def _department_scope_queryset(self, user):
+        if _is_elevated_user(user):
+            return Department.objects.filter(is_active=True)
+        if _user_in_groups(user, [ROLE_LINE_MANAGER]):
+            emp = getattr(user, "employee", None)
+            dept_id = getattr(emp, "department_id", None)
+            if not dept_id:
+                return Department.objects.none()
+            return Department.objects.filter(is_active=True, pk=dept_id)
+        return None
+
+    def _parse_target_date(self, request):
+        date_str = request.query_params.get("date")
+        if not date_str:
+            return timezone.localdate(), None
+        try:
+            return dt.date.fromisoformat(str(date_str)), None
+        except ValueError:
+            return None, Response({"date": "invalid"}, status=400)
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="departments",
+        permission_classes=[IsAuthenticated],
+    )
+    @extend_schema(
+        tags=["Attendance"],
+        parameters=[
+            OpenApiParameter(
+                name="date",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                required=False,
+            )
+        ],
+        responses=DepartmentAttendanceSummarySerializer(many=True),
+    )
+    def departments_summary(self, request):
+        """Return per-department totals for a date (default: today).
+
+        Designed for UI: first show departments with counts (present/absent/permitted).
+        """
+
+        dept_qs = self._department_scope_queryset(request.user)
+        if dept_qs is None:
+            return Response({"detail": "Forbidden"}, status=403)
+        target_date, error = self._parse_target_date(request)
+        if error:
+            return error
+
+        rows: list[dict] = []
+        for dept in dept_qs.order_by("name"):
+            total_employees = Employee.objects.filter(
+                department=dept, is_active=True
+            ).count()
+            status_counts = {
+                r["status"]: int(r["c"])
+                for r in Attendance.objects.filter(
+                    date=target_date,
+                    employee__department=dept,
+                    employee__is_active=True,
+                )
+                .values("status")
+                .annotate(c=models.Count("id"))
+            }
+            attendance_total = sum(status_counts.values())
+            present = status_counts.get(Attendance.Status.PRESENT, 0)
+            permitted = status_counts.get(Attendance.Status.PERMITTED, 0)
+            absent_records = status_counts.get(Attendance.Status.ABSENT, 0)
+            no_record = max(total_employees - attendance_total, 0)
+            absent = absent_records + no_record
+
+            rows.append(
+                {
+                    "department_id": dept.id,
+                    "department_name": dept.name,
+                    "date": target_date,
+                    "total_employees": total_employees,
+                    "present": present,
+                    "absent": absent,
+                    "permitted": permitted,
+                }
+            )
+
+        return Response(DepartmentAttendanceSummarySerializer(rows, many=True).data)
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path=r"departments/(?P<department_id>[^/.]+)",
+        permission_classes=[IsAuthenticated],
+    )
+    @extend_schema(
+        tags=["Attendance"],
+        parameters=[
+            OpenApiParameter(
+                name="date",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                required=False,
+            )
+        ],
+        responses=DepartmentEmployeeAttendanceRowSerializer(many=True),
+    )
+    def department_attendance(self, request, department_id=None):  # noqa: C901, PLR0911, PLR0912
+        """Return one row per employee in a department for a date (default: today)."""
+
+        target_date, error = self._parse_target_date(request)
+        if error:
+            return error
+
+        try:
+            dept_id_int = int(department_id)
+        except (TypeError, ValueError):
+            return Response({"department_id": "invalid"}, status=400)
+
+        dept = Department.objects.filter(pk=dept_id_int, is_active=True).first()
+        if not dept:
+            return Response({"detail": "Not found"}, status=404)
+
+        if not _is_elevated_user(request.user):
+            if not _user_in_groups(request.user, [ROLE_LINE_MANAGER]):
+                return Response({"detail": "Forbidden"}, status=403)
+            emp = getattr(request.user, "employee", None)
+            if not emp or emp.department_id != dept.id:
+                return Response({"detail": "Forbidden"}, status=403)
+
+        employees = (
+            Employee.objects.select_related("user")
+            .filter(department=dept, is_active=True)
+            .order_by("user__username")
+        )
+        attendance_by_employee_id = {
+            a.employee_id: a
+            for a in Attendance.objects.select_related("employee", "employee__user")
+            .filter(date=target_date, employee__in=employees)
+            .all()
+        }
+
+        # HR users often need to correct days that currently have no Attendance row.
+        # The frontend expects an attendance_id to PATCH; when it's null it ends up
+        # calling /api/v1/attendances/null/ and gets a 404. To keep the frontend
+        # contract stable, auto-create placeholder Attendance rows for missing
+        # employees on this date (HR/admin only).
+        if _is_elevated_user(request.user):
+            missing_employees = [
+                e for e in employees if e.id not in attendance_by_employee_id
+            ]
+            if missing_employees:
+                try:
+                    created = Attendance.objects.bulk_create(
+                        [
+                            Attendance(
+                                employee=e,
+                                date=target_date,
+                                clock_in=None,
+                                clock_in_location="",
+                                clock_out=None,
+                                clock_out_location="",
+                                status=Attendance.Status.ABSENT,
+                                notes="",
+                            )
+                            for e in missing_employees
+                        ],
+                        ignore_conflicts=True,
+                    )
+                except IntegrityError:
+                    # This typically means the DB schema is behind the code (e.g.
+                    # Attendance.clock_in is still NOT NULL). Returning 409 makes the
+                    # root cause obvious and avoids a noisy 500 stack trace.
+                    detail = (
+                        "Database schema is out of date for attendance placeholders. "
+                        "Run migrations."
+                    )
+                    return Response(
+                        {
+                            "detail": detail,
+                            "code": "DB_SCHEMA_OUT_OF_DATE",
+                        },
+                        status=status.HTTP_409_CONFLICT,
+                    )
+                # Refresh mapping for any newly created rows
+                if created or missing_employees:
+                    for a in Attendance.objects.filter(
+                        date=target_date, employee__in=missing_employees
+                    ):
+                        attendance_by_employee_id[a.employee_id] = a
+
+        rows: list[dict] = []
+        for e in employees:
+            u = getattr(e, "user", None)
+            name = ""
+            if u is not None and hasattr(u, "get_full_name"):
+                name = (u.get_full_name() or "").strip()
+            if not name and u is not None:
+                name = getattr(u, "username", "")
+            att = attendance_by_employee_id.get(e.id)
+            if att is None:
+                rows.append(
+                    {
+                        "employee_id": e.id,
+                        "employee_name": name,
+                        "date": target_date,
+                        "attendance_id": None,
+                        "clock_in": None,
+                        "clock_in_location": "",
+                        "status": Attendance.Status.ABSENT,
+                        "clock_out": None,
+                        "clock_out_location": "",
+                        "work_schedule_hours": 8,
+                        "paid_time": dt.timedelta(0),
+                        "notes": "",
+                    }
+                )
+                continue
+
+            rows.append(
+                {
+                    "employee_id": e.id,
+                    "employee_name": name,
+                    "date": att.date,
+                    "attendance_id": att.id,
+                    "clock_in": att.clock_in,
+                    "clock_in_location": att.clock_in_location or "",
+                    "status": att.status,
+                    "clock_out": att.clock_out,
+                    "clock_out_location": att.clock_out_location or "",
+                    "work_schedule_hours": int(att.work_schedule_hours or 0),
+                    "paid_time": att.paid_time or dt.timedelta(0),
+                    "notes": att.notes or "",
+                }
+            )
+
+        return Response(DepartmentEmployeeAttendanceRowSerializer(rows, many=True).data)
+
     @action(
         detail=True,
         methods=["post"],
@@ -277,6 +596,7 @@ class AttendanceViewSet(
     def approve(self, request, pk=None):
         """Approve an attendance record, optionally overriding status."""
         inst = self.get_object()
+        prev_status = getattr(inst, "status", None)
         user = request.user
         if _user_in_groups(user, [ROLE_LINE_MANAGER]) and not _line_manager_in_scope(
             user, inst
@@ -288,6 +608,21 @@ class AttendanceViewSet(
         if inst.status != new_status:
             inst.status = new_status
             inst.save(update_fields=["status", "updated_at"])
+        message = (
+            f"Attendance approved: employee={inst.employee_id} "
+            f"date={inst.date} status={inst.status}"
+        )
+        with contextlib.suppress(Exception):
+            log_action(
+                "attendance_approved",
+                actor=request.user,
+                message=message,
+                model_name="Attendance",
+                record_id=getattr(inst, "pk", None),
+                before={"status": prev_status},
+                after={"status": inst.status},
+                ip_address=request.META.get("REMOTE_ADDR", "") or "",
+            )
         return Response({"status": inst.status})
 
     @action(
@@ -360,6 +695,160 @@ class AttendanceViewSet(
 
     # Note: no top-level fingerprint scan; use nested employee endpoints.
 
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="adjust-paid-time",
+        permission_classes=[IsAuthenticated, IsAdminOrHROrLineManagerScopedWrite],
+    )
+    @extend_schema(tags=["Attendance • Records"])
+    def adjust_paid_time(self, request, pk=None):  # noqa: C901, PLR0911, PLR0912, PLR0915
+        """Adjust paid_time and create an adjustment audit record."""
+        inst = self.get_object()
+        policy = get_policy_document()
+        attendance_policy = (
+            policy.get("attendancePolicy", {}) if isinstance(policy, dict) else {}
+        )
+        overtime_rules = (
+            attendance_policy.get("overtimeRules", {})
+            if isinstance(attendance_policy, dict)
+            else {}
+        )
+        correction_policy = (
+            attendance_policy.get("attendanceCorrection", {})
+            if isinstance(attendance_policy, dict)
+            else {}
+        )
+
+        # Enforce edit window
+        window_days = attendance_edit_window_days()
+        if (timezone.now().date() - inst.date).days > window_days:
+            return Response(
+                {"detail": f"Edit window exceeded ({window_days} days)"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        new_paid = request.data.get("paid_time")
+        notes = request.data.get("notes", "")
+
+        docs_required = (
+            (correction_policy.get("documentationRequired") or {}).get("value")
+            if isinstance(correction_policy, dict)
+            else None
+        )
+        if str(docs_required).lower() == "yes" and not str(notes or "").strip():
+            return Response(
+                {"notes": "required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if new_paid is None:
+            return Response(
+                {"paid_time": "required"}, status=status.HTTP_400_BAD_REQUEST
+            )
+        if isinstance(new_paid, str):
+            dur = parse_duration(new_paid)
+            if dur is None:
+                return Response(
+                    {"paid_time": "invalid duration"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            new_paid = dur
+        prev = inst.paid_time
+        inst.paid_time = new_paid
+        inst.status = Attendance.Status.PERMITTED
+        scheduled = timezone.timedelta(hours=int(inst.work_schedule_hours))
+
+        paid = inst.paid_time or timezone.timedelta(0)
+        ot_delta = paid - scheduled
+        ot_seconds_raw = int(ot_delta.total_seconds())
+
+        # Apply frontend overtime rules (policy-driven) to overtime_seconds.
+        overtime_allowed = (
+            (overtime_rules.get("overtimeAllowed") or {}).get("value")
+            if isinstance(overtime_rules, dict)
+            else None
+        )
+        min_minutes = (
+            overtime_rules.get("minMinutes")
+            if isinstance(overtime_rules, dict)
+            else None
+        )
+        max_daily_hours = (
+            overtime_rules.get("maxDailyHours")
+            if isinstance(overtime_rules, dict)
+            else None
+        )
+        max_weekly_hours = (
+            overtime_rules.get("maxWeeklyHours")
+            if isinstance(overtime_rules, dict)
+            else None
+        )
+
+        ot_seconds = max(0, ot_seconds_raw)
+
+        if str(overtime_allowed).lower() == "no" and ot_seconds > 0:
+            return Response(
+                {"detail": "Overtime is not allowed by policy"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            min_seconds = int(min_minutes) * 60 if min_minutes is not None else None
+        except (TypeError, ValueError):
+            min_seconds = None
+        if min_seconds is not None and 0 < ot_seconds < min_seconds:
+            ot_seconds = 0
+
+        try:
+            max_daily_seconds = (
+                int(max_daily_hours) * 3600 if max_daily_hours is not None else None
+            )
+        except (TypeError, ValueError):
+            max_daily_seconds = None
+        if max_daily_seconds is not None and ot_seconds > max_daily_seconds:
+            ot_seconds = max_daily_seconds
+
+        if max_weekly_hours is not None and ot_seconds > 0:
+            try:
+                max_weekly_seconds = int(max_weekly_hours) * 3600
+            except (TypeError, ValueError):
+                max_weekly_seconds = None
+            if max_weekly_seconds is not None:
+                week_start = inst.date - timezone.timedelta(days=inst.date.weekday())
+                week_end = week_start + timezone.timedelta(days=6)
+                existing_week_ot = 0
+                qs = Attendance.objects.filter(
+                    employee=inst.employee,
+                    date__gte=week_start,
+                    date__lte=week_end,
+                ).exclude(pk=inst.pk)
+                for row in qs.only("overtime_seconds"):
+                    existing_week_ot += max(0, int(row.overtime_seconds or 0))
+                if existing_week_ot + ot_seconds > max_weekly_seconds:
+                    return Response(
+                        {"detail": "Weekly overtime limit exceeded"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+        inst.overtime_seconds = ot_seconds
+        inst.save(
+            update_fields=[
+                "paid_time",
+                "status",
+                "overtime_seconds",
+                "updated_at",
+            ]
+        )
+        adj = AttendanceAdjustment.objects.create(
+            attendance=inst,
+            performed_by=request.user if request.user.is_authenticated else None,
+            previous_paid_time=prev,
+            new_paid_time=new_paid,
+            notes=notes,
+        )
+        ser = AttendanceAdjustmentSerializer(adj)
+        return Response(ser.data, status=status.HTTP_201_CREATED)
+
 
 @extend_schema_view(
     list=extend_schema(tags=["Employee Attendance"]),
@@ -424,6 +913,20 @@ class EmployeeAttendanceViewSet(
                 return None, Response({"detail": "Forbidden"}, status=403)
         return target_emp, None
 
+    def _resolve_self_employee_scope(self, request, employee_id):
+        """Resolve employee and require employee_id to match the authenticated user.
+
+        This prevents URL-tweaking IDOR for punch endpoints (clock-in/out/check).
+        """
+
+        my_emp = getattr(getattr(request, "user", None), "employee", None)
+        my_emp_id = getattr(my_emp, "id", None)
+        if my_emp_id is None:
+            return None, Response({"detail": "No employee profile"}, status=400)
+        if str(my_emp_id) != str(employee_id):
+            return None, Response({"detail": "Forbidden"}, status=403)
+        return my_emp, None
+
     def _scrub_employee_from_payload(self, request):
         payload = request.data
         payload = payload.copy() if hasattr(payload, "copy") else dict(payload)
@@ -479,53 +982,89 @@ class EmployeeAttendanceViewSet(
         responses=AttendanceSerializer,
     )
     def clock_in(self, request, employee_id=None):
-        u = request.user
         ser = EmployeeClockInSerializer(data=self._scrub_employee_from_payload(request))
         ser.is_valid(raise_exception=True)
         vd = ser.validated_data
-        # Elevated users may clock-in for the specified employee without IP restriction
-        target_emp, error = self._resolve_employee_scope(request, employee_id)
+        # Punch endpoints are always self-only to prevent IDOR via URL tweaking.
+        target_emp, error = self._resolve_self_employee_scope(request, employee_id)
         if error:
             return error
-        elevated = _is_elevated_user(u)
-        if not elevated:
-            remote_ip = _get_remote_ip(request)
-            if not _is_ip_allowed(remote_ip):
-                return Response(
-                    {
-                        "detail": (
-                            "Self clock-in allowed only from company network. "
-                            f"Detected IP: {remote_ip}"
-                        )
-                    },
-                    status=403,
-                )
-        date_str = vd.get("date")
-        clock_in_val = vd.get("clock_in")
-        clock_in_location = vd.get("clock_in_location")
-        if not clock_in_location:
-            return Response({"clock_in_location": "required"}, status=400)
-        date_val = (
-            timezone.datetime.fromisoformat(str(date_str)).date()
-            if date_str
-            else timezone.now().date()
-        )
-        if Attendance.objects.filter(employee=target_emp, date=date_val).exists():
+        remote_ip = _get_remote_ip(request)
+        if not _is_ip_allowed(remote_ip or ""):
             return Response(
-                {"detail": "Attendance already exists for date"}, status=400
+                {
+                    "detail": (
+                        "Self clock-in allowed only from company network. "
+                        f"Detected IP: {remote_ip}"
+                    )
+                },
+                status=403,
             )
-        dt = (
+        date_val = vd.get("date") or timezone.localdate()
+        clock_in_val = vd.get("clock_in")
+        clock_in_location = vd["clock_in_location"]
+
+        clock_in_dt = (
             parse_datetime(clock_in_val)
             if isinstance(clock_in_val, str)
             else (clock_in_val or timezone.now())
         )
+        clock_in_dt = _ensure_aware(clock_in_dt) or timezone.now()
+
+        existing = Attendance.objects.filter(employee=target_emp, date=date_val).first()
+        if existing is not None:
+            # Idempotent: if already clocked-in for the date, return the record
+            # instead of failing with 400.
+            if not existing.clock_in:
+                existing.clock_in = clock_in_dt
+                existing.clock_in_location = clock_in_location
+                existing.save(
+                    update_fields=["clock_in", "clock_in_location", "updated_at"]
+                )
+            return Response(AttendanceSerializer(existing).data, status=200)
+
         att = Attendance.objects.create(
             employee=target_emp,
             date=date_val,
-            clock_in=dt,
+            clock_in=clock_in_dt,
             clock_in_location=clock_in_location,
         )
         return Response(AttendanceSerializer(att).data, status=201)
+
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="clock-out",
+        serializer_class=SelfClockOutSerializer,
+        permission_classes=[IsAuthenticated],
+    )
+    @extend_schema(tags=["Employee Attendance"], request=SelfClockOutSerializer)
+    def clock_out_today(self, request, employee_id=None):
+        """Clock-out without attendance id.
+
+        Resolves the target attendance by (employee_id, date). This is the
+        intended endpoint for frontend punch flows.
+        """
+
+        ser = SelfClockOutSerializer(data=self._scrub_employee_from_payload(request))
+        ser.is_valid(raise_exception=True)
+        vd = ser.validated_data
+
+        target_emp, error = self._resolve_self_employee_scope(request, employee_id)
+        if error:
+            return error
+
+        target_date = vd.get("date") or timezone.localdate()
+        timestamp = self._resolve_self_timestamp(vd, target_date)
+        location = vd["location"]
+        notes = vd.get("notes", "")
+
+        attendance = Attendance.objects.filter(
+            employee=target_emp, date=target_date
+        ).first()
+        return self._handle_self_check_out(
+            attendance, target_date, timestamp, location, notes
+        )
 
     @action(detail=True, methods=["post"], url_path="clock-out")
     @extend_schema(tags=["Employee Attendance"])
@@ -533,21 +1072,41 @@ class EmployeeAttendanceViewSet(
         # get_object already filtered by employee_id via queryset
         inst = self.get_object()
         u = request.user
-        elevated = _is_elevated_user(u)
-        if not elevated:
-            my_emp_id = getattr(getattr(u, "employee", None), "id", None)
-            if str(my_emp_id) != str(employee_id):
-                return Response({"detail": "Forbidden"}, status=403)
+        my_emp_id = getattr(getattr(u, "employee", None), "id", None)
+        if str(my_emp_id) != str(employee_id):
+            return Response({"detail": "Forbidden"}, status=403)
         clock_out = request.data.get("clock_out")
         clock_out_location = request.data.get("clock_out_location")
         notes = request.data.get("notes")
         if not clock_out:
             return Response({"clock_out": "required"}, status=400)
-        dt = parse_datetime(clock_out) if isinstance(clock_out, str) else clock_out
-        dt = _ensure_aware(dt)
-        if dt is None:
+        clock_out_dt = (
+            parse_datetime(clock_out) if isinstance(clock_out, str) else clock_out
+        )
+        clock_out_dt = _ensure_aware(clock_out_dt)
+        if clock_out_dt is None:
             return Response({"clock_out": "invalid datetime"}, status=400)
-        inst.clock_out = dt
+        if inst.clock_in and (clock_out_dt - inst.clock_in) < dt.timedelta(
+            hours=MIN_SELF_CLOCK_OUT_HOURS
+        ):
+            earliest = inst.clock_in + dt.timedelta(hours=MIN_SELF_CLOCK_OUT_HOURS)
+            remaining_seconds = int((earliest - clock_out_dt).total_seconds())
+            detail = (
+                f"Clock-out not allowed until {MIN_SELF_CLOCK_OUT_HOURS} hours "
+                "after clock-in."
+            )
+            return Response(
+                {
+                    "detail": detail,
+                    "code": "MINIMUM_SHIFT_DURATION_NOT_MET",
+                    "min_hours": MIN_SELF_CLOCK_OUT_HOURS,
+                    "clock_in": inst.clock_in.isoformat() if inst.clock_in else None,
+                    "earliest_clock_out": earliest.isoformat(),
+                    "remaining_seconds": max(0, remaining_seconds),
+                },
+                status=400,
+            )
+        inst.clock_out = clock_out_dt
         if clock_out_location:
             inst.clock_out_location = clock_out_location
         update_fields = ["clock_out", "clock_out_location", "updated_at"]
@@ -644,14 +1203,14 @@ class EmployeeAttendanceViewSet(
         description="Check whether the employee is on an allowed office network.",
     )
     def network_status(self, request, employee_id=None):
-        target_emp, error = self._resolve_employee_scope(request, employee_id)
+        target_emp, error = self._resolve_self_employee_scope(request, employee_id)
         if error:
             return error
         remote_ip = _get_remote_ip(request)
         return Response(
             {
                 "employee": target_emp.pk,
-                "is_office_network": _is_ip_allowed(remote_ip),
+                "is_office_network": _is_ip_allowed(remote_ip or ""),
                 "ip": remote_ip,
             }
         )
@@ -675,7 +1234,7 @@ class EmployeeAttendanceViewSet(
         ser = ManualEntrySerializer(data=self._scrub_employee_from_payload(request))
         ser.is_valid(raise_exception=True)
         vd = ser.validated_data
-        target_emp, error = self._resolve_employee_scope(request, employee_id)
+        target_emp, error = self._resolve_self_employee_scope(request, employee_id)
         if error:
             return error
         date_str = vd.get("date")
@@ -716,7 +1275,7 @@ class EmployeeAttendanceViewSet(
     )
     @extend_schema(tags=["Employee Attendance"], request=None)
     def actions(self, request, employee_id=None):
-        target_emp, error = self._resolve_employee_scope(request, employee_id)
+        target_emp, error = self._resolve_self_employee_scope(request, employee_id)
         if error:
             return error
         base = f"/api/v1/employees/{employee_id}/attendances"
@@ -763,12 +1322,16 @@ class EmployeeAttendanceViewSet(
         ser = SelfAttendanceQuerySerializer(data=request.query_params)
         ser.is_valid(raise_exception=True)
         target_date = ser.validated_data.get("date") or timezone.localdate()
-        target_emp, error = self._resolve_employee_scope(request, employee_id)
+        target_emp, error = self._resolve_self_employee_scope(request, employee_id)
         if error:
             return error
         attendance = Attendance.objects.filter(
             employee=target_emp, date=target_date
         ).first()
+        # If HR cleared clock_in (and possibly clock_out), treat the day as not
+        # started yet so clients can clock-in again.
+        if attendance is not None and attendance.clock_in is None:
+            attendance = None
         return Response(self._attendance_payload(attendance, target_date))
 
     @action(
@@ -785,7 +1348,7 @@ class EmployeeAttendanceViewSet(
         )
         ser.is_valid(raise_exception=True)
         vd = ser.validated_data
-        target_emp, error = self._resolve_employee_scope(request, employee_id)
+        target_emp, error = self._resolve_self_employee_scope(request, employee_id)
         if error:
             return error
         target_date = vd.get("date") or timezone.localdate()
@@ -815,30 +1378,48 @@ class EmployeeAttendanceViewSet(
         data,
         target_date,
     ):
-        if attendance:
+        if attendance and attendance.clock_in:
+            # Idempotent behavior: if the user is already clocked in for the day,
+            # return the current payload instead of failing.
             return Response(
-                {"detail": "Attendance already exists for date."},
-                status=status.HTTP_400_BAD_REQUEST,
+                self._attendance_payload(attendance, target_date), status=200
             )
-        if not _is_elevated_user(request.user):
-            remote_ip = _get_remote_ip(request)
-            if not _is_ip_allowed(remote_ip):
-                return Response(
-                    {
-                        "detail": (
-                            "Self clock-in allowed only from company network. "
-                            f"Detected IP: {remote_ip or 'unknown'}"
-                        )
-                    },
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-        attendance = Attendance.objects.create(
-            employee=employee,
-            date=target_date,
-            clock_in=self._resolve_self_timestamp(data, target_date),
-            clock_in_location=data["location"],
-            notes=data.get("notes", ""),
-        )
+        remote_ip = _get_remote_ip(request)
+        if not _is_ip_allowed(remote_ip or ""):
+            return Response(
+                {
+                    "detail": (
+                        "Self clock-in allowed only from company network. "
+                        f"Detected IP: {remote_ip or 'unknown'}"
+                    )
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if attendance and attendance.clock_in is None:
+            attendance.clock_in = self._resolve_self_timestamp(data, target_date)
+            attendance.clock_in_location = data["location"]
+            attendance.notes = data.get("notes", "")
+            # Ensure any stale clock-out is cleared as well.
+            attendance.clock_out = None
+            attendance.clock_out_location = ""
+            attendance.save(
+                update_fields=[
+                    "clock_in",
+                    "clock_in_location",
+                    "notes",
+                    "clock_out",
+                    "clock_out_location",
+                    "updated_at",
+                ]
+            )
+        else:
+            attendance = Attendance.objects.create(
+                employee=employee,
+                date=target_date,
+                clock_in=self._resolve_self_timestamp(data, target_date),
+                clock_in_location=data["location"],
+                notes=data.get("notes", ""),
+            )
         return Response(
             self._attendance_payload(attendance, target_date),
             status=status.HTTP_201_CREATED,
@@ -853,13 +1434,41 @@ class EmployeeAttendanceViewSet(
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if attendance.clock_out:
+            # Idempotent behavior: repeated clock-out should return the current payload.
             return Response(
-                {"detail": "Attendance already has a clock-out."},
-                status=status.HTTP_400_BAD_REQUEST,
+                self._attendance_payload(attendance, target_date), status=200
             )
         if timestamp < attendance.clock_in:
             return Response(
-                {"time": "Clock-out cannot be before clock-in."},
+                {
+                    "detail": "Clock-out cannot be before clock-in.",
+                    "time": "Clock-out cannot be before clock-in.",
+                    "code": "CLOCK_OUT_BEFORE_CLOCK_IN",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if (timestamp - attendance.clock_in) < dt.timedelta(
+            hours=MIN_SELF_CLOCK_OUT_HOURS
+        ):
+            earliest = attendance.clock_in + dt.timedelta(
+                hours=MIN_SELF_CLOCK_OUT_HOURS
+            )
+            remaining_seconds = int((earliest - timestamp).total_seconds())
+            detail = (
+                f"Clock-out not allowed until {MIN_SELF_CLOCK_OUT_HOURS} hours "
+                "after clock-in."
+            )
+            return Response(
+                {
+                    "detail": detail,
+                    "code": "MINIMUM_SHIFT_DURATION_NOT_MET",
+                    "min_hours": MIN_SELF_CLOCK_OUT_HOURS,
+                    "clock_in": attendance.clock_in.isoformat()
+                    if attendance.clock_in
+                    else None,
+                    "earliest_clock_out": earliest.isoformat(),
+                    "remaining_seconds": max(0, remaining_seconds),
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
         attendance.clock_out = timestamp
@@ -878,11 +1487,26 @@ class EmployeeAttendanceViewSet(
         permission_classes=[IsAuthenticated, IsAdminOrHROrLineManagerScopedWrite],
     )
     @extend_schema(tags=["Attendance • Records"])
-    def adjust_paid_time(self, request, pk=None):
+    def adjust_paid_time(self, request, pk=None):  # noqa: C901, PLR0911, PLR0912, PLR0915
         """Adjust paid_time and create an adjustment audit record."""
         inst = self.get_object()
+        policy = get_policy_document()
+        attendance_policy = (
+            policy.get("attendancePolicy", {}) if isinstance(policy, dict) else {}
+        )
+        overtime_rules = (
+            attendance_policy.get("overtimeRules", {})
+            if isinstance(attendance_policy, dict)
+            else {}
+        )
+        correction_policy = (
+            attendance_policy.get("attendanceCorrection", {})
+            if isinstance(attendance_policy, dict)
+            else {}
+        )
+
         # Enforce edit window
-        window_days = int(getattr(settings, "ATTENDANCE_EDIT_WINDOW_DAYS", 31))
+        window_days = attendance_edit_window_days()
         if (timezone.now().date() - inst.date).days > window_days:
             return Response(
                 {"detail": f"Edit window exceeded ({window_days} days)"},
@@ -890,6 +1514,17 @@ class EmployeeAttendanceViewSet(
             )
         new_paid = request.data.get("paid_time")
         notes = request.data.get("notes", "")
+
+        docs_required = (
+            (correction_policy.get("documentationRequired") or {}).get("value")
+            if isinstance(correction_policy, dict)
+            else None
+        )
+        if str(docs_required).lower() == "yes" and not str(notes or "").strip():
+            return Response(
+                {"notes": "required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         if new_paid is None:
             return Response(
                 {"paid_time": "required"}, status=status.HTTP_400_BAD_REQUEST
@@ -906,8 +1541,80 @@ class EmployeeAttendanceViewSet(
         inst.paid_time = new_paid
         inst.status = Attendance.Status.PERMITTED
         scheduled = timezone.timedelta(hours=int(inst.work_schedule_hours))
-        ot = (inst.paid_time or timezone.timedelta(0)) - scheduled
-        inst.overtime_seconds = int(ot.total_seconds())
+
+        paid = inst.paid_time or timezone.timedelta(0)
+        ot_delta = paid - scheduled
+        ot_seconds_raw = int(ot_delta.total_seconds())
+
+        # Apply frontend overtime rules (policy-driven) to overtime_seconds.
+        overtime_allowed = (
+            (overtime_rules.get("overtimeAllowed") or {}).get("value")
+            if isinstance(overtime_rules, dict)
+            else None
+        )
+        min_minutes = (
+            overtime_rules.get("minMinutes")
+            if isinstance(overtime_rules, dict)
+            else None
+        )
+        max_daily_hours = (
+            overtime_rules.get("maxDailyHours")
+            if isinstance(overtime_rules, dict)
+            else None
+        )
+        max_weekly_hours = (
+            overtime_rules.get("maxWeeklyHours")
+            if isinstance(overtime_rules, dict)
+            else None
+        )
+
+        ot_seconds = max(0, ot_seconds_raw)
+
+        if str(overtime_allowed).lower() == "no" and ot_seconds > 0:
+            return Response(
+                {"detail": "Overtime is not allowed by policy"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            min_seconds = int(min_minutes) * 60 if min_minutes is not None else None
+        except (TypeError, ValueError):
+            min_seconds = None
+        if min_seconds is not None and 0 < ot_seconds < min_seconds:
+            ot_seconds = 0
+
+        try:
+            max_daily_seconds = (
+                int(max_daily_hours) * 3600 if max_daily_hours is not None else None
+            )
+        except (TypeError, ValueError):
+            max_daily_seconds = None
+        if max_daily_seconds is not None and ot_seconds > max_daily_seconds:
+            ot_seconds = max_daily_seconds
+
+        if max_weekly_hours is not None and ot_seconds > 0:
+            try:
+                max_weekly_seconds = int(max_weekly_hours) * 3600
+            except (TypeError, ValueError):
+                max_weekly_seconds = None
+            if max_weekly_seconds is not None:
+                week_start = inst.date - timezone.timedelta(days=inst.date.weekday())
+                week_end = week_start + timezone.timedelta(days=6)
+                existing_week_ot = 0
+                qs = Attendance.objects.filter(
+                    employee=inst.employee,
+                    date__gte=week_start,
+                    date__lte=week_end,
+                ).exclude(pk=inst.pk)
+                for row in qs.only("overtime_seconds"):
+                    existing_week_ot += max(0, int(row.overtime_seconds or 0))
+                if existing_week_ot + ot_seconds > max_weekly_seconds:
+                    return Response(
+                        {"detail": "Weekly overtime limit exceeded"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+        inst.overtime_seconds = ot_seconds
         inst.save(
             update_fields=[
                 "paid_time",
@@ -936,12 +1643,28 @@ class EmployeeAttendanceViewSet(
     def approve(self, request, pk=None):
         """Approve an attendance record (optionally overriding status)."""
         inst = self.get_object()
+        prev_status = getattr(inst, "status", None)
         new_status, error = _resolve_status_from_request(request)
         if error:
             return error
         if inst.status != new_status:
             inst.status = new_status
             inst.save(update_fields=["status", "updated_at"])
+        message = (
+            f"Attendance approved: employee={inst.employee_id} "
+            f"date={inst.date} status={inst.status}"
+        )
+        with contextlib.suppress(Exception):
+            log_action(
+                "attendance_approved",
+                actor=request.user,
+                message=message,
+                model_name="Attendance",
+                record_id=getattr(inst, "pk", None),
+                before={"status": prev_status},
+                after={"status": inst.status},
+                ip_address=request.META.get("REMOTE_ADDR", "") or "",
+            )
         return Response({"status": inst.status})
 
     @action(

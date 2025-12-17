@@ -8,6 +8,8 @@ from hr_payroll.attendance.api.views import AttendanceViewSet
 from hr_payroll.employees.api.views import EmployeeRegistrationViewSet
 from hr_payroll.leaves.api.views import LeavesPlaceholderViewSet
 from hr_payroll.org.api.views import DepartmentViewSet
+from hr_payroll.org.api.views import OrganizationPoliciesView
+from hr_payroll.org.api.views import OrganizationPolicySectionView
 from hr_payroll.payroll.api.views import PayrollPlaceholderViewSet
 from hr_payroll.users.api.views import UserViewSet
 
@@ -28,6 +30,20 @@ router.register("employees", EmployeeRegistrationViewSet, basename="employees")
 app_name = "api"
 # Prepend includes to ensure they take precedence over placeholders
 urlpatterns = [
+    path(
+        "audit/",
+        include(("hr_payroll.audit.api.urls", "audit"), namespace="audit"),
+    ),
+    path(
+        "orgs/<int:org_id>/policies/",
+        OrganizationPoliciesView.as_view(),
+        name="org-policies",
+    ),
+    path(
+        "orgs/<int:org_id>/policies/<str:section>/",
+        OrganizationPolicySectionView.as_view(),
+        name="org-policies-section",
+    ),
     path("leaves/", include("hr_payroll.leaves.api.urls")),
     path("payroll/", include("hr_payroll.payroll.api.urls")),
     *router.urls,

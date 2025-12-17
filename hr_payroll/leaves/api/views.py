@@ -1,9 +1,12 @@
+import contextlib
+
 from drf_spectacular.utils import extend_schema
 from rest_framework import permissions
 from rest_framework import viewsets
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
+from hr_payroll.audit.utils import log_action
 from hr_payroll.employees.api.permissions import ROLE_ADMIN
 from hr_payroll.employees.api.permissions import ROLE_LINE_MANAGER
 from hr_payroll.employees.api.permissions import ROLE_MANAGER
@@ -126,11 +129,43 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         if hasattr(self.request.user, "employee"):
-            serializer.save(employee=self.request.user.employee)
+            inst = serializer.save(employee=self.request.user.employee)
+            with contextlib.suppress(Exception):
+                message = (
+                    f"Leave requested: {inst.employee_id} "
+                    f"{inst.start_date}→{inst.end_date}"
+                )
+                log_action(
+                    "leave_request_created",
+                    actor=self.request.user,
+                    message=message,
+                    model_name="LeaveRequest",
+                    record_id=getattr(inst, "pk", None),
+                    ip_address=self.request.META.get("REMOTE_ADDR", "") or "",
+                )
         else:
             raise ValidationError(
                 {"detail": "User does not have an associated Employee profile."}
             )
+
+    def perform_update(self, serializer):
+        inst = self.get_object()
+        prev_status = getattr(inst, "status", None)
+        updated = serializer.save()
+        new_status = getattr(updated, "status", None)
+        if prev_status != new_status:
+            with contextlib.suppress(Exception):
+                message = f"Leave status changed: {prev_status}→{new_status}"
+                log_action(
+                    "leave_status_changed",
+                    actor=self.request.user,
+                    message=message,
+                    model_name="LeaveRequest",
+                    record_id=getattr(updated, "pk", None),
+                    before={"status": prev_status},
+                    after={"status": new_status},
+                    ip_address=self.request.META.get("REMOTE_ADDR", "") or "",
+                )
 
 
 class BalanceHistoryViewSet(viewsets.ReadOnlyModelViewSet):

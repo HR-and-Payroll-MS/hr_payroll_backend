@@ -742,7 +742,7 @@ class EmployeeDocumentSerializer(serializers.ModelSerializer):
     class Meta:
         model = EmployeeDocument
         fields = ["id", "employee", "name", "file", "uploaded_at"]
-        read_only_fields = ["id", "uploaded_at"]
+        read_only_fields = ["id", "uploaded_at", "employee"]
 
     def validate_file(self, f):
         """Validate uploaded file."""

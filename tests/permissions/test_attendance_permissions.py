@@ -22,6 +22,55 @@ class AttendancePermissionTests(RoleAPITestCase):
         employees = {row["employee"] for row in self.extract_results(response)}
         assert self.roles[ROLE_EMPLOYEE].employee.pk in employees
 
+    def test_line_manager_only_sees_department_attendances(self):
+        response = self.get("api_v1:attendance-list", role=ROLE_LINE_MANAGER)
+        self.assert_http_status(response, status.HTTP_200_OK)
+        employees = {row["employee"] for row in self.extract_results(response)}
+        assert self.roles[ROLE_EMPLOYEE].employee.pk in employees
+        assert self.others["employee"].employee.pk not in employees
+
+    def test_line_manager_cannot_patch_team_attendance_times(self):
+        team_record = self.attendance_records["team"]
+        new_clock_in = (timezone.now() - timedelta(hours=9)).isoformat()
+        res = self.patch(
+            "api_v1:attendance-detail",
+            role=ROLE_LINE_MANAGER,
+            reverse_kwargs={"pk": team_record.pk},
+            payload={"clock_in": new_clock_in, "clock_in_location": "HQ corrected"},
+        )
+        self.assert_denied(res)
+
+    def test_line_manager_cannot_patch_other_department_attendance(self):
+        other_record = self.attendance_records["other"]
+        new_clock_in = (timezone.now() - timedelta(hours=9)).isoformat()
+        denied = self.patch(
+            "api_v1:attendance-detail",
+            role=ROLE_LINE_MANAGER,
+            reverse_kwargs={"pk": other_record.pk},
+            payload={"clock_in": new_clock_in},
+        )
+        # Scoped queryset should hide it.
+        assert denied.status_code in (
+            status.HTTP_403_FORBIDDEN,
+            status.HTTP_404_NOT_FOUND,
+        )
+
+    def test_line_manager_cannot_delete_clock_out_to_reopen_attendance(self):
+        team_record = self.attendance_records["team"]
+        # Set an initial clock_out
+        team_record.clock_out = timezone.now() + timedelta(hours=8)
+        team_record.clock_out_location = "HQ"
+        team_record.save(
+            update_fields=["clock_out", "clock_out_location", "updated_at"]
+        )
+
+        res = self.delete(
+            "api_v1:attendance-clock-out",
+            role=ROLE_LINE_MANAGER,
+            reverse_kwargs={"pk": team_record.pk},
+        )
+        self.assert_denied(res)
+
     def test_manual_entry_records_authenticated_employee(self):
         target_date = (timezone.now().date() + timedelta(days=7)).isoformat()
         target_clock_in = (timezone.now() + timedelta(days=7)).isoformat()
@@ -155,7 +204,7 @@ class AttendancePermissionTests(RoleAPITestCase):
         payload = {
             "action": "check_out",
             "location": "HQ kiosk",
-            "timestamp": (timezone.now() + timedelta(minutes=5)).isoformat(),
+            "timestamp": (timezone.now() + timedelta(hours=8)).isoformat(),
         }
         allowed = self.post(
             "employee-attendance-check",
@@ -181,5 +230,79 @@ class AttendancePermissionTests(RoleAPITestCase):
             "api_v1:attendance-approve",
             role=ROLE_LINE_MANAGER,
             reverse_kwargs={"pk": other_record.pk},
+        )
+        assert denied.status_code in (
+            status.HTTP_403_FORBIDDEN,
+            status.HTTP_404_NOT_FOUND,
+        )
+
+
+class AttendanceDepartmentListTests(RoleAPITestCase):
+    def test_manager_sees_departments_summary_with_counts(self):
+        response = self.get("api_v1:attendance-departments-summary", role=ROLE_MANAGER)
+        self.assert_http_status(response, status.HTTP_200_OK)
+        data = self.extract_results(response)
+        # Both departments exist in fixtures.
+        assert {d["department_name"] for d in data} == {"HQ", "Remote"}
+
+        hq = next(d for d in data if d["department_name"] == "HQ")
+        remote = next(d for d in data if d["department_name"] == "Remote")
+
+        # HQ has 5 active employees in setUp, but only 1 attendance record.
+        assert hq["total_employees"] == 5
+        assert hq["present"] == 1
+        assert hq["permitted"] == 0
+        assert hq["absent"] == 4
+
+        assert remote["total_employees"] == 1
+        assert remote["present"] == 1
+        assert remote["absent"] == 0
+
+    def test_line_manager_sees_only_own_department_in_summary(self):
+        response = self.get(
+            "api_v1:attendance-departments-summary", role=ROLE_LINE_MANAGER
+        )
+        self.assert_http_status(response, status.HTTP_200_OK)
+        data = self.extract_results(response)
+        assert len(data) == 1
+        assert data[0]["department_name"] == "HQ"
+
+    def test_line_manager_cannot_view_other_department_detail(self):
+        remote_id = self.departments["remote"].id
+        denied = self.get(
+            "api_v1:attendance-department-attendance",
+            role=ROLE_LINE_MANAGER,
+            reverse_kwargs={"department_id": remote_id},
+        )
+        self.assert_denied(denied)
+
+    def test_manager_can_view_department_detail_rows(self):
+        hq_id = self.departments["hq"].id
+        response = self.get(
+            "api_v1:attendance-department-attendance",
+            role=ROLE_MANAGER,
+            reverse_kwargs={"department_id": hq_id},
+        )
+        self.assert_http_status(response, status.HTTP_200_OK)
+        rows = self.extract_results(response)
+        # One row per employee in the department.
+        assert len(rows) == 5
+        statuses = {r["status"] for r in rows}
+        assert "PRESENT" in statuses
+        assert "ABSENT" in statuses
+
+
+class AttendancePunchSecurityTests(RoleAPITestCase):
+    def test_employee_cannot_clock_in_for_another_employee_by_url_tweaking(self):
+        OfficeNetwork.objects.create(
+            label="Loopback", cidr="127.0.0.1/32", is_active=True
+        )
+        other_emp_id = self.others["employee"].employee.pk
+        payload = {"clock_in_location": "HQ kiosk"}
+        denied = self.post(
+            "employee-attendance-clock-in",
+            role=ROLE_EMPLOYEE,
+            payload=payload,
+            reverse_kwargs={"employee_id": other_emp_id},
         )
         self.assert_denied(denied)
