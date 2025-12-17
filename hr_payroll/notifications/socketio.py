@@ -25,11 +25,6 @@ sio = socketio.AsyncServer(
     engineio_logger=False,
 )
 
-socketio_app = socketio.ASGIApp(
-    sio,
-    socketio_path="ws/notifications",
-)
-
 
 @database_sync_to_async
 def _get_user_id_from_access_token(token: str) -> int:
@@ -39,13 +34,29 @@ def _get_user_id_from_access_token(token: str) -> int:
     return int(user.id)
 
 
-def _extract_token(scope: dict, auth: object) -> str | None:
+def _extract_token(environ: dict, auth: object | None) -> str | None:
     # Prefer querystring token since the frontend uses `query: { token }`.
-    query_string = scope.get("query_string", b"")
+    #
+    # python-socketio passes different shapes depending on async mode:
+    # - ASGI: `environ` is the ASGI scope with `query_string: bytes`
+    # - WSGI: `environ` is a WSGI environ with `QUERY_STRING: str`
+    # - Some servers include `asgi.scope` inside `environ`
+    scope = environ
+    if isinstance(environ, dict) and "asgi.scope" in environ:
+        inner = environ.get("asgi.scope")
+        if isinstance(inner, dict):
+            scope = inner
+
+    query_string: str | bytes = ""
+    if isinstance(scope, dict) and "query_string" in scope:
+        query_string = scope.get("query_string", b"")
+    elif isinstance(scope, dict) and "QUERY_STRING" in scope:
+        query_string = scope.get("QUERY_STRING", "")
+
     if isinstance(query_string, (bytes, bytearray)):
         query_string = query_string.decode(errors="ignore")
 
-    token = parse_qs(query_string).get("token", [None])[0]
+    token = parse_qs(str(query_string)).get("token", [None])[0]
     if token:
         return token
 
@@ -59,10 +70,9 @@ def _extract_token(scope: dict, auth: object) -> str | None:
 
 
 @sio.event
-async def connect(sid, environ, auth):
-    # In ASGI mode, `environ` is the ASGI scope.
-    scope = environ
-    token = _extract_token(scope, auth)
+async def connect(sid, environ, auth=None):
+    # `auth` may be omitted depending on the client/transport.
+    token = _extract_token(environ, auth)
     if not token:
         reason = "unauthorized"
         raise ConnectionRefusedError(reason)

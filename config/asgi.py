@@ -36,14 +36,26 @@ django_application = get_asgi_application()
 from channels.auth import AuthMiddlewareStack  # noqa: E402
 from channels.routing import ProtocolTypeRouter  # noqa: E402
 from channels.routing import URLRouter  # noqa: E402
+from socketio import ASGIApp  # noqa: E402
 
 import hr_payroll.notifications.routing  # noqa: E402
+from hr_payroll.notifications.socketio import sio  # noqa: E402
 
-application = ProtocolTypeRouter(
+channels_application = ProtocolTypeRouter(
     {
         "http": django_application,
         "websocket": AuthMiddlewareStack(
             URLRouter(hr_payroll.notifications.routing.websocket_urlpatterns)
         ),
     }
+)
+
+# Socket.IO must sit above the ProtocolTypeRouter because it uses BOTH:
+# - HTTP long-polling (Engine.IO)
+# - WebSocket upgrades
+# Mount it at `/ws/notifications/` to match the frontend `path`.
+application = ASGIApp(
+    sio,
+    other_asgi_app=channels_application,
+    socketio_path="ws/notifications",
 )
