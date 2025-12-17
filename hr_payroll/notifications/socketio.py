@@ -10,6 +10,7 @@ So we mount Socket.IO at the non-default path `/ws/notifications/`.
 
 from __future__ import annotations
 
+import logging
 from urllib.parse import parse_qs
 
 import socketio
@@ -17,6 +18,8 @@ from asgiref.sync import async_to_sync
 from channels.db import database_sync_to_async
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import TokenError
+
+logger = logging.getLogger(__name__)
 
 sio = socketio.AsyncServer(
     async_mode="asgi",
@@ -96,6 +99,29 @@ async def connect(sid, environ, auth=None):
 async def disconnect(sid):
     # Rooms/session are cleaned up automatically.
     _ = sid
+
+
+@sio.event
+async def ping_notification(sid, data):
+    """Test event from the frontend.
+
+    Frontend emits `ping_notification` and expects the server to:
+    - log receipt
+    - emit a `notification` event back to the sender
+    """
+
+    session = await sio.get_session(sid)
+    user_id = session.get("user_id") if isinstance(session, dict) else None
+    logger.info("Ping received from user: %s %s", user_id, data)
+
+    payload = {
+        "id": 999,
+        "title": "Socket Test",
+        "message": "Ping received from NotificationCenterPage",
+        "meta": data,
+    }
+
+    await sio.emit("notification", payload, to=sid)
 
 
 def emit_notification_to_user(user_id: int, payload: dict) -> None:
