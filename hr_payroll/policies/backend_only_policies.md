@@ -12,4 +12,11 @@ This list is meant to help the frontend team decide what should become part of t
 
 ## Notes
 - Frontend currently models policies in `hr_payroll_front/src/Pages/HR_Manager/Policy/policiesSchema.js` (`initialPolicies`).
-- Backend now exposes `GET /api/v1/orgs/{org_id}/policies/` and `PUT /api/v1/orgs/{org_id}/policies/{section}/` so the frontend can later fetch/save policy sections.
+- Backend exposes organization-wide policy endpoints that match the frontend:
+	- `GET /api/v1/orgs/{org_id}/policies/` (also available at `/orgs/{org_id}/policies`)
+	- `PUT /api/v1/orgs/{org_id}/policies/{section}/` (also `/orgs/{org_id}/policies/{section}`)
+	- Trailing slash is optional; both forms are accepted.
+	- Sections: `general`, `attendancePolicy`, `leavePolicy`, `holidayPolicy`, `shiftPolicy`, `overtimePolicy`, `disciplinaryPolicy`, `jobStructurePolicy`, `salaryStructurePolicy`.
+
+Deprecated:
+- App-level policy endpoints (e.g., leaves `policies` ViewSet) have been removed/unregistered. Use the global Organization Policies endpoints above.

@@ -15,6 +15,17 @@ def test_org_policies_get_requires_auth():
 
 
 @pytest.mark.django_db
+def test_org_policies_get_root_and_no_slash_requires_auth():
+    client = APIClient()
+
+    res = client.get("/orgs/1/policies")
+    assert res.status_code == status.HTTP_401_UNAUTHORIZED
+
+    res = client.get("/api/v1/orgs/1/policies")
+    assert res.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+@pytest.mark.django_db
 def test_org_policies_get_returns_defaults(user):
     client = APIClient()
     client.force_authenticate(user=user)
@@ -28,6 +39,19 @@ def test_org_policies_get_returns_defaults(user):
     assert body["overtimePolicy"]["overtimeRate"] == 1.5
     assert body["overtimePolicy"]["weekendRate"] == 2
     assert body["overtimePolicy"]["holidayRate"] == 2
+
+
+@pytest.mark.django_db
+def test_org_policies_get_root_no_slash_returns_defaults(user):
+    client = APIClient()
+    client.force_authenticate(user=user)
+
+    res = client.get("/orgs/1/policies")
+    assert res.status_code == status.HTTP_200_OK
+
+    body = res.json()
+    assert "general" in body
+    assert body["overtimePolicy"]["overtimeRate"] == 1.5
 
 
 @pytest.mark.django_db
@@ -67,6 +91,42 @@ def test_org_policies_put_section_manager_updates_and_merges_defaults():
 
     row = OrganizationPolicy.objects.get(org_id=1)
     assert row.document["overtimePolicy"]["weekendRate"] == 2.5
+
+
+@pytest.mark.django_db
+def test_org_policies_put_section_without_trailing_slash_works():
+    manager = UserFactory()
+    group, _ = Group.objects.get_or_create(name="Manager")
+    manager.groups.add(group)
+
+    client = APIClient()
+    client.force_authenticate(user=manager)
+
+    res = client.put(
+        "/api/v1/orgs/1/policies/overtimePolicy",
+        {"overtimePolicy": {"weekendRate": 2.25}},
+        format="json",
+    )
+    assert res.status_code == status.HTTP_200_OK
+    assert res.json()["overtimePolicy"]["weekendRate"] == 2.25
+
+
+@pytest.mark.django_db
+def test_org_policies_put_section_root_without_prefix_works():
+    manager = UserFactory()
+    group, _ = Group.objects.get_or_create(name="Manager")
+    manager.groups.add(group)
+
+    client = APIClient()
+    client.force_authenticate(user=manager)
+
+    res = client.put(
+        "/orgs/1/policies/overtimePolicy",
+        {"overtimePolicy": {"weekendRate": 2.1}},
+        format="json",
+    )
+    assert res.status_code == status.HTTP_200_OK
+    assert res.json()["overtimePolicy"]["weekendRate"] == 2.1
 
 
 @pytest.mark.django_db

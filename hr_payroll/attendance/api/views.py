@@ -48,7 +48,7 @@ from hr_payroll.org.models import Department
 from hr_payroll.policies import attendance_edit_window_days
 from hr_payroll.policies import get_policy_document
 
-MIN_SELF_CLOCK_OUT_HOURS = 7
+MIN_SELF_CLOCK_OUT_HOURS = 0
 
 
 class IsAdminManagerOrLineManagerOnly(BasePermission):
@@ -63,6 +63,9 @@ class IsAdminManagerOrLineManagerOnly(BasePermission):
 
 def _is_ip_allowed(remote_ip: str) -> bool:
     """Return True if remote_ip is within any active OfficeNetwork CIDR."""
+    # If no office networks are configured, deny by default (policy enforcement).
+    if not OfficeNetwork.objects.filter(is_active=True).exists():
+        return False
     if not remote_ip:
         return False
     try:
@@ -232,7 +235,36 @@ class AttendanceViewSet(
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop("partial", False)
         inst = self.get_object()
-        ser = AttendanceCorrectionSerializer(inst, data=request.data, partial=partial)
+
+        # Some clients clear datetimes by sending an empty string ("") instead of
+        # JSON null. DRF's DateTimeField rejects "" before it reaches serializer
+        # validation, so normalize here.
+        if hasattr(request.data, "copy"):
+            data = request.data.copy()
+        else:
+            data = dict(request.data)
+
+        # Optional UI helper flag: treat as an instruction to clear clock-out.
+        delete_flag = data.get("delete_clock_out")
+        if isinstance(delete_flag, str):
+            delete_flag = delete_flag.strip().lower() in {"1", "true", "yes", "on"}
+        if delete_flag is True:
+            data["clock_out"] = None
+            data.setdefault("clock_out_location", "")
+            # Remove to avoid "unknown field" errors.
+            data.pop("delete_clock_out", None)
+
+        for dt_field in ["clock_in", "clock_out"]:
+            if dt_field in data:
+                v = data.get(dt_field)
+                if v in {"", "null"}:
+                    data[dt_field] = None
+
+        for text_field in ["clock_in_location", "clock_out_location", "notes"]:
+            if text_field in data and data.get(text_field) is None:
+                data[text_field] = ""
+
+        ser = AttendanceCorrectionSerializer(inst, data=data, partial=partial)
         ser.is_valid(raise_exception=True)
         ser.save()
         return Response(AttendanceSerializer(inst).data, status=200)
@@ -364,7 +396,7 @@ class AttendanceViewSet(
     def _parse_target_date(self, request):
         date_str = request.query_params.get("date")
         if not date_str:
-            return timezone.localdate(), None
+            return timezone.now().date(), None
         try:
             return dt.date.fromisoformat(str(date_str)), None
         except ValueError:
@@ -1000,7 +1032,7 @@ class EmployeeAttendanceViewSet(
                 },
                 status=403,
             )
-        date_val = vd.get("date") or timezone.localdate()
+        date_val = vd.get("date") or timezone.now().date()
         clock_in_val = vd.get("clock_in")
         clock_in_location = vd["clock_in_location"]
 
@@ -1018,8 +1050,15 @@ class EmployeeAttendanceViewSet(
             if not existing.clock_in:
                 existing.clock_in = clock_in_dt
                 existing.clock_in_location = clock_in_location
+                # Ensure status flips to PRESENT on first clock-in
+                existing.status = Attendance.Status.PRESENT
                 existing.save(
-                    update_fields=["clock_in", "clock_in_location", "updated_at"]
+                    update_fields=[
+                        "clock_in",
+                        "clock_in_location",
+                        "status",
+                        "updated_at",
+                    ]
                 )
             return Response(AttendanceSerializer(existing).data, status=200)
 
@@ -1054,7 +1093,7 @@ class EmployeeAttendanceViewSet(
         if error:
             return error
 
-        target_date = vd.get("date") or timezone.localdate()
+        target_date = vd.get("date") or timezone.now().date()
         timestamp = self._resolve_self_timestamp(vd, target_date)
         location = vd["location"]
         notes = vd.get("notes", "")
@@ -1165,6 +1204,21 @@ class EmployeeAttendanceViewSet(
                 date=date_val,
                 clock_in=dt,
                 clock_in_location=loc,
+            )
+            action_taken = "clock_in"
+        # If placeholder exists without clock-in, treat as clock-in
+        elif not att.clock_in:
+            att.clock_in = dt
+            if loc:
+                att.clock_in_location = loc
+            att.status = Attendance.Status.PRESENT
+            att.save(
+                update_fields=[
+                    "clock_in",
+                    "clock_in_location",
+                    "status",
+                    "updated_at",
+                ]
             )
             action_taken = "clock_in"
         else:
@@ -1321,7 +1375,7 @@ class EmployeeAttendanceViewSet(
     def today(self, request, employee_id=None):
         ser = SelfAttendanceQuerySerializer(data=request.query_params)
         ser.is_valid(raise_exception=True)
-        target_date = ser.validated_data.get("date") or timezone.localdate()
+        target_date = ser.validated_data.get("date") or timezone.now().date()
         target_emp, error = self._resolve_self_employee_scope(request, employee_id)
         if error:
             return error
@@ -1351,7 +1405,7 @@ class EmployeeAttendanceViewSet(
         target_emp, error = self._resolve_self_employee_scope(request, employee_id)
         if error:
             return error
-        target_date = vd.get("date") or timezone.localdate()
+        target_date = vd.get("date") or timezone.now().date()
         timestamp = self._resolve_self_timestamp(vd, target_date)
         location = vd["location"]
         notes = vd.get("notes", "")

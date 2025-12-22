@@ -15,6 +15,8 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.views import TokenVerifyView
 
 from hr_payroll.attendance.api.views import EmployeeAttendanceViewSet
+from hr_payroll.org.api.views import OrganizationPoliciesView
+from hr_payroll.org.api.views import OrganizationPolicySectionView
 from hr_payroll.users.api.auth_views import CookieOnlyJWTRefreshView
 
 from .health import health as health_view
@@ -43,6 +45,31 @@ if settings.DEBUG:
 
 # API URLS (only version v1 retained)
 urlpatterns += [
+    # Frontend compatibility: some clients call these without an /api prefix.
+    # Keep these limited to organization policy endpoints.
+    path(
+        "orgs/<int:org_id>/policies/",
+        OrganizationPoliciesView.as_view(),
+        name="org-policies-root",
+    ),
+    path(
+        "orgs/<int:org_id>/policies",
+        OrganizationPoliciesView.as_view(),
+        name="org-policies-root-noslash",
+    ),
+    path(
+        "orgs/<int:org_id>/policies/<str:section>/",
+        OrganizationPolicySectionView.as_view(),
+        name="org-policies-root-section",
+    ),
+    path(
+        "orgs/<int:org_id>/policies/<str:section>",
+        OrganizationPolicySectionView.as_view(),
+        name="org-policies-root-section-noslash",
+    ),
+    # Compatibility prefix for older frontend code that calls `/api/...`.
+    # Prefer `/api/v1/...` long-term.
+    path("api/", include(("config.api_router", "api"), namespace="api")),
     # API v1 (namespace 'api_v1')
     path("api/v1/", include(("config.api_router", "api"), namespace="api_v1")),
     # v1 schema/docs

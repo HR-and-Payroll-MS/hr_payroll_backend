@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from hr_payroll.employees.models import Employee
+from hr_payroll.leaves.models import LeavePolicy
 from hr_payroll.leaves.models import LeaveType
 from hr_payroll.leaves.models import PublicHoliday
 from hr_payroll.org.models import Department
@@ -78,6 +79,88 @@ def _sync_leave_types_from_policy(leave_policy: dict) -> None:
             obj.save(update_fields=["is_paid"])
 
 
+def _sync_leave_policies_from_policy(leave_policy: dict) -> None:  # noqa: C901
+    """Create/update default LeavePolicy rows derived from global policy.
+
+    - Each entry in `leavePolicy.leaveTypes` will have a corresponding default
+      `LeavePolicy` row named "Global: <LeaveTypeName>".
+    - Entitlement maps from `daysPerYear`.
+    - Accrual frequency is Monthly if `accrualRules.monthlyAccrualDays` > 0,
+      otherwise Yearly.
+    - Max carry over maps from `accrualRules.carryoverLimit` when provided.
+    - Carry over expiry month/day default to 12/31 if not determinable from
+      the frontend document (frontend provides relative months, not a date).
+    """
+    items = leave_policy.get("leaveTypes")
+    accrual_rules = leave_policy.get("accrualRules", {})
+    monthly_days = accrual_rules.get("monthlyAccrualDays")
+    carry_limit = accrual_rules.get("carryoverLimit")
+    if not isinstance(items, list):
+        return
+
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        name = item.get("name")
+        days_per_year = item.get("daysPerYear")
+        if not isinstance(name, str) or not name.strip():
+            continue
+        try:
+            lt = LeaveType.objects.get(name=name.strip())
+        except LeaveType.DoesNotExist:
+            # Should have been created by _sync_leave_types_from_policy first
+            continue
+
+        defaults = {
+            "description": "",
+            "assign_schedule": LeavePolicy.AssignSchedule.ON_JOINING,
+            "accrual_frequency": (
+                LeavePolicy.AccrualFrequency.MONTHLY
+                if isinstance(monthly_days, (int, float)) and monthly_days > 0
+                else LeavePolicy.AccrualFrequency.YEARLY
+            ),
+            "entitlement": days_per_year or 0,
+            "max_carry_over": carry_limit or 0,
+            "carry_over_expire_month": 12,
+            "carry_over_expire_day": 31,
+            "allow_hourly": False,
+            "eligibility_gender": LeavePolicy.GenderEligibility.ALL,
+            "is_active": True,
+        }
+
+        obj, created = LeavePolicy.objects.get_or_create(
+            leave_type=lt,
+            name=f"Global: {lt.name}",
+            defaults=defaults,
+        )
+        if not created:
+            # Update selected fields to keep in sync but avoid clobbering
+            # user-customized descriptions or schedule.
+            to_update = False
+            if days_per_year is not None and obj.entitlement != days_per_year:
+                obj.entitlement = days_per_year
+                to_update = True
+            if isinstance(monthly_days, (int, float)) and monthly_days > 0:
+                if obj.accrual_frequency != LeavePolicy.AccrualFrequency.MONTHLY:
+                    obj.accrual_frequency = LeavePolicy.AccrualFrequency.MONTHLY
+                    to_update = True
+            elif obj.accrual_frequency != LeavePolicy.AccrualFrequency.YEARLY:
+                obj.accrual_frequency = LeavePolicy.AccrualFrequency.YEARLY
+                to_update = True
+            if carry_limit is not None and obj.max_carry_over != carry_limit:
+                obj.max_carry_over = carry_limit
+                to_update = True
+            if to_update:
+                obj.save(
+                    update_fields=[
+                        "entitlement",
+                        "accrual_frequency",
+                        "max_carry_over",
+                        "updated_at",
+                    ]
+                )
+
+
 def _sync_departments_from_policy(job_structure_policy: dict) -> None:
     items = job_structure_policy.get("departments")
     if not isinstance(items, list):
@@ -97,6 +180,7 @@ def _sync_backend_resources_from_policy_document(doc: dict) -> None:
     leave_policy = doc.get("leavePolicy")
     if isinstance(leave_policy, dict):
         _sync_leave_types_from_policy(leave_policy)
+        _sync_leave_policies_from_policy(leave_policy)
     job_structure_policy = doc.get("jobStructurePolicy")
     if isinstance(job_structure_policy, dict):
         _sync_departments_from_policy(job_structure_policy)

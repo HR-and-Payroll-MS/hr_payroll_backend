@@ -545,6 +545,95 @@ def test_hr_can_clear_clock_out_and_employee_can_clock_out_later():
 
 
 @pytest.mark.django_db
+def test_hr_patch_allows_clearing_clock_out_with_empty_string_payload():
+    rand_pwd = "x" * 12
+
+    mgr_user = User.objects.create_user(
+        username="mgr_clearco_blank",
+        email="mgr_clearco_blank@example.com",
+        password=rand_pwd,
+    )
+    mgr_group, _ = Group.objects.get_or_create(name="Manager")
+    mgr_user.groups.add(mgr_group)
+    Employee.objects.create(user=mgr_user)
+
+    user = User.objects.create_user(
+        username="u_clearco_blank",
+        email="u_clearco_blank@example.com",
+        password=rand_pwd,
+    )
+    emp = Employee.objects.create(user=user)
+    today = timezone.now().date()
+
+    att = Attendance.objects.create(
+        employee=emp,
+        date=today,
+        clock_in=timezone.now() - dt.timedelta(hours=8),
+        clock_in_location="HQ",
+        clock_out=timezone.now() - dt.timedelta(hours=7),
+        clock_out_location="HQ",
+    )
+
+    hr_client = APIClient()
+    hr_client.force_authenticate(user=mgr_user)
+
+    # Some UIs clear the input and send an empty string.
+    res = hr_client.patch(
+        f"/api/v1/attendances/{att.pk}/",
+        {"clock_out": "", "clock_out_location": ""},
+        format="json",
+    )
+    assert res.status_code == status.HTTP_200_OK
+    att.refresh_from_db()
+    assert att.clock_out is None
+    assert att.clock_out_location == ""
+
+
+@pytest.mark.django_db
+def test_hr_patch_allows_delete_clock_out_flag_to_clear_fields():
+    rand_pwd = "x" * 12
+
+    mgr_user = User.objects.create_user(
+        username="mgr_clearco_flag",
+        email="mgr_clearco_flag@example.com",
+        password=rand_pwd,
+    )
+    mgr_group, _ = Group.objects.get_or_create(name="Manager")
+    mgr_user.groups.add(mgr_group)
+    Employee.objects.create(user=mgr_user)
+
+    user = User.objects.create_user(
+        username="u_clearco_flag",
+        email="u_clearco_flag@example.com",
+        password=rand_pwd,
+    )
+    emp = Employee.objects.create(user=user)
+    today = timezone.now().date()
+
+    att = Attendance.objects.create(
+        employee=emp,
+        date=today,
+        clock_in=timezone.now() - dt.timedelta(hours=2),
+        clock_in_location="HQ",
+        clock_out=timezone.now() - dt.timedelta(hours=1),
+        clock_out_location="HQ",
+    )
+
+    hr_client = APIClient()
+    hr_client.force_authenticate(user=mgr_user)
+
+    res = hr_client.patch(
+        f"/api/v1/attendances/{att.pk}/",
+        {"delete_clock_out": True},
+        format="json",
+    )
+    assert res.status_code == status.HTTP_200_OK
+    att.refresh_from_db()
+    assert att.clock_out is None
+    assert att.clock_out_location == ""
+
+
+@pytest.mark.django_db
 def test_hr_department_drilldown_creates_placeholder_attendance_ids_for_absent_employees():  # noqa: E501
     rand_pwd = "x" * 12
 

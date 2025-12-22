@@ -7,6 +7,7 @@ from rest_framework.routers import SimpleRouter
 from hr_payroll.attendance.api.views import AttendanceViewSet
 from hr_payroll.employees.api.views import EmployeeRegistrationViewSet
 from hr_payroll.leaves.api.views import LeavesPlaceholderViewSet
+from hr_payroll.notifications.api.views import NotificationViewSet
 from hr_payroll.org.api.views import DepartmentViewSet
 from hr_payroll.org.api.views import OrganizationPoliciesView
 from hr_payroll.org.api.views import OrganizationPolicySectionView
@@ -25,6 +26,7 @@ router.register("departments", DepartmentViewSet)
 router.register("attendances", AttendanceViewSet)
 # New clean employees endpoint using registration viewset
 router.register("employees", EmployeeRegistrationViewSet, basename="employees")
+router.register("notifications", NotificationViewSet, basename="notifications")
 
 
 app_name = "api"
@@ -40,11 +42,22 @@ urlpatterns = [
         name="org-policies",
     ),
     path(
+        "orgs/<int:org_id>/policies",
+        OrganizationPoliciesView.as_view(),
+        name="org-policies-noslash",
+    ),
+    path(
         "orgs/<int:org_id>/policies/<str:section>/",
         OrganizationPolicySectionView.as_view(),
         name="org-policies-section",
     ),
+    path(
+        "orgs/<int:org_id>/policies/<str:section>",
+        OrganizationPolicySectionView.as_view(),
+        name="org-policies-section-noslash",
+    ),
     path("leaves/", include("hr_payroll.leaves.api.urls")),
     path("payroll/", include("hr_payroll.payroll.api.urls")),
+    path("efficiency/", include("hr_payroll.efficiency.api.urls")),
     *router.urls,
 ]

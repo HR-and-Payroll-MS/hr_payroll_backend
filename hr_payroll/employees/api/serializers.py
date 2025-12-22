@@ -133,8 +133,20 @@ class EmployeeRegistrationSerializer(serializers.Serializer):
         ext = Path(getattr(f, "name", "")).suffix
         if ext.lower() not in ALLOWED_IMAGE_EXTS:
             allowed = ", ".join(sorted(ALLOWED_IMAGE_EXTS))
-            msg = f"Unsupported image type '{ext}'. Allowed: {allowed}"
-            raise serializers.ValidationError({"photo": [msg]})
+
+            def _raise_photo_ext_error(extension: str, allowed_exts: str) -> None:
+                raise serializers.ValidationError(
+                    {
+                        "photo": [
+                            (
+                                "Unsupported image type "
+                                f"'{extension}'. Allowed: {allowed_exts}"
+                            )
+                        ]
+                    }
+                )
+
+            _raise_photo_ext_error(ext, allowed)
         try:
             # Pillow validation to ensure file is a real image
             Image.open(f).verify()
@@ -726,6 +738,46 @@ class EmployeeNestedUpdateSerializer(serializers.Serializer):
                 list(payroll.keys()),
             )
             self._update_payroll_fields(instance, payroll, updated_fields)
+
+        # Handle profile photo updates sent as multipart file
+        # Accept both 'photo' (preferred) and legacy 'image' keys
+        def _raise_photo_ext_error(extension: str, allowed: str) -> None:
+            raise serializers.ValidationError(
+                {
+                    "photo": [
+                        (f"Unsupported image type '{extension}'. Allowed: {allowed}")
+                    ]
+                }
+            )
+
+        request = self.context.get("request")
+        try:
+            files = getattr(request, "FILES", {}) if request else {}
+            photo_file = files.get("photo") or files.get("image")
+            if photo_file is not None:
+                # Basic validation (aligns with registration rules)
+                ext = Path(getattr(photo_file, "name", "")).suffix.lower()
+                if ext and ext not in ALLOWED_IMAGE_EXTS:
+                    allowed = ", ".join(sorted(ALLOWED_IMAGE_EXTS))
+                    _raise_photo_ext_error(ext, allowed)
+                try:
+                    Image.open(photo_file).verify()
+                except UnidentifiedImageError as exc:
+                    raise serializers.ValidationError(
+                        {"photo": ["Invalid image file"]}
+                    ) from exc
+                finally:
+                    with suppress(Exception):
+                        photo_file.seek(0)
+
+                instance.photo = photo_file
+                instance.save(update_fields=["photo"])
+                updated_fields.append("photo")
+                logging.info("Updated photo for employee %s", instance.id)
+        except serializers.ValidationError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - defensive logging only
+            logging.warning("Photo update skipped due to error: %s", exc)
 
         instance.save()
         logging.info(
