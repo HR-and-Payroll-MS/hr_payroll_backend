@@ -19,6 +19,7 @@ from rest_framework.filters import SearchFilter
 from rest_framework.parsers import FormParser
 from rest_framework.parsers import JSONParser
 from rest_framework.parsers import MultiPartParser
+from rest_framework.permissions import AllowAny
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -200,9 +201,19 @@ class EmployeeRegistrationViewSet(viewsets.ModelViewSet):
         detail=False,
         methods=["post"],
         url_path="register",
-        permission_classes=[IsAuthenticated, IsAdminOrManagerCanWrite],
+        permission_classes=[AllowAny],
     )
     def register(self, request):
+        # Authenticated non-elevated users (regular employees) cannot register
+        u = getattr(request, "user", None)
+        if u and getattr(u, "is_authenticated", False):
+            if not (
+                getattr(u, "is_staff", False)
+                or _user_in_groups(u, [ROLE_ADMIN, ROLE_MANAGER])
+            ):
+                return Response(
+                    {"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN
+                )
         _log_file_upload("Register", request)
 
         ser = EmployeeRegistrationSerializer(

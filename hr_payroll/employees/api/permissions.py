@@ -12,15 +12,28 @@ ROLE_PAYROLL = "Payroll"
 ROLE_LINE_MANAGER = "Line Manager"
 
 
+def _has_employee_profile(user) -> bool:
+    return bool(getattr(user, "employee", None))
+
+
 def _user_in_groups(user, names: Iterable[str]) -> bool:
     groups = getattr(user, "groups", None)
     names_list = list(names)
     if not groups or not names_list:
         return False
+    # Require an employee profile for role-based access
+    if not _has_employee_profile(user):
+        return False
     return groups.filter(name__in=names_list).exists()
 
 
 def _is_staff_or_role(user, roles: Iterable[str]) -> bool:
+    # Superusers bypass checks
+    if bool(getattr(user, "is_superuser", False)):
+        return True
+    # For staff or role-based access, require an employee profile
+    if not _has_employee_profile(user):
+        return False
     return bool(getattr(user, "is_staff", False)) or _user_in_groups(user, roles)
 
 

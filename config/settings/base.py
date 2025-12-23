@@ -352,6 +352,18 @@ CELERY_TASK_TIME_LIMIT = 5 * 60
 CELERY_TASK_SOFT_TIME_LIMIT = 60
 # https://docs.celeryq.dev/en/stable/userguide/configuration.html#beat-scheduler
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+
+# Default schedule to run current-month payroll generation on day 1 at 01:00.
+# If using django-celery-beat admin, you can override/disable this entry there.
+from celery.schedules import crontab  # noqa: E402
+
+CELERY_BEAT_SCHEDULE = {
+    "payroll-run-current-month": {
+        "task": "payroll.run_current_month_cycle",
+        "schedule": crontab(minute=0, hour=1, day_of_month=1),
+        "options": {"queue": "celery"},
+    },
+}
 # https://docs.celeryq.dev/en/stable/userguide/configuration.html#worker-send-task-events
 CELERY_WORKER_SEND_TASK_EVENTS = True
 # https://docs.celeryq.dev/en/stable/userguide/configuration.html#std-setting-task_send_sent_event

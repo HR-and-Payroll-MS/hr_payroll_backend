@@ -10,6 +10,7 @@ import uuid
 from datetime import timedelta
 from decimal import Decimal
 
+from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
@@ -372,3 +373,52 @@ class PayslipLineItem(models.Model):
 
     def __str__(self):
         return f"{self.slip.employee} - {self.label}"
+
+
+class PayslipDocument(models.Model):
+    """Stored payslip PDF uploaded after preview/generation."""
+
+    employee = models.ForeignKey(
+        "employees.Employee", on_delete=models.CASCADE, related_name="payslip_documents"
+    )
+    cycle = models.ForeignKey(
+        PayCycle,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="payslip_documents",
+    )
+    month = models.CharField(
+        max_length=7,
+        blank=True,
+        help_text=_("Payroll month in YYYY-MM format (from preview/upload)"),
+    )
+    file = models.FileField(upload_to="payslips/")
+    gross = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text=_("Gross amount from the generated slip"),
+    )
+    net = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text=_("Net amount from the generated slip"),
+    )
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="uploaded_payslip_documents",
+    )
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-uploaded_at"]
+        verbose_name = _("Payslip Document")
+        verbose_name_plural = _("Payslip Documents")
+
+    def __str__(self):
+        return f"Payslip {self.month or ''} - {self.employee}"

@@ -73,3 +73,10 @@ class PayslipLineItemAdmin(admin.ModelAdmin):
     list_display = ["id", "slip", "component", "label", "amount"]
     search_fields = ["label", "category"]
     list_filter = ["category"]
+
+
+@admin.register(models.PayslipDocument)
+class PayslipDocumentAdmin(admin.ModelAdmin):
+    list_display = ["id", "employee", "month", "cycle", "uploaded_by", "uploaded_at"]
+    search_fields = ["employee__user__username", "employee__user__email", "month"]
+    list_filter = ["month", "cycle", "uploaded_at"]

@@ -17,6 +17,7 @@ from rest_framework_simplejwt.views import TokenVerifyView
 from hr_payroll.attendance.api.views import EmployeeAttendanceViewSet
 from hr_payroll.org.api.views import OrganizationPoliciesView
 from hr_payroll.org.api.views import OrganizationPolicySectionView
+from hr_payroll.payroll.api.views import PayslipUploadView
 from hr_payroll.users.api.auth_views import CookieOnlyJWTRefreshView
 
 from .health import health as health_view
@@ -45,6 +46,12 @@ if settings.DEBUG:
 
 # API URLS (only version v1 retained)
 urlpatterns += [
+    # Compatibility endpoint for frontend payslip uploads
+    path(
+        "api/payslips/generate/",
+        PayslipUploadView.as_view(),
+        name="payslip-generate-root",
+    ),
     # Frontend compatibility: some clients call these without an /api prefix.
     # Keep these limited to organization policy endpoints.
     path(

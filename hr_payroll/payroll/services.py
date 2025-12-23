@@ -1,18 +1,16 @@
+import calendar
+from datetime import date
+from datetime import timedelta
 from decimal import Decimal
 
 from django.db import transaction
+from django.utils import timezone
 
-from hr_payroll.attendance.models import Attendance
 from hr_payroll.employees.models import Employee
-from hr_payroll.leaves.models import PublicHoliday
-from hr_payroll.payroll.models import PayrollCycle
-from hr_payroll.payroll.models import PayrollRecord
-from hr_payroll.policies import holiday_overtime_rate_multiplier
-from hr_payroll.policies import min_overtime_minutes
-from hr_payroll.policies import overtime_rate_multiplier
-from hr_payroll.policies import standard_work_hours_per_day
-from hr_payroll.policies import weekend_overtime_rate_multiplier
-from hr_payroll.policies import weekly_off_weekday_indexes
+from hr_payroll.payroll.models import PayCycle
+from hr_payroll.payroll.models import PayrollSlip
+from hr_payroll.payroll.models import PayslipLineItem
+from hr_payroll.policies import get_policy_document
 
 
 def prorate_amount(base_salary: Decimal, worked_days: int, period_days: int) -> Decimal:
@@ -30,145 +28,185 @@ def prorate_amount(base_salary: Decimal, worked_days: int, period_days: int) -> 
     return (Decimal(base_salary) * ratio).quantize(Decimal("0.01"))
 
 
+def _build_components_from_structure(emp: Employee):
+    """Return base, earnings, deductions using the employee salary structure."""
+
+    base_salary = Decimal("0.00")
+    earnings: list[dict] = []
+    deductions: list[dict] = []
+
+    structure = getattr(emp, "salary_structure", None)
+    if not structure:
+        return base_salary, earnings, deductions
+
+    base_salary = Decimal(structure.base_salary or 0)
+    for item in structure.items.select_related("component"):
+        comp = item.component
+        if not comp:
+            continue
+        payload = {
+            "label": comp.name,
+            "amount": Decimal(item.amount),
+            "component": comp,
+        }
+        if comp.component_type == comp.Type.DEDUCTION:
+            deductions.append(payload)
+        else:
+            earnings.append(payload)
+
+    return base_salary, earnings, deductions
+
+
+def _fallback_components_from_policy() -> tuple[Decimal, list[dict], list[dict]]:
+    """Mirror preview defaults when no salary structure exists."""
+
+    policy = get_policy_document(org_id=1)
+    salary_policy = (
+        policy.get("salaryStructurePolicy", {}) if isinstance(policy, dict) else {}
+    )
+    base = Decimal(
+        str(salary_policy.get("baseSalaryTemplate", {}).get("gradeA", 0) or 0)
+    )
+
+    allowance = (
+        (base * Decimal("0.20")).quantize(Decimal("0.01")) if base else Decimal("0.00")
+    )
+    bonus = (
+        (base * Decimal("0.05")).quantize(Decimal("0.01")) if base else Decimal("0.00")
+    )
+
+    earnings = [
+        {"label": "Basic Salary", "amount": base, "component": None},
+        {"label": "Allowance", "amount": allowance, "component": None},
+        {"label": "Bonus", "amount": bonus, "component": None},
+    ]
+
+    gross_guess = sum(e["amount"] for e in earnings)
+    tax = (gross_guess * Decimal("0.10")).quantize(Decimal("0.01"))
+    pension = (gross_guess * Decimal("0.03")).quantize(Decimal("0.01"))
+    deductions = [
+        {"label": "Income Tax (10%)", "amount": tax, "component": None},
+        {"label": "Pension (3%)", "amount": pension, "component": None},
+    ]
+
+    return base, earnings, deductions
+
+
 @transaction.atomic
-def generate_payroll_for_cycle(cycle_id: str) -> dict[str, int]:  # noqa: C901, PLR0912, PLR0915
-    """Generate payroll records for the given PayrollCycle.
+def generate_payroll_for_cycle(cycle_id: str) -> dict[str, int]:
+    """Generate payroll slips aligned with the preview/upload flow."""
 
-    This will iterate eligible employees, compute attendance aggregates for the
-    cycle period, compute prorated salary and actual (hourly) pay, and create or
-    update PayrollRecord rows.
-
-    Returns a summary dict with counts: {"created": int, "updated": int}
-    """
     try:
-        cycle = PayrollCycle.objects.get(pk=cycle_id)
-    except PayrollCycle.DoesNotExist:
-        msg = "PayrollCycle not found"
+        cycle = PayCycle.objects.get(pk=cycle_id)
+    except PayCycle.DoesNotExist:
+        msg = "PayCycle not found"
         raise ValueError(msg) from None
 
-    # Determine eligible employees
-    if cycle.eligibility_criteria == PayrollCycle.Eligibility.ALL:
-        employees = Employee.objects.filter(is_active=True)
-    else:
-        employees = cycle.eligible_employees.all()
+    employees = (
+        Employee.objects.filter(is_active=True)
+        .select_related("user", "department", "salary_structure")
+        .prefetch_related("salary_structure__items__component")
+    )
 
     created = 0
     updated = 0
-    period_start = cycle.period_start
-    period_end = cycle.period_end
-    period_days = cycle.days_in_period
-    # Policy value is centralized to avoid drift across modules.
-    standard_hours_per_day = standard_work_hours_per_day()
-    weekly_off = weekly_off_weekday_indexes()
-    min_ot_seconds = min_overtime_minutes() * 60
-
-    # Holidays overlapping this cycle window.
-    holidays = list(
-        PublicHoliday.objects.filter(
-            start_date__lte=period_end, end_date__gte=period_start
-        )
-        .only("start_date", "end_date")
-        .iterator()
-    )
 
     for emp in employees.iterator():
-        # Aggregate attendance for the employee in the cycle window
-        attendances = Attendance.objects.filter(
-            employee=emp, date__gte=period_start, date__lte=period_end
-        )
-        total_work_seconds = 0
-        total_ot_seconds = 0
-        weekday_ot_seconds = 0
-        weekend_ot_seconds = 0
-        holiday_ot_seconds = 0
-        for a in attendances:
-            total_work_seconds += int(a.paid_time.total_seconds()) if a.paid_time else 0
+        base_salary, earnings, deductions = _build_components_from_structure(emp)
 
-            ot_seconds = int(a.overtime_seconds or 0)
-            if ot_seconds <= 0:
-                continue
-            total_ot_seconds += ot_seconds
+        if base_salary <= 0 and not earnings and not deductions:
+            base_salary, earnings, deductions = _fallback_components_from_policy()
 
-            # Apply minimum overtime threshold per attendance day.
-            if ot_seconds < min_ot_seconds:
-                continue
+        if base_salary > 0 and not any(e["label"] == "Basic Salary" for e in earnings):
+            earnings = [
+                {"label": "Basic Salary", "amount": base_salary, "component": None},
+                *earnings,
+            ]
 
-            # Determine OT multiplier class based on attendance date.
-            day = a.date
-            is_holiday = any(h.start_date <= day <= h.end_date for h in holidays)
-            if is_holiday:
-                holiday_ot_seconds += ot_seconds
-            elif day.weekday() in weekly_off:
-                weekend_ot_seconds += ot_seconds
-            else:
-                weekday_ot_seconds += ot_seconds
+        if not deductions:
+            gross_guess = sum(e["amount"] for e in earnings)
+            tax = (gross_guess * Decimal("0.10")).quantize(Decimal("0.01"))
+            pension = (gross_guess * Decimal("0.03")).quantize(Decimal("0.01"))
+            deductions = [
+                {"label": "Income Tax (10%)", "amount": tax, "component": None},
+                {"label": "Pension (3%)", "amount": pension, "component": None},
+            ]
 
-        # Derive days worked by counting unique attendance days
-        days_worked = attendances.values("date").distinct().count()
+        total_earnings = sum(e["amount"] for e in earnings)
+        total_deductions = sum(d["amount"] for d in deductions)
+        net_pay = total_earnings - total_deductions
 
-        # Base salary: try to find latest Compensation base component
-        # Fallback: 0 if no compensation
-        comp = getattr(emp, "compensations", None)
-        base_salary = Decimal("0.00")
-        if comp is not None:
-            first_comp = comp.order_by("-created_at").first()
-            if first_comp:
-                # Sum components of kind BASE
-                base_salary = sum(
-                    (c.amount for c in first_comp.components.filter(kind="base")),
-                    Decimal("0.00"),
-                )
-
-        # Prorate salary based on days worked
-        prorated_salary = prorate_amount(base_salary, days_worked, period_days)
-
-        # Actual (hours-based) pay: compute hourly rate from base salary
-        hours = Decimal(total_work_seconds) / Decimal(3600)
-        denom = (
-            Decimal(period_days * standard_hours_per_day)
-            if period_days * standard_hours_per_day > 0
-            else Decimal(1)
-        )
-        hourly_rate = (
-            (base_salary / denom).quantize(Decimal("0.0001"))
-            if base_salary
-            else Decimal("0.00")
-        )
-        actual_pay = (hourly_rate * hours).quantize(Decimal("0.01"))
-
-        weekday_ot_hours = Decimal(weekday_ot_seconds) / Decimal(3600)
-        weekend_ot_hours = Decimal(weekend_ot_seconds) / Decimal(3600)
-        holiday_ot_hours = Decimal(holiday_ot_seconds) / Decimal(3600)
-        ot_pay = (
-            (hourly_rate * overtime_rate_multiplier() * weekday_ot_hours)
-            + (hourly_rate * weekend_overtime_rate_multiplier() * weekend_ot_hours)
-            + (hourly_rate * holiday_overtime_rate_multiplier() * holiday_ot_hours)
-        ).quantize(Decimal("0.01"))
-
-        # Create or update PayrollRecord
-        record, created_flag = PayrollRecord.objects.update_or_create(
+        slip, created_flag = PayrollSlip.objects.update_or_create(
             cycle=cycle,
             employee=emp,
             defaults={
-                "salary": prorated_salary,
-                "actual": actual_pay,
-                "recurring": Decimal("0.00"),
-                "one_off": Decimal("0.00"),
-                "offset": Decimal("0.00"),
-                "ot": ot_pay,
-                "period_start": period_start,
-                "period_end": period_end,
-                "actual_work_seconds": int(total_work_seconds),
-                "overtime_seconds": int(total_ot_seconds),
-                "deficit_seconds": 0,
-                "carry_over_overtime_seconds": 0,
+                "base_salary": base_salary,
+                "total_earnings": total_earnings,
+                "total_deductions": total_deductions,
+                "net_pay": net_pay,
+                "total_work_duration": timedelta(0),
+                "total_overtime_duration": timedelta(0),
+                "total_deficit_duration": timedelta(0),
+                "status": PayrollSlip.Status.DRAFT,
             },
         )
-        # Recalc total
-        record.recalc_total()
+
+        # Replace line items with the latest breakdown
+        slip.line_items.all().delete()
+
+        for item in earnings:
+            PayslipLineItem.objects.create(
+                slip=slip,
+                component=item.get("component"),
+                label=item["label"],
+                amount=item["amount"],
+                category=PayslipLineItem.Category.RECURRING,
+            )
+
+        for item in deductions:
+            category = (
+                PayslipLineItem.Category.TAX
+                if "tax" in item["label"].lower()
+                else PayslipLineItem.Category.RECURRING
+            )
+            PayslipLineItem.objects.create(
+                slip=slip,
+                component=item.get("component"),
+                label=item["label"],
+                amount=item["amount"],
+                category=category,
+            )
+
         if created_flag:
             created += 1
         else:
             updated += 1
 
     return {"created": created, "updated": updated}
+
+
+def ensure_current_month_cycle() -> PayCycle:
+    """Find or create the PayCycle covering the current month.
+
+    - Names the cycle as "<YYYY-MM> Payroll".
+    - Sets start_date to first of month, end_date to last of month,
+        cutoff_date=end_date.
+    - Leaves manager_in_charge null and status as DRAFT.
+    """
+
+    today = timezone.now().date()
+    month_start = today.replace(day=1)
+    last_day = calendar.monthrange(today.year, today.month)[1]
+    month_end = date(today.year, today.month, last_day)
+    name = f"{today.strftime('%Y-%m')} Payroll"
+
+    cycle, _ = PayCycle.objects.get_or_create(
+        name=name,
+        defaults={
+            "start_date": month_start,
+            "end_date": month_end,
+            "cutoff_date": month_end,
+            "status": PayCycle.Status.DRAFT,
+        },
+    )
+    return cycle

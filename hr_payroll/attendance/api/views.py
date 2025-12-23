@@ -3,6 +3,7 @@ import datetime as dt
 import ipaddress
 from collections import defaultdict
 
+from django.conf import settings
 from django.db import IntegrityError
 from django.db import models
 from django.http import QueryDict
@@ -49,6 +50,16 @@ from hr_payroll.policies import attendance_edit_window_days
 from hr_payroll.policies import get_policy_document
 
 MIN_SELF_CLOCK_OUT_HOURS = 0
+_EXCLUDED_DOCKER_SUBNETS = []
+for _cidr in getattr(
+    settings,
+    "OFFICE_NETWORK_EXCLUDE_CIDRS",
+    ["172.17.0.0/16", "172.18.0.0/16", "172.19.0.0/16"],
+):
+    try:
+        _EXCLUDED_DOCKER_SUBNETS.append(ipaddress.ip_network(_cidr, strict=False))
+    except ValueError:
+        continue
 
 
 class IsAdminManagerOrLineManagerOnly(BasePermission):
@@ -72,6 +83,9 @@ def _is_ip_allowed(remote_ip: str) -> bool:
         addr = ipaddress.ip_address(remote_ip)
     except ValueError:
         return False
+    for excluded in _EXCLUDED_DOCKER_SUBNETS:
+        if addr in excluded:
+            return False
     for net in OfficeNetwork.objects.filter(is_active=True).only("cidr"):
         try:
             network = ipaddress.ip_network(net.cidr, strict=False)

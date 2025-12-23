@@ -7,6 +7,7 @@ from hr_payroll.payroll.models import EmployeeSalaryStructure
 from hr_payroll.payroll.models import PayCycle
 from hr_payroll.payroll.models import PayrollGeneralSetting
 from hr_payroll.payroll.models import PayrollSlip
+from hr_payroll.payroll.models import PayslipDocument
 from hr_payroll.payroll.models import PayslipLineItem
 from hr_payroll.payroll.models import SalaryComponent
 from hr_payroll.payroll.models import SalaryStructureItem
@@ -150,3 +151,31 @@ class PayrollSlipSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["created_at", "updated_at"]
+
+
+class PayslipDocumentSerializer(serializers.ModelSerializer):
+    employee_name = serializers.CharField(source="employee.user.name", read_only=True)
+    cycle_name = serializers.CharField(
+        source="cycle.name", read_only=True, allow_null=True
+    )
+    uploaded_by_name = serializers.CharField(
+        source="uploaded_by.get_full_name", read_only=True, allow_null=True
+    )
+
+    class Meta:
+        model = PayslipDocument
+        fields = [
+            "id",
+            "employee",
+            "employee_name",
+            "cycle",
+            "cycle_name",
+            "month",
+            "file",
+            "gross",
+            "net",
+            "uploaded_by",
+            "uploaded_by_name",
+            "uploaded_at",
+        ]
+        read_only_fields = ["uploaded_at", "uploaded_by"]
