@@ -9,12 +9,15 @@ from .views import PayCycleViewSet
 from .views import PayrollEmployeeListView
 from .views import PayrollGeneralSettingViewSet
 from .views import PayrollPreviewView
+from .views import PayrollRunViewSet
 from .views import PayrollSlipViewSet
 from .views import PayslipDocumentViewSet
 from .views import PayslipLineItemViewSet
 from .views import PayslipUploadView
 from .views import SalaryComponentViewSet
 from .views import SalaryStructureItemViewSet
+from .views import TaxCodeVersionViewSet
+from .views import TaxCodeViewSet
 
 router = DefaultRouter()
 router.register("banks", BankMasterViewSet, basename="bank-master")
@@ -34,6 +37,9 @@ router.register("slip-items", PayslipLineItemViewSet, basename="slip-item")
 router.register(
     "payslip-documents", PayslipDocumentViewSet, basename="payslip-document"
 )
+router.register("tax-codes", TaxCodeViewSet, basename="tax-code")
+router.register("tax-code-versions", TaxCodeVersionViewSet, basename="tax-code-version")
+router.register("runs", PayrollRunViewSet, basename="payroll-run")
 
 urlpatterns = [
     # Compatibility with frontend call `/api/payslips/generate/`

@@ -9,6 +9,7 @@ from drf_spectacular.utils import extend_schema
 from drf_spectacular.utils import extend_schema_view
 from rest_framework import permissions
 from rest_framework import viewsets
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -20,11 +21,14 @@ from hr_payroll.payroll.models import Dependent
 from hr_payroll.payroll.models import EmployeeSalaryStructure
 from hr_payroll.payroll.models import PayCycle
 from hr_payroll.payroll.models import PayrollGeneralSetting
+from hr_payroll.payroll.models import PayrollRun
 from hr_payroll.payroll.models import PayrollSlip
 from hr_payroll.payroll.models import PayslipDocument
 from hr_payroll.payroll.models import PayslipLineItem
 from hr_payroll.payroll.models import SalaryComponent
 from hr_payroll.payroll.models import SalaryStructureItem
+from hr_payroll.payroll.models import TaxCode
+from hr_payroll.payroll.models import TaxCodeVersion
 from hr_payroll.policies import get_policy_document
 
 from .serializers import BankDetailSerializer
@@ -33,11 +37,14 @@ from .serializers import DependentSerializer
 from .serializers import EmployeeSalaryStructureSerializer
 from .serializers import PayCycleSerializer
 from .serializers import PayrollGeneralSettingSerializer
+from .serializers import PayrollRunSerializer
 from .serializers import PayrollSlipSerializer
 from .serializers import PayslipDocumentSerializer
 from .serializers import PayslipLineItemSerializer
 from .serializers import SalaryComponentSerializer
 from .serializers import SalaryStructureItemSerializer
+from .serializers import TaxCodeSerializer
+from .serializers import TaxCodeVersionSerializer
 
 
 def _employee_basic_payload(emp: Employee) -> dict:
@@ -161,7 +168,7 @@ class PayslipUploadView(APIView):
     `pdf_file`, `employee_id`, `month`, `gross`, and `net` in multipart form data.
     """
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrPayrollOnly]
 
     @extend_schema(
         tags=["Payroll • Payslips"],
@@ -250,7 +257,7 @@ class PayrollEmployeeListView(APIView):
     id, name, department, jobTitle, bankAccount.
     """
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrPayrollOnly]
 
     @extend_schema(
         tags=["Payroll • Employees"],
@@ -267,7 +274,7 @@ class PayrollEmployeeListView(APIView):
 class PayrollPreviewView(APIView):
     """Return a payroll preview payload for a single employee and month."""
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrPayrollOnly]
 
     @extend_schema(
         tags=["Payroll • Preview"],
@@ -307,7 +314,7 @@ class PayrollPlaceholderViewSet(viewsets.ViewSet):
     Actual endpoints are nested under /api/v1/payroll/
     """
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrPayrollOnly]
     serializer_class = None  # Explicitly set to avoid drf_spectacular warning
 
     @extend_schema(exclude=True)
@@ -502,3 +509,90 @@ class PayslipDocumentViewSet(viewsets.ModelViewSet):
     filterset_fields = ["employee", "cycle", "month"]
     search_fields = ["employee__user__username", "employee__user__email"]
     ordering = ["-uploaded_at"]
+
+
+@extend_schema_view(
+    list=extend_schema(tags=["Payroll • Tax Codes"]),
+    retrieve=extend_schema(tags=["Payroll • Tax Codes"]),
+    create=extend_schema(tags=["Payroll • Tax Codes"]),
+    update=extend_schema(tags=["Payroll • Tax Codes"]),
+    partial_update=extend_schema(tags=["Payroll • Tax Codes"]),
+    destroy=extend_schema(tags=["Payroll • Tax Codes"]),
+)
+class TaxCodeViewSet(viewsets.ModelViewSet):
+    queryset = TaxCode.objects.all()
+    serializer_class = TaxCodeSerializer
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrPayrollOnly]
+    filterset_fields = ["is_active"]
+    search_fields = ["code", "name"]
+    ordering_fields = ["code", "name", "created_at"]
+    ordering = ["code"]
+
+
+@extend_schema_view(
+    list=extend_schema(tags=["Payroll • Tax Code Versions"]),
+    retrieve=extend_schema(tags=["Payroll • Tax Code Versions"]),
+    create=extend_schema(tags=["Payroll • Tax Code Versions"]),
+    update=extend_schema(tags=["Payroll • Tax Code Versions"]),
+    partial_update=extend_schema(tags=["Payroll • Tax Code Versions"]),
+    destroy=extend_schema(tags=["Payroll • Tax Code Versions"]),
+)
+class TaxCodeVersionViewSet(viewsets.ModelViewSet):
+    queryset = TaxCodeVersion.objects.select_related("tax_code")
+    serializer_class = TaxCodeVersionSerializer
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrPayrollOnly]
+    filterset_fields = ["tax_code"]
+    search_fields = ["tax_code__code"]
+    ordering_fields = ["effective_from", "effective_to", "created_at"]
+    ordering = ["-effective_from"]
+
+
+@extend_schema_view(
+    list=extend_schema(tags=["Payroll • Runs"]),
+    retrieve=extend_schema(tags=["Payroll • Runs"]),
+    create=extend_schema(tags=["Payroll • Runs"]),
+    update=extend_schema(tags=["Payroll • Runs"]),
+    partial_update=extend_schema(tags=["Payroll • Runs"]),
+    destroy=extend_schema(tags=["Payroll • Runs"]),
+)
+class PayrollRunViewSet(viewsets.ModelViewSet):
+    queryset = PayrollRun.objects.select_related(
+        "cycle", "created_by", "approved_by", "finalized_by"
+    )
+    serializer_class = PayrollRunSerializer
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrPayrollOnly]
+    filterset_fields = ["status", "cycle"]
+    ordering = ["-created_at"]
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.status == PayrollRun.Status.FINALIZED:
+            return Response({"detail": "Finalized runs are immutable"}, status=400)
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.status == PayrollRun.Status.FINALIZED:
+            return Response({"detail": "Finalized runs cannot be deleted"}, status=400)
+        return super().destroy(request, *args, **kwargs)
+
+    @extend_schema(tags=["Payroll • Runs"], responses={200: PayrollRunSerializer})
+    @action(detail=True, methods=["post"], url_path="approve")
+    def approve(self, request, pk=None):
+        run = self.get_object()
+        if not run.can_approve():
+            return Response({"detail": "Run cannot be approved"}, status=400)
+        run.mark_approved(request.user)
+        return Response(self.get_serializer(run).data, status=200)
+
+    @extend_schema(tags=["Payroll • Runs"], responses={200: PayrollRunSerializer})
+    @action(detail=True, methods=["post"], url_path="finalize")
+    def finalize(self, request, pk=None):
+        run = self.get_object()
+        if not run.can_finalize():
+            return Response({"detail": "Run cannot be finalized"}, status=400)
+        run.mark_finalized(request.user)
+        return Response(self.get_serializer(run).data, status=200)

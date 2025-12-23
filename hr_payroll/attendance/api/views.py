@@ -1,6 +1,7 @@
 import contextlib
 import datetime as dt
 import ipaddress
+import logging
 from collections import defaultdict
 
 from django.conf import settings
@@ -61,6 +62,20 @@ for _cidr in getattr(
     except ValueError:
         continue
 
+# Optional dev allowlist: treat certain container/private CIDRs as allowed in DEBUG.
+_DEV_ALLOW_CIDRS: list[ipaddress._BaseNetwork] = []  # type: ignore[attr-defined]
+for _cidr in getattr(
+    settings,
+    "OFFICE_NETWORK_DEV_ALLOW_CIDRS",
+    ["172.18.0.0/16"],
+):
+    try:
+        _DEV_ALLOW_CIDRS.append(ipaddress.ip_network(_cidr, strict=False))
+    except ValueError:
+        continue
+
+logger = logging.getLogger(__name__)
+
 
 class IsAdminManagerOrLineManagerOnly(BasePermission):
     def has_permission(self, request, view) -> bool:
@@ -83,31 +98,104 @@ def _is_ip_allowed(remote_ip: str) -> bool:
         addr = ipaddress.ip_address(remote_ip)
     except ValueError:
         return False
-    for excluded in _EXCLUDED_DOCKER_SUBNETS:
-        if addr in excluded:
-            return False
+    # In DEBUG, optionally allow configured dev CIDRs (e.g., docker networks).
+    if getattr(settings, "DEBUG", False) and any(
+        addr in dev_net for dev_net in _DEV_ALLOW_CIDRS
+    ):
+        return True
+
+    if any(addr in excluded for excluded in _EXCLUDED_DOCKER_SUBNETS):
+        return False
+
+    allowed = False
     for net in OfficeNetwork.objects.filter(is_active=True).only("cidr"):
         try:
             network = ipaddress.ip_network(net.cidr, strict=False)
         except ValueError:
             continue
         if addr in network:
-            return True
-    return False
+            allowed = True
+            break
+    return allowed
+
+
+def _active_office_networks():
+    nets: list[ipaddress._BaseNetwork] = []  # type: ignore[attr-defined]
+    for net in OfficeNetwork.objects.filter(is_active=True).only("cidr"):
+        try:
+            nets.append(ipaddress.ip_network(net.cidr, strict=False))
+        except ValueError:
+            continue
+    return nets
+
+
+def _parse_ip(value: str):
+    try:
+        return ipaddress.ip_address(value)
+    except ValueError:
+        return None
+
+
+def _diagnose_ip(remote_ip: str | None) -> dict:
+    """Return structured diagnostics for network-status checks."""
+    office_nets = _active_office_networks()
+    addr = _parse_ip(remote_ip or "")
+    excluded_hit = False
+    matched_cidr = None
+    dev_allow_hit = False
+    if addr is not None:
+        excluded_hit = any(addr in ex for ex in _EXCLUDED_DOCKER_SUBNETS)
+        if getattr(settings, "DEBUG", False):
+            dev_allow_hit = any(addr in d for d in _DEV_ALLOW_CIDRS)
+        if not excluded_hit:
+            for net in office_nets:
+                if addr in net:
+                    matched_cidr = str(net)
+                    break
+    return {
+        "ip": remote_ip,
+        "excluded_hit": excluded_hit,
+        "dev_allow_hit": dev_allow_hit,
+        "active_office_cidrs": [str(n) for n in office_nets],
+        "matched_office_cidr": matched_cidr,
+    }
 
 
 def _get_remote_ip(request) -> str | None:
-    """Best-effort remote client IP extraction.
+    """Best-effort remote client IP extraction with proxy awareness.
 
-    Prefers `X-Forwarded-For` (first hop) when present, otherwise falls back to
-    `REMOTE_ADDR`.
+    Strategy:
+    1) If X-Forwarded-For is present, parse the list and prefer the first
+       address that matches any active OfficeNetwork (so office users pass
+       regardless of proxy ordering). If none match, prefer the first
+       non-excluded (not in known Docker bridge subnets). Otherwise, use the
+       left-most value (typical client IP per standard XFF semantics).
+    2) Fall back to X-Real-IP when provided.
+    3) Fall back to REMOTE_ADDR.
     """
     meta = getattr(request, "META", {}) or {}
     xff = meta.get("HTTP_X_FORWARDED_FOR")
     if xff:
-        # XFF format: client, proxy1, proxy2
-        first = str(xff).split(",")[0].strip()
-        return first or None
+        parts = [p.strip() for p in str(xff).split(",") if p and p.strip()]
+        office_nets = _active_office_networks()
+        # Prefer XFF IP that matches an OfficeNetwork
+        for cand in parts:
+            addr = _parse_ip(cand)
+            if addr is None:
+                continue
+            if any(addr in ex for ex in _EXCLUDED_DOCKER_SUBNETS):
+                continue
+            if any(addr in net for net in office_nets):
+                return cand
+        # Else first non-excluded
+        for cand in parts:
+            addr = _parse_ip(cand)
+            if addr is None:
+                continue
+            if any(addr in ex for ex in _EXCLUDED_DOCKER_SUBNETS):
+                continue
+            return cand
+        return parts[0] if parts else None
     real_ip = meta.get("HTTP_X_REAL_IP")
     if real_ip:
         return str(real_ip).strip() or None
@@ -1274,14 +1362,53 @@ class EmployeeAttendanceViewSet(
         target_emp, error = self._resolve_self_employee_scope(request, employee_id)
         if error:
             return error
-        remote_ip = _get_remote_ip(request)
-        return Response(
-            {
-                "employee": target_emp.pk,
-                "is_office_network": _is_ip_allowed(remote_ip or ""),
-                "ip": remote_ip,
-            }
+        meta = getattr(request, "META", {}) or {}
+        raw_xff = meta.get("HTTP_X_FORWARDED_FOR")
+        xff_parts = (
+            [p.strip() for p in str(raw_xff).split(",") if p and p.strip()]
+            if raw_xff
+            else []
         )
+        remote_ip = _get_remote_ip(request)
+        diag = _diagnose_ip(remote_ip)
+        payload = {
+            "employee": target_emp.pk,
+            "is_office_network": bool(diag.get("matched_office_cidr")),
+            "ip": remote_ip,
+        }
+        # Include diagnostics for staff or when explicitly requested.
+        debug_requested = str(request.query_params.get("debug", "")).lower() in {
+            "1",
+            "true",
+            "yes",
+        }
+        if debug_requested or getattr(request.user, "is_staff", False):
+            payload["debug"] = {
+                "headers": {
+                    "x_forwarded_for": raw_xff,
+                    "x_forwarded_for_parsed": xff_parts,
+                    "x_real_ip": meta.get("HTTP_X_REAL_IP"),
+                    "remote_addr": meta.get("REMOTE_ADDR"),
+                },
+                "selection": {
+                    "selected_ip": remote_ip,
+                    "excluded_subnets": [str(n) for n in _EXCLUDED_DOCKER_SUBNETS],
+                },
+                "diagnostics": diag,
+            }
+            logger.info(
+                (
+                    "attendance.network_status: employee=%s ip=%s matched=%s "
+                    "xff=%s real=%s ra=%s"
+                ),
+                target_emp.pk,
+                remote_ip,
+                diag.get("matched_office_cidr"),
+                raw_xff,
+                meta.get("HTTP_X_REAL_IP"),
+                meta.get("REMOTE_ADDR"),
+            )
+        return Response(payload)
 
     @action(
         detail=False,

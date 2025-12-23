@@ -11,7 +11,9 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone as dj_timezone
 from django.utils.translation import gettext_lazy as _
 
 
@@ -422,3 +424,176 @@ class PayslipDocument(models.Model):
 
     def __str__(self):
         return f"Payslip {self.month or ''} - {self.employee}"
+
+
+class TaxCode(models.Model):
+    """High-level tax code identifier (versioned via TaxCodeVersion).
+
+    Examples: "INCOME_TAX", "HEALTH_INSURANCE". Versions capture rate/brackets
+    and effective periods. Only one active version should apply at a given date.
+    """
+
+    code = models.CharField(max_length=64, unique=True)
+    name = models.CharField(max_length=128)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["code"]
+        verbose_name = _("Tax Code")
+        verbose_name_plural = _("Tax Codes")
+
+    def __str__(self):
+        return f"{self.code} - {self.name}"
+
+
+class TaxCodeVersion(models.Model):
+    """Versioned definition for a TaxCode.
+
+    Keep this flexible:
+    - "rate" covers flat-rate taxes; optional when using brackets/metadata.
+    - "metadata" may store bracket tables or formula hints as JSON.
+    Version ranges should not overlap per tax_code (enforced via clean()).
+    """
+
+    tax_code = models.ForeignKey(
+        TaxCode, related_name="versions", on_delete=models.CASCADE
+    )
+    effective_from = models.DateField()
+    effective_to = models.DateField(null=True, blank=True)
+    rate = models.DecimalField(
+        max_digits=7,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        help_text=_("Flat rate as fraction (e.g., 0.1000 for 10%)"),
+    )
+    metadata = models.JSONField(blank=True, null=True, help_text=_("Optional JSON"))
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["tax_code_id", "-effective_from", "-created_at"]
+        unique_together = ("tax_code", "effective_from")
+        verbose_name = _("Tax Code Version")
+        verbose_name_plural = _("Tax Code Versions")
+
+    def __str__(self):
+        return f"{self.tax_code.code}@{self.effective_from}..{self.effective_to or '∞'}"
+
+    def clean(self):
+        # Basic validity: effective_to must be >= effective_from (if provided)
+        if self.effective_to and self.effective_to < self.effective_from:
+            raise ValidationError(
+                {
+                    "effective_to": _("Must be on/after effective_from"),
+                }
+            )
+        # Overlap check: ensure no other version overlaps this range.
+        # This is a best-effort app-level guard (DB-level exclusion constraints
+        # would require PostgreSQL). Keep it simple and fast.
+        if not self.tax_code_id:
+            return
+        qs = (
+            TaxCodeVersion.objects.filter(tax_code_id=self.tax_code_id)
+            .exclude(pk=self.pk)
+            .only("effective_from", "effective_to")
+        )
+        start = self.effective_from
+        end = self.effective_to
+        for v in qs:
+            v_end = v.effective_to
+            # Ranges [v_start, v_end or ∞] and [start, end or ∞] overlap when
+            # v_start <= end (or ∞) and start <= v_end (or ∞)
+            if end is None or v_end is None:
+                if v.effective_from <= (end or start) and start <= (v_end or start):
+                    raise ValidationError(
+                        {"effective_from": _("Overlaps existing version")}
+                    )
+            elif v.effective_from <= end and start <= v_end:
+                raise ValidationError(
+                    {"effective_from": _("Overlaps existing version")}
+                )
+
+
+class PayrollRun(models.Model):
+    """Workflow wrapper for executing a cycle's payroll run.
+
+    Aligns to redesign: states draft → approved → finalized; immutable after
+    finalization. One run per cycle for now to keep behavior explicit.
+    """
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", _("Draft")
+        APPROVED = "approved", _("Approved")
+        FINALIZED = "finalized", _("Finalized")
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    cycle = models.OneToOneField(PayCycle, on_delete=models.CASCADE, related_name="run")
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.DRAFT
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_payroll_runs",
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="approved_payroll_runs",
+    )
+    finalized_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="finalized_payroll_runs",
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    finalized_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = _("Payroll Run")
+        verbose_name_plural = _("Payroll Runs")
+
+    def __str__(self):
+        return f"Run[{self.status}] for {self.cycle.name}"
+
+    def can_approve(self) -> bool:
+        return self.status == self.Status.DRAFT
+
+    def can_finalize(self) -> bool:
+        return self.status == self.Status.APPROVED
+
+    def mark_approved(self, by_user) -> None:
+        if not self.can_approve():
+            return
+        self.status = self.Status.APPROVED
+        self.approved_by = by_user
+        self.approved_at = dj_timezone.now()
+        self.save(update_fields=["status", "approved_by", "approved_at", "updated_at"])
+
+    def mark_finalized(self, by_user) -> None:
+        if not self.can_finalize():
+            return
+        self.status = self.Status.FINALIZED
+        self.finalized_by = by_user
+        self.finalized_at = dj_timezone.now()
+        self.save(
+            update_fields=[
+                "status",
+                "finalized_by",
+                "finalized_at",
+                "updated_at",
+            ]
+        )

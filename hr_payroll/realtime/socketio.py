@@ -23,6 +23,7 @@ from urllib.parse import parse_qs
 import socketio
 from asgiref.sync import async_to_sync
 from channels.db import database_sync_to_async
+from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import TokenError
 
@@ -138,6 +139,13 @@ async def connect(sid: str, environ: dict[str, Any], auth: Any | None = None):
             msg = "jwt_expired"
             raise ConnectionRefusedError(msg) from exc
         msg = "unauthorized"
+        raise ConnectionRefusedError(msg) from exc
+    except AuthenticationFailed as exc:  # user not found / inactive, etc.
+        msg = "unauthorized"
+        raise ConnectionRefusedError(msg) from exc
+    except Exception as exc:
+        logger.exception("Socket.IO connect error")
+        msg = "server_error"
         raise ConnectionRefusedError(msg) from exc
 
     await sio.save_session(

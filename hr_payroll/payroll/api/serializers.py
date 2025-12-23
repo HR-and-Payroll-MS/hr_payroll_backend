@@ -6,11 +6,14 @@ from hr_payroll.payroll.models import Dependent
 from hr_payroll.payroll.models import EmployeeSalaryStructure
 from hr_payroll.payroll.models import PayCycle
 from hr_payroll.payroll.models import PayrollGeneralSetting
+from hr_payroll.payroll.models import PayrollRun
 from hr_payroll.payroll.models import PayrollSlip
 from hr_payroll.payroll.models import PayslipDocument
 from hr_payroll.payroll.models import PayslipLineItem
 from hr_payroll.payroll.models import SalaryComponent
 from hr_payroll.payroll.models import SalaryStructureItem
+from hr_payroll.payroll.models import TaxCode
+from hr_payroll.payroll.models import TaxCodeVersion
 
 
 class BankMasterSerializer(serializers.ModelSerializer):
@@ -179,3 +182,77 @@ class PayslipDocumentSerializer(serializers.ModelSerializer):
             "uploaded_at",
         ]
         read_only_fields = ["uploaded_at", "uploaded_by"]
+
+
+class TaxCodeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TaxCode
+        fields = [
+            "id",
+            "code",
+            "name",
+            "description",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["created_at", "updated_at"]
+
+
+class TaxCodeVersionSerializer(serializers.ModelSerializer):
+    tax_code_code = serializers.CharField(source="tax_code.code", read_only=True)
+
+    class Meta:
+        model = TaxCodeVersion
+        fields = [
+            "id",
+            "tax_code",
+            "tax_code_code",
+            "effective_from",
+            "effective_to",
+            "rate",
+            "metadata",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["created_at", "updated_at"]
+
+
+class PayrollRunSerializer(serializers.ModelSerializer):
+    cycle_name = serializers.CharField(source="cycle.name", read_only=True)
+    created_by_name = serializers.CharField(
+        source="created_by.get_full_name", read_only=True, allow_null=True
+    )
+    approved_by_name = serializers.CharField(
+        source="approved_by.get_full_name", read_only=True, allow_null=True
+    )
+    finalized_by_name = serializers.CharField(
+        source="finalized_by.get_full_name", read_only=True, allow_null=True
+    )
+
+    class Meta:
+        model = PayrollRun
+        fields = [
+            "id",
+            "cycle",
+            "cycle_name",
+            "status",
+            "created_by",
+            "created_by_name",
+            "approved_by",
+            "approved_by_name",
+            "finalized_by",
+            "finalized_by_name",
+            "approved_at",
+            "finalized_at",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "approved_by",
+            "finalized_by",
+            "approved_at",
+            "finalized_at",
+            "created_at",
+            "updated_at",
+        ]
