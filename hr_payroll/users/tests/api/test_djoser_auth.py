@@ -17,7 +17,7 @@ class TestDjoserJWTFlow(APITestCase):
         manager = user_model.objects.create_user(
             username="manager",
             email="manager@example.com",
-            password="ManagerPass!123",  # noqa: S106
+            password="ManagerPass!123",
         )
         manager.is_active = True
         manager.save()
@@ -81,7 +81,7 @@ class TestDjoserJWTFlow(APITestCase):
         user = user_model.objects.create_user(
             username="bob",
             email="bob@example.com",
-            password="StrongPass!234",  # noqa: S106
+            password="StrongPass!234",
         )
         user.is_active = True
         user.save()

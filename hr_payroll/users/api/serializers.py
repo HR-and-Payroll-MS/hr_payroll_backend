@@ -1,3 +1,4 @@
+from django.contrib.auth import password_validation
 from django.core.exceptions import ObjectDoesNotExist
 from django.urls import NoReverseMatch
 from django.urls import reverse
@@ -108,3 +109,56 @@ class UserSerializer(serializers.ModelSerializer[User]):
         instance.last_name = validated_data.get("last_name", instance.last_name)
         instance.save()
         return instance
+
+
+class PasswordUpdateSerializer(serializers.Serializer):
+    """Serializer to update the current user's password.
+
+    Accepts either `old_password` or `current_password` plus `new_password`.
+    Optionally validates `confirm_password` when provided.
+    """
+
+    old_password = serializers.CharField(write_only=True, required=False)
+    current_password = serializers.CharField(write_only=True, required=False)
+    new_password = serializers.CharField(write_only=True)
+    confirm_password = serializers.CharField(write_only=True, required=False)
+
+    def validate(self, attrs):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        # Permission layer guards this, but keep a defensive check.
+        if user is None or not user.is_authenticated:
+            raise serializers.ValidationError({"detail": "Authentication required"})
+
+        old_pw = attrs.get("old_password") or attrs.get("current_password")
+        if not old_pw:
+            raise serializers.ValidationError(
+                {"current_password": "This field is required."}
+            )
+
+        if not user.check_password(old_pw):
+            raise serializers.ValidationError(
+                {"current_password": "Incorrect password."}
+            )
+
+        new_pw = attrs.get("new_password")
+        confirm = attrs.get("confirm_password")
+        if confirm is not None and confirm != new_pw:
+            raise serializers.ValidationError(
+                {"confirm_password": "Does not match new_password."}
+            )
+
+        password_validation.validate_password(new_pw, user=user)
+        attrs["user"] = user
+        attrs["validated_new_password"] = new_pw
+        return attrs
+
+    def save(self, **kwargs):
+        user = self.validated_data["user"]
+        new_pw = self.validated_data["validated_new_password"]
+        user.set_password(new_pw)
+        if hasattr(user, "updated_at"):
+            user.save(update_fields=["password", "updated_at"])
+        else:
+            user.save()
+        return user

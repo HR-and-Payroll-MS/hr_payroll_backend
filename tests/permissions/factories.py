@@ -39,7 +39,7 @@ def create_user_with_role(
     user = User.objects.create_user(
         username=username,
         email=f"{username}@example.com",
-        password="TestPass123!",  # noqa: S106
+        password="TestPass123!",
     )
     if is_staff:
         user.is_staff = True

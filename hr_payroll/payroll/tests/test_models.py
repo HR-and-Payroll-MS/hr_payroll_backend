@@ -218,6 +218,6 @@ def employee():
     user = User.objects.create_user(
         username="testuser",
         email="test@example.com",
-        password="testpass123",  # noqa: S106
+        password="testpass123",
     )
     return Employee.objects.create(user=user, employee_id="E-00001", title="Engineer")

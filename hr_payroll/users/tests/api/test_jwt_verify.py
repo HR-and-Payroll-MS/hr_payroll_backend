@@ -21,7 +21,7 @@ def test_jwt_verify_endpoint():
     user_model.objects.create_user(
         username="verifyuser",
         email="verify@example.com",
-        password="VerifyPass!123",  # noqa: S106
+        password="VerifyPass!123",
     )
     client = APIClient()
     access, _ = obtain_tokens(client, "verifyuser", "VerifyPass!123")

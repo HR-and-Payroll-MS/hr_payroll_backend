@@ -9,6 +9,9 @@ from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 
 from hr_payroll.audit.utils import log_action
+from hr_payroll.users.api.permissions import ELEVATED_GROUPS
+from hr_payroll.users.api.permissions import _has_employee_or_staff
+from hr_payroll.users.api.permissions import _in_groups
 from hr_payroll.users.models import User
 
 from .serializers import UserSerializer
@@ -33,12 +36,12 @@ class UserViewSet(RetrieveModelMixin, ListModelMixin, UpdateModelMixin, GenericV
         user = self.request.user
         if not getattr(user, "is_authenticated", False):  # pragma: no cover - safety
             return User.objects.none()
-        # Managers/Admins may list all users; others only themselves
-        is_elevated = getattr(user, "is_staff", False) or (
-            getattr(user, "groups", None)
-            and user.groups.filter(name__in=["Admin", "Manager"]).exists()
-        )
-        return User.objects.all() if is_elevated else User.objects.filter(pk=user.pk)
+        # Managers/Admins may list all users; require employee profile unless staff/superuser
+        if getattr(user, "is_superuser", False) or getattr(user, "is_staff", False):
+            return User.objects.all()
+        if _has_employee_or_staff(user) and _in_groups(user, ELEVATED_GROUPS):
+            return User.objects.all()
+        return User.objects.filter(pk=user.pk)
 
     @action(detail=False)
     def me(self, request):

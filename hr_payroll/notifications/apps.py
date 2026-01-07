@@ -8,4 +8,4 @@ class NotificationsConfig(AppConfig):
     verbose_name = _("Notifications")
 
     def ready(self):
-        import hr_payroll.notifications.signals  # noqa: F401, PLC0415
+        import hr_payroll.notifications.signals  # noqa: F401

@@ -1,0 +1,141 @@
+hr_payroll\messaging\api\serializers.py:103:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+    |
+101 |         except Chat.DoesNotExist:
+102 |             msg = "Chat not found"
+103 |             raise serializers.ValidationError(msg)
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ B904
+104 |         return value
+    |
+
+hr_payroll\org\api\views.py:245:28: DTZ011 `datetime.date.today()` used
+    |
+243 |         TaxCodeVersion.objects.update_or_create(
+244 |             tax_code=code_obj,
+245 |             effective_from=date.today().replace(day=1, month=1),
+    |                            ^^^^^^^^^^^^ DTZ011
+246 |             defaults={
+247 |                 "rate": (item.get("rate") or 0) / 100.0,
+    |
+    = help: Use `datetime.datetime.now(tz=...).date()` instead
+
+hr_payroll\payroll\api\views.py:73:1: E402 Module level import not at top of file
+   |
+73 | from hr_payroll.payroll.services import PayrollCalculator
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+   |
+
+hr_payroll\payroll\api\views.py:445:16: BLE001 Do not catch blind exception: `Exception`
+    |
+443 |             cycle.save()
+444 |             return Response(stats, status=200)
+445 |         except Exception as e:
+    |                ^^^^^^^^^ BLE001
+446 |             import traceback
+    |
+
+hr_payroll\payroll\services.py:362:9: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+    |
+360 |     except PayCycle.DoesNotExist:
+361 |         msg = "PayCycle not found"
+362 |         raise ValueError(msg)
+    |         ^^^^^^^^^^^^^^^^^^^^^ B904
+363 |
+364 |     employees = (
+    |
+
+hr_payroll\payroll\services.py:403:13: PERF401 Use a list comprehension to create a transformed list
+    |
+401 |           line_items = []
+402 |           for item in result["earnings"]:
+403 |               line_items.append(
+    |  _____________^
+404 | |                 PayslipLineItem(
+405 | |                     slip=slip,
+406 | |                     component=item.get("component"),
+407 | |                     label=item["label"],
+408 | |                     amount=item["amount"],
+409 | |                     category=item.get("category", PayslipLineItem.Category.RECURRING),
+410 | |                 )
+411 | |             )
+    | |_____________^ PERF401
+412 |
+413 |           for item in result["deductions"]:
+    |
+
+hr_payroll\payroll\services.py:414:13: PERF401 Use a list comprehension to create a transformed list
+    |
+413 |           for item in result["deductions"]:
+414 |               line_items.append(
+    |  _____________^
+415 | |                 PayslipLineItem(
+416 | |                     slip=slip,
+417 | |                     component=item.get("component"),
+418 | |                     label=item["label"],
+419 | |                     amount=item["amount"],
+420 | |                     category=item.get("category", PayslipLineItem.Category.RECURRING),
+421 | |                 )
+422 | |             )
+    | |_____________^ PERF401
+423 |
+424 |           PayslipLineItem.objects.bulk_create(line_items)
+    |
+
+hr_payroll\policies\accessors.py:166:5: E722 Do not use bare `except`
+    |
+164 |     try:
+165 |         return Decimal(str(percent))
+166 |     except:
+    |     ^^^^^^ E722
+167 |         return Decimal("0")
+    |
+
+hr_payroll\policies\accessors.py:207:12: BLE001 Do not catch blind exception: `Exception`
+    |
+205 |         minute = int(parts[1]) if len(parts) > 1 else 0
+206 |         return time(hour=hour, minute=minute)
+207 |     except Exception:
+    |            ^^^^^^^^^ BLE001
+208 |         return fallback
+    |
+
+hr_payroll\users\admin.py:32:24: S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+   |
+30 |     base = "".join(ch for ch in base if ch.isalnum() or ch in {".", "-", "_"})
+31 |     while True:
+32 |         salt = "".join(random.choices(string.ascii_lowercase + string.digits, k=4))
+   |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ S311
+33 |         candidate = f"{base}-{salt}"
+34 |         if not User.objects.filter(username=candidate).exists():
+   |
+
+hr_payroll\users\admin.py:40:20: S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+   |
+38 | def _generate_password() -> str:
+39 |     charset = string.ascii_letters + string.digits + "!@#$%^&*()"
+40 |     return "".join(random.choices(charset, k=12))
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ S311
+   |
+
+hr_payroll\users\admin.py:55:20: FBT002 Boolean default positional argument in function definition
+   |
+53 |         ]
+54 |
+55 |     def save(self, commit=True):
+   |                    ^^^^^^ FBT002
+56 |         user = super().save(commit=False)
+57 |         first = (user.first_name or "").strip() or "User"
+   |
+
+tests\permissions\test_attendance_permissions.py:141:110: RUF100 [*] Unused `noqa` directive (non-enabled: `E501`)
+    |
+139 |         self.authenticate(ROLE_EMPLOYEE)
+140 |         url = (
+141 |             f"{reverse('attendance-today', kwargs={'employee_id': self.roles[ROLE_EMPLOYEE].employee.pk})}"  # noqa: E501
+    |                                                                                                              ^^^^^^^^^^^^ RUF100
+142 |             f"?date={future_date}"
+143 |         )
+    |
+    = help: Remove unused `noqa` directive
+
+Found 13 errors.
+[*] 1 fixable with the `--fix` option.

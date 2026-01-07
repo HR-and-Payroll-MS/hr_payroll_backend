@@ -86,7 +86,7 @@ class TestPublicHoliday:
 @pytest.mark.django_db
 class TestEmployeeBalance:
     def setup_method(self):
-        self.user = User.objects.create_user(username="emp1", password="password")  # noqa: S106
+        self.user = User.objects.create_user(username="emp1", password="password")
         self.employee = Employee.objects.create(user=self.user)
         self.lt = LeaveType.objects.create(name="Annual", unit="Days")
         self.policy = LeavePolicy.objects.create(
@@ -114,7 +114,7 @@ class TestEmployeeBalance:
 @pytest.mark.django_db
 class TestLeaveRequest:
     def setup_method(self):
-        self.user = User.objects.create_user(username="emp1", password="password")  # noqa: S106
+        self.user = User.objects.create_user(username="emp1", password="password")
         self.employee = Employee.objects.create(user=self.user)
         self.lt = LeaveType.objects.create(name="Annual", unit="Days")
         self.policy = LeavePolicy.objects.create(
@@ -152,7 +152,7 @@ class TestLeaveRequest:
 @pytest.mark.django_db
 class TestBalanceHistory:
     def setup_method(self):
-        self.user = User.objects.create_user(username="emp1", password="password")  # noqa: S106
+        self.user = User.objects.create_user(username="emp1", password="password")
         self.employee = Employee.objects.create(user=self.user)
         self.lt = LeaveType.objects.create(name="Annual", unit="Days")
         self.policy = LeavePolicy.objects.create(

@@ -7,4 +7,4 @@ class LeavesConfig(AppConfig):
     verbose_name = _("Leaves")
 
     def ready(self):
-        import hr_payroll.leaves.signals  # noqa: F401, PLC0415
+        import hr_payroll.leaves.signals  # noqa: F401

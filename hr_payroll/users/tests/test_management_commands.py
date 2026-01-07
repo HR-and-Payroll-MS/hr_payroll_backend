@@ -26,5 +26,5 @@ def test_setup_rbac_creates_default_groups(db):
         codename__in=[f"view_{model_codename}", f"change_{model_codename}"]
     ).exists()
     assert payroll.permissions.filter(codename__icontains="payroll").exists()
-    assert line_manager.permissions.filter(codename__icontains="attendance").exists()
+    assert line_manager.permissions.filter(codename__icontains="employee").exists()
     assert employee.permissions.filter(codename__startswith="view_").exists()

@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
+from django_countries.fields import CountryField
 
 
 def employee_photo_upload_to(
@@ -36,6 +37,23 @@ class Employee(models.Model):
     employee_id = models.CharField(max_length=50, unique=True, blank=True, null=True)
     join_date = models.DateField(blank=True, null=True)
     last_working_date = models.DateField(blank=True, null=True)
+    employment_status = models.CharField(
+        max_length=20,
+        default="active",
+        choices=[
+            ("active", "Active"),
+            ("probation", "Probation"),
+            ("terminated", "Terminated"),
+            ("resigned", "Resigned"),
+            ("on_leave", "On Leave"),
+        ],
+    )
+    termination_reason = models.TextField(blank=True)
+    notice_period_days = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Calculated from terminationPolicy based on status",
+    )
     is_active = models.BooleanField(default=True)
     department = models.ForeignKey(
         "org.Department",
@@ -52,6 +70,9 @@ class Employee(models.Model):
         related_name="managed_employees",
     )
     health_care = models.CharField(max_length=100, blank=True)
+    current_shift = models.CharField(
+        max_length=100, blank=True, help_text="Name of the shift from Policy"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -134,3 +155,37 @@ class EmployeeDocument(models.Model):
 
     def __str__(self):  # pragma: no cover
         return f"EmployeeDocument({self.name})"
+
+
+class EmployeeAddress(models.Model):
+    employee = models.OneToOneField(
+        Employee, on_delete=models.CASCADE, related_name="address"
+    )
+    primary_address = models.CharField(max_length=255, blank=True)
+    country = CountryField(blank=True)
+    state_province = models.CharField(max_length=100, blank=True)
+    city = models.CharField(max_length=100, blank=True)
+    postal_code = models.CharField(max_length=20, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Address({self.employee.user.username})"
+
+
+class EmergencyContact(models.Model):
+    employee = models.ForeignKey(
+        Employee, on_delete=models.CASCADE, related_name="emergency_contacts"
+    )
+    full_name = models.CharField(max_length=150)
+    phone_number = models.CharField(max_length=50, blank=True)
+    state_province = models.CharField(max_length=100, blank=True)
+    city = models.CharField(max_length=100, blank=True)
+    postal_code = models.CharField(max_length=20, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Emergency({self.full_name} for {self.employee.user.username})"

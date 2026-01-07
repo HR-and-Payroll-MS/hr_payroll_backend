@@ -17,7 +17,6 @@ ROLE_EMPLOYEE = "Employee"
 
 ROLE_APP_ACTIONS = {
     "Manager": {
-        "attendance": FULL_ACTIONS,
         "employees": FULL_ACTIONS,
         "leaves": FULL_ACTIONS,
         "org": FULL_ACTIONS,
@@ -31,14 +30,12 @@ ROLE_APP_ACTIONS = {
         "notifications": READ_ACTIONS,
     },
     "Line Manager": {
-        "attendance": APPROVE_ACTIONS,
         "employees": APPROVE_ACTIONS,
         "leaves": APPROVE_ACTIONS,
         "org": READ_ACTIONS,
         "notifications": READ_ACTIONS,
     },
     "Employee": {
-        "attendance": READ_ACTIONS,
         "employees": READ_ACTIONS,
         "leaves": READ_ACTIONS,
         "notifications": READ_ACTIONS,

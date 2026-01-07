@@ -3,12 +3,11 @@ from rest_framework.routers import DefaultRouter
 
 from .views import BankDetailViewSet
 from .views import BankMasterViewSet
-from .views import DependentViewSet
 from .views import EmployeeSalaryStructureViewSet
 from .views import PayCycleViewSet
 from .views import PayrollEmployeeListView
-from .views import PayrollGeneralSettingViewSet
 from .views import PayrollPreviewView
+from .views import PayrollReportView
 from .views import PayrollRunViewSet
 from .views import PayrollSlipViewSet
 from .views import PayslipDocumentViewSet
@@ -22,7 +21,7 @@ from .views import TaxCodeViewSet
 router = DefaultRouter()
 router.register("banks", BankMasterViewSet, basename="bank-master")
 router.register("components", SalaryComponentViewSet, basename="salary-component")
-router.register("settings", PayrollGeneralSettingViewSet, basename="payroll-setting")
+
 router.register(
     "salary-structures", EmployeeSalaryStructureViewSet, basename="salary-structure"
 )
@@ -30,7 +29,6 @@ router.register(
     "structure-items", SalaryStructureItemViewSet, basename="structure-item"
 )
 router.register("bank-details", BankDetailViewSet, basename="bank-detail")
-router.register("dependents", DependentViewSet, basename="dependent")
 router.register("cycles", PayCycleViewSet, basename="pay-cycle")
 router.register("slips", PayrollSlipViewSet, basename="payroll-slip")
 router.register("slip-items", PayslipLineItemViewSet, basename="slip-item")
@@ -53,6 +51,11 @@ urlpatterns = [
         "payroll/employees/<int:employee_id>/preview/",
         PayrollPreviewView.as_view(),
         name="payroll-preview",
+    ),
+    path(
+        "reports/",
+        PayrollReportView.as_view(),
+        name="payroll-reports",
     ),
     *router.urls,
 ]

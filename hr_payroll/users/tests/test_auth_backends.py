@@ -79,7 +79,7 @@ class TestUsernameOrEmailBackend:
         user = self.backend.authenticate(
             None,
             username="test",
-            password="wrongpass",  # noqa: S106
+            password="wrongpass",
         )
         assert user is None
 
@@ -92,7 +92,7 @@ class TestUsernameOrEmailBackend:
         user = self.backend.authenticate(
             None,
             username="test@gmail.com",
-            password="wrongpass",  # noqa: S106
+            password="wrongpass",
         )
         assert user is None
 
@@ -105,7 +105,7 @@ class TestUsernameOrEmailBackend:
         user = self.backend.authenticate(
             None,
             username="wronguser",
-            password="wrongpass",  # noqa: S106
+            password="wrongpass",
         )
         assert user is None
 
@@ -118,6 +118,6 @@ class TestUsernameOrEmailBackend:
         user = self.backend.authenticate(
             None,
             username="wrong@gmail.com",
-            password="wrongpass",  # noqa: S106
+            password="wrongpass",
         )
         assert user is None

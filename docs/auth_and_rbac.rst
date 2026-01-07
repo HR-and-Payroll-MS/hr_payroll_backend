@@ -38,7 +38,6 @@ Permission Model Adjustments
 API Access Scoping
 ----------------------------------------------------------------------
 - Employees: Non-elevated users only see their own Employee record; Line Managers see direct reports; HR/Admin see all.
-- Attendance: Same scoping rules as Employees; per-record actions are restricted to HR/Admin/Line Managers.
 
 Registration Policy
 ----------------------------------------------------------------------
@@ -53,7 +52,6 @@ RBAC Summary (domain-specific)
 - Employees: Non-elevated users only see their own; elevated roles have broader access.
 - Employee Documents/Contracts/Job Histories: same scoping as Employees.
 - Payroll: reads for authenticated users; writes restricted to Admin by default.
-- Attendance: non-elevated users manage only their own records; approvals/adjustments restricted to Line Managers and HR/Admin.
 
 Groups & Permissions
 ----------------------------------------------------------------------

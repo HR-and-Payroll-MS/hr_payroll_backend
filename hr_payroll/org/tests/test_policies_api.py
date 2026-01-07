@@ -36,9 +36,9 @@ def test_org_policies_get_returns_defaults(user):
     body = res.json()
     assert "general" in body
     assert "overtimePolicy" in body
-    assert body["overtimePolicy"]["overtimeRate"] == 1.5
-    assert body["overtimePolicy"]["weekendRate"] == 2
-    assert body["overtimePolicy"]["holidayRate"] == 2
+    assert body["overtimePolicy"]["rates"]["standardRate"] == 1.5
+    assert body["overtimePolicy"]["rates"]["weekendRate"] == 2.0
+    assert body["overtimePolicy"]["rates"]["holidayRate"] == 2.0
 
 
 @pytest.mark.django_db
@@ -51,7 +51,7 @@ def test_org_policies_get_root_no_slash_returns_defaults(user):
 
     body = res.json()
     assert "general" in body
-    assert body["overtimePolicy"]["overtimeRate"] == 1.5
+    assert body["overtimePolicy"]["rates"]["standardRate"] == 1.5
 
 
 @pytest.mark.django_db
@@ -78,19 +78,19 @@ def test_org_policies_put_section_manager_updates_and_merges_defaults():
 
     res = client.put(
         "/api/v1/orgs/1/policies/overtimePolicy/",
-        {"overtimePolicy": {"weekendRate": 2.5}},
+        {"overtimePolicy": {"rates": {"weekendRate": 2.5}}},
         format="json",
     )
     assert res.status_code == status.HTTP_200_OK
 
     body = res.json()
-    assert body["overtimePolicy"]["weekendRate"] == 2.5
+    assert body["overtimePolicy"]["rates"]["weekendRate"] == 2.5
     # Missing keys should remain present from defaults via deep merge.
-    assert body["overtimePolicy"]["overtimeRate"] == 1.5
-    assert body["overtimePolicy"]["holidayRate"] == 2
+    assert body["overtimePolicy"]["rates"]["standardRate"] == 1.5
+    assert body["overtimePolicy"]["rates"]["holidayRate"] == 2.0
 
     row = OrganizationPolicy.objects.get(org_id=1)
-    assert row.document["overtimePolicy"]["weekendRate"] == 2.5
+    assert row.document["overtimePolicy"]["rates"]["weekendRate"] == 2.5
 
 
 @pytest.mark.django_db
@@ -104,11 +104,11 @@ def test_org_policies_put_section_without_trailing_slash_works():
 
     res = client.put(
         "/api/v1/orgs/1/policies/overtimePolicy",
-        {"overtimePolicy": {"weekendRate": 2.25}},
+        {"overtimePolicy": {"rates": {"weekendRate": 2.25}}},
         format="json",
     )
     assert res.status_code == status.HTTP_200_OK
-    assert res.json()["overtimePolicy"]["weekendRate"] == 2.25
+    assert res.json()["overtimePolicy"]["rates"]["weekendRate"] == 2.25
 
 
 @pytest.mark.django_db
@@ -122,11 +122,11 @@ def test_org_policies_put_section_root_without_prefix_works():
 
     res = client.put(
         "/orgs/1/policies/overtimePolicy",
-        {"overtimePolicy": {"weekendRate": 2.1}},
+        {"overtimePolicy": {"rates": {"weekendRate": 2.1}}},
         format="json",
     )
     assert res.status_code == status.HTTP_200_OK
-    assert res.json()["overtimePolicy"]["weekendRate"] == 2.1
+    assert res.json()["overtimePolicy"]["rates"]["weekendRate"] == 2.1
 
 
 @pytest.mark.django_db

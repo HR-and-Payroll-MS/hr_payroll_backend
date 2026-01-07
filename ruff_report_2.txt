@@ -1,0 +1,717 @@
+config\api_router.py:45:89: E501 Line too long (89 > 88)
+   |
+43 |         include(("hr_payroll.audit.api.urls", "audit"), namespace="audit"),
+44 |     ),
+45 |     # Employee-scoped attendance endpoints (e.g., /api/v1/employees/<id>/attendances/...)
+   |                                                                                         ^ E501
+46 |     path("", include("hr_payroll.attendance.api.urls")),
+47 |     path(
+   |
+
+hr_payroll\announcements\api\views.py:66:9: S110 `try`-`except`-`pass` detected, consider logging the exception
+   |
+64 |                   # No audience groups: visible to all users
+65 |                   emit_event_to_all(event, payload)
+66 |           except Exception:
+   |  _________^
+67 | |             # Do not block creation on realtime emission failures
+68 | |             pass
+   | |________________^ S110
+69 |           return Response(out, status=status.HTTP_201_CREATED)
+   |
+
+hr_payroll\announcements\api\views.py:66:16: BLE001 Do not catch blind exception: `Exception`
+   |
+64 |                 # No audience groups: visible to all users
+65 |                 emit_event_to_all(event, payload)
+66 |         except Exception:
+   |                ^^^^^^^^^ BLE001
+67 |             # Do not block creation on realtime emission failures
+68 |             pass
+   |
+
+hr_payroll\attendance\api\serializers.py:68:89: E501 Line too long (94 > 88)
+   |
+66 |             raise serializers.ValidationError(
+67 |                 {
+68 |                     "date": f"Attendance edits only allowed for the last {window_days} days.",
+   |                                                                                         ^^^^^^ E501
+69 |                 }
+70 |             )
+   |
+
+hr_payroll\attendance\api\views.py:27:89: E501 Line too long (99 > 88)
+   |
+26 | def _client_ip(request) -> str:
+27 |     # Prefer explicitly forwarded client IPs in dev; fallback to REMOTE_ADDR (likely docker bridge)
+   |                                                                                         ^^^^^^^^^^^ E501
+28 |     x_client = request.META.get("HTTP_X_CLIENT_IP")
+29 |     if settings.DEBUG and x_client:
+   |
+
+hr_payroll\attendance\api\views.py:89:89: E501 Line too long (90 > 88)
+   |
+88 | def _ensure_shift_defaults(record: AttendanceRecord) -> None:
+89 |     # Always pull current dynamic policy so frontend policy edits take effect immediately.
+   |                                                                                         ^^ E501
+90 |
+91 |     # 1. Try to find the shift assigned to this employee
+   |
+
+hr_payroll\attendance\api\views.py:379:89: E501 Line too long (89 > 88)
+    |
+378 | class AttendancePlaceholderViewSet(viewsets.ViewSet):
+379 |     """Placeholder to show /attendances at API root (real routes under /attendances/)."""
+    |                                                                                         ^ E501
+380 |
+381 |     permission_classes = [permissions.IsAuthenticated]
+    |
+
+hr_payroll\attendance\api\views.py:475:9: C901 `partial_update` is too complex (18 > 10)
+    |
+473 |     """HR/staff attendance corrections."""
+474 |
+475 |     def partial_update(self, request, pk: str | None = None):
+    |         ^^^^^^^^^^^^^^ C901
+476 |         if not (request.user.is_staff or request.user.is_superuser):
+477 |             msg = "Only managers can edit attendance records."
+    |
+
+hr_payroll\attendance\api\views.py:475:9: PLR0915 Too many statements (53 > 50)
+    |
+473 |     """HR/staff attendance corrections."""
+474 |
+475 |     def partial_update(self, request, pk: str | None = None):
+    |         ^^^^^^^^^^^^^^ PLR0915
+476 |         if not (request.user.is_staff or request.user.is_superuser):
+477 |             msg = "Only managers can edit attendance records."
+    |
+
+hr_payroll\attendance\tests\test_attendance_api.py:19:9: S106 Possible hardcoded password assigned to argument: "password"
+   |
+17 |         username="admin",
+18 |         email="admin@example.com",
+19 |         password="password",
+   |         ^^^^^^^^^^^^^^^^^^^ S106
+20 |         is_staff=True,
+21 |     )
+   |
+
+hr_payroll\attendance\tests\test_attendance_api.py:45:33: DTZ001 `datetime.datetime()` called without a `tzinfo` argument
+   |
+43 |     client, employee = staff_client
+44 |
+45 |     dt_in = timezone.make_aware(datetime(2025, 1, 1, 9, 0))
+   |                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^ DTZ001
+46 |     dt_out = timezone.make_aware(datetime(2025, 1, 1, 17, 0))
+47 |     times = iter([dt_in, dt_out])
+   |
+   = help: Pass a `datetime.timezone` object to the `tzinfo` parameter
+
+hr_payroll\attendance\tests\test_attendance_api.py:46:34: DTZ001 `datetime.datetime()` called without a `tzinfo` argument
+   |
+45 |     dt_in = timezone.make_aware(datetime(2025, 1, 1, 9, 0))
+46 |     dt_out = timezone.make_aware(datetime(2025, 1, 1, 17, 0))
+   |                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^ DTZ001
+47 |     times = iter([dt_in, dt_out])
+   |
+   = help: Pass a `datetime.timezone` object to the `tzinfo` parameter
+
+hr_payroll\efficiency\api\views.py:102:89: E501 Line too long (94 > 88)
+    |
+100 |         # Validating structure: Schema says kpis is {name, weight},
+101 |         # but frontend might save it as list or dict.
+102 |         # Assuming frontend saves it as defined in schema: { name: "", weight: "" } (object??)
+    |                                                                                         ^^^^^^ E501
+103 |         # Actually PolicyFormSchemas shows kpis: { name: ..., weight: ... } which usually implies a single object in the array if generic,
+104 |         # OR it's a fixed object.
+    |
+
+hr_payroll\efficiency\api\views.py:103:89: E501 Line too long (138 > 88)
+    |
+101 |         # but frontend might save it as list or dict.
+102 |         # Assuming frontend saves it as defined in schema: { name: "", weight: "" } (object??)
+103 |         # Actually PolicyFormSchemas shows kpis: { name: ..., weight: ... } which usually implies a single object in the array if generic,
+    |                                                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E501
+104 |         # OR it's a fixed object.
+105 |         # Let's assume generic "Performance" kpi if empty.
+    |
+
+hr_payroll\employees\api\serializers.py:284:9: PLR0912 Too many branches (20 > 12)
+    |
+282 |         return f"{prefix}{nxt:05d}"
+283 |
+284 |     def create(self, validated):  # noqa: C901 - orchestrates multiple related creates atomically
+    |         ^^^^^^ PLR0912
+285 |         # Create User with generated username/email/password
+286 |         first = validated.get("first_name", "").strip()
+    |
+
+hr_payroll\employees\api\serializers.py:284:9: PLR0915 Too many statements (69 > 50)
+    |
+282 |         return f"{prefix}{nxt:05d}"
+283 |
+284 |     def create(self, validated):  # noqa: C901 - orchestrates multiple related creates atomically
+    |         ^^^^^^ PLR0915
+285 |         # Create User with generated username/email/password
+286 |         first = validated.get("first_name", "").strip()
+    |
+
+hr_payroll\employees\api\serializers.py:421:89: E501 Line too long (92 > 88)
+    |
+419 |                 {"kind": "offset", "amount": validated["offset"], "label": "Offset"}
+420 |             )
+421 |         # one_off is typically not part of recurring structure, but we can add it as one-off
+    |                                                                                         ^^^^ E501
+422 |         if validated.get("one_off"):
+423 |             comps.append(
+    |
+
+hr_payroll\loans\api\serializers.py:56:89: E501 Line too long (94 > 88)
+   |
+55 |         # 1. Get Policy
+56 |         # Assuming org_id 1 or from employee's org. For now defaulting to 1 or active context.
+   |                                                                                         ^^^^^^ E501
+57 |         org_id = employee.department.organization_id if employee.department else 1
+58 |         policy_doc = get_policy_document(org_id=org_id)
+   |
+
+hr_payroll\loans\api\serializers.py:102:9: ERA001 Found commented-out code
+    |
+101 |         # Calculate Installment (Simple Interest for MVP)
+102 |         # Total = Principal + (Principal * Rate/100 * Years)
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ ERA001
+103 |         # Installment = Total / Months
+104 |         amount = validated_data["amount"]
+    |
+    = help: Remove commented-out code
+
+hr_payroll\loans\api\serializers.py:103:9: ERA001 Found commented-out code
+    |
+101 |         # Calculate Installment (Simple Interest for MVP)
+102 |         # Total = Principal + (Principal * Rate/100 * Years)
+103 |         # Installment = Total / Months
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ ERA001
+104 |         amount = validated_data["amount"]
+105 |         months = validated_data["term_months"]
+    |
+    = help: Remove commented-out code
+
+hr_payroll\loans\api\views.py:39:89: E501 Line too long (90 > 88)
+   |
+37 |         loan = self.get_object()
+38 |         if loan.status != LoanRequest.Status.SUBMITTED:
+39 |             # Allow approving from draft for simplicity in MVP, or enforce submission flow
+   |                                                                                         ^^ E501
+40 |             pass
+   |
+
+hr_payroll\loans\api\views.py:54:89: E501 Line too long (104 > 88)
+   |
+52 |         for i in range(loan.term_months):
+53 |             due_date = start_date + relativedelta(months=i)
+54 |             # Adjust last installment for rounding issues if needed, but using fixed installment for now
+   |                                                                                         ^^^^^^^^^^^^^^^^ E501
+55 |             repayments.append(
+56 |                 LoanRepayment(
+   |
+
+hr_payroll\messaging\api\serializers.py:103:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+    |
+101 |         except Chat.DoesNotExist:
+102 |             msg = "Chat not found"
+103 |             raise serializers.ValidationError(msg)
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ B904
+104 |         return value
+    |
+
+hr_payroll\org\api\views.py:179:5: C901 `_sync_salary_policy_from_doc` is too complex (13 > 10)
+    |
+179 | def _sync_salary_policy_from_doc(doc: dict) -> None:
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ C901
+180 |     """Sync Salary Components and Tax logic from global policy.
+    |
+
+hr_payroll\org\api\views.py:251:89: E501 Line too long (97 > 88)
+    |
+250 |             # Update/Create Version (Assuming effective from today for simple sync)
+251 |             # In a real system, we might check if this exact rule exists or create a new version.
+    |                                                                                         ^^^^^^^^^ E501
+252 |             # Here we just ensure a version exists with this rate/bracket.
+253 |             TaxCodeVersion.objects.update_or_create(
+    |
+
+hr_payroll\org\api\views.py:255:32: DTZ011 `datetime.date.today()` used
+    |
+253 |             TaxCodeVersion.objects.update_or_create(
+254 |                 tax_code=code_obj,
+255 |                 effective_from=date.today().replace(day=1, month=1),  # Start of year?
+    |                                ^^^^^^^^^^^^ DTZ011
+256 |                 defaults={
+257 |                     "rate": (item.get("rate") or 0) / 100.0,  # Convert % to decimal
+    |
+    = help: Use `datetime.datetime.now(tz=...).date()` instead
+
+hr_payroll\org\api\views.py:434:89: E501 Line too long (107 > 88)
+    |
+432 |             _sync_departments_from_policy(section_payload)
+433 |         elif section == "salaryStructurePolicy" and isinstance(section_payload, dict):
+434 |             # We need to wrap it in a pseudo-doc structure because the sync function expects top-level keys
+    |                                                                                         ^^^^^^^^^^^^^^^^^^^ E501
+435 |             _sync_salary_policy_from_doc({"salaryStructurePolicy": section_payload})
+    |
+
+hr_payroll\payroll\api\urls.py:7:1: ERA001 Found commented-out code
+  |
+5 | from .views import BankMasterViewSet
+6 |
+7 | # from .views import DependentViewSet
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ ERA001
+8 | from .views import EmployeeSalaryStructureViewSet
+9 | from .views import PayCycleViewSet
+  |
+  = help: Remove commented-out code
+
+hr_payroll\payroll\api\urls.py:12:1: ERA001 Found commented-out code
+   |
+10 | from .views import PayrollEmployeeListView
+11 |
+12 | # from .views import PayrollGeneralSettingViewSet
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ ERA001
+13 | from .views import PayrollPreviewView
+14 | from .views import PayrollReportView
+   |
+   = help: Remove commented-out code
+
+hr_payroll\payroll\api\urls.py:28:1: ERA001 Found commented-out code
+   |
+26 | router.register("banks", BankMasterViewSet, basename="bank-master")
+27 | router.register("components", SalaryComponentViewSet, basename="salary-component")
+28 | # router.register("settings", PayrollGeneralSettingViewSet, basename="payroll-setting")
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ ERA001
+29 | router.register(
+30 |     "salary-structures", EmployeeSalaryStructureViewSet, basename="salary-structure"
+   |
+   = help: Remove commented-out code
+
+hr_payroll\payroll\api\views.py:73:1: E402 Module level import not at top of file
+   |
+73 | from hr_payroll.payroll.services import PayrollCalculator
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+   |
+
+hr_payroll\payroll\api\views.py:445:16: BLE001 Do not catch blind exception: `Exception`
+    |
+443 |             cycle.save()
+444 |             return Response(stats, status=200)
+445 |         except Exception as e:
+    |                ^^^^^^^^^ BLE001
+446 |             import traceback
+    |
+
+hr_payroll\payroll\services.py:26:89: E501 Line too long (89 > 88)
+   |
+24 |     """
+25 |     Auto-generate or update an EmployeeSalaryStructure based on policy defaults.
+26 |     1. Determines Base Salary from Job Structure Policy (using title as proxy for grade).
+   |                                                                                         ^ E501
+27 |     2. Adds all Policy Allowances as SalaryStructureItems.
+28 |     """
+   |
+
+hr_payroll\payroll\services.py:210:89: E501 Line too long (89 > 88)
+    |
+209 |         if late_count > grace_limit:
+210 |             # Policy: "Salary deduction". Assumption: 0.5 days pay per excess occurrence.
+    |                                                                                         ^ E501
+211 |             excess = late_count - grace_limit
+    |
+
+hr_payroll\payroll\services.py:227:89: E501 Line too long (112 > 88)
+    |
+225 |                         "amount": penalty,
+226 |                         "component": None,
+227 |                         "category": PayslipLineItem.Category.RECURRING,  # Defaulting to recurring for deduction
+    |                                                                                         ^^^^^^^^^^^^^^^^^^^^^^^^ E501
+228 |                     }
+229 |                 )
+    |
+
+hr_payroll\payroll\services.py:287:89: E501 Line too long (93 > 88)
+    |
+285 |                         "amount": pension_amt,
+286 |                         "component": None,
+287 |                         "category": PayslipLineItem.Category.TAX,  # Group with tax/statutory
+    |                                                                                         ^^^^^ E501
+288 |                     }
+289 |                 )
+    |
+
+hr_payroll\payroll\services.py:303:89: E501 Line too long (113 > 88)
+    |
+301 |         tax_total = Decimal(0)
+302 |
+303 |         # Simple slab implementation: Find the bracket that matches gross and apply that rate to the WHOLE amount
+    |                                                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^ E501
+304 |         # OR Progressive? The policy data suggests slabs with rates.
+305 |         # "rate": 10, "min": 10001, "max": 25000.
+    |
+
+hr_payroll\payroll\services.py:306:89: E501 Line too long (117 > 88)
+    |
+304 |         # OR Progressive? The policy data suggests slabs with rates.
+305 |         # "rate": 10, "min": 10001, "max": 25000.
+306 |         # Let's assume 'Simple Slab' for now based on common payroll simplifications unless progressive is specified.
+    |                                                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E501
+307 |         # Use the highest matching bracket.
+    |
+
+hr_payroll\payroll\services.py:362:9: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+    |
+360 |     except PayCycle.DoesNotExist:
+361 |         msg = "PayCycle not found"
+362 |         raise ValueError(msg)
+    |         ^^^^^^^^^^^^^^^^^^^^^ B904
+363 |
+364 |     employees = (
+    |
+
+hr_payroll\payroll\services.py:403:13: PERF401 Use a list comprehension to create a transformed list
+    |
+401 |           line_items = []
+402 |           for item in result["earnings"]:
+403 |               line_items.append(
+    |  _____________^
+404 | |                 PayslipLineItem(
+405 | |                     slip=slip,
+406 | |                     component=item.get("component"),
+407 | |                     label=item["label"],
+408 | |                     amount=item["amount"],
+409 | |                     category=item.get("category", PayslipLineItem.Category.RECURRING),
+410 | |                 )
+411 | |             )
+    | |_____________^ PERF401
+412 |
+413 |           for item in result["deductions"]:
+    |
+
+hr_payroll\payroll\services.py:414:13: PERF401 Use a list comprehension to create a transformed list
+    |
+413 |           for item in result["deductions"]:
+414 |               line_items.append(
+    |  _____________^
+415 | |                 PayslipLineItem(
+416 | |                     slip=slip,
+417 | |                     component=item.get("component"),
+418 | |                     label=item["label"],
+419 | |                     amount=item["amount"],
+420 | |                     category=item.get("category", PayslipLineItem.Category.RECURRING),
+421 | |                 )
+422 | |             )
+    | |_____________^ PERF401
+423 |
+424 |           PayslipLineItem.objects.bulk_create(line_items)
+    |
+
+hr_payroll\payroll\services.py:428:89: E501 Line too long (108 > 88)
+    |
+426 |         # Link Loans & Expenses to the Slip
+427 |         # Important: We only mark them as paid/reimbursed if the slip is NOT draft?
+428 |         # Actually, standard flow: mark them as 'linked'. Status update might happen when slip is Finalized.
+    |                                                                                         ^^^^^^^^^^^^^^^^^^^^ E501
+429 |         # BUT, to prevent double inclusion in next draft run, we should mark them or link them.
+430 |         # Let's set the link now. Status update 'paid'/'reimbursed' should arguably happen on Finalize.
+    |
+
+hr_payroll\payroll\services.py:429:89: E501 Line too long (95 > 88)
+    |
+427 |         # Important: We only mark them as paid/reimbursed if the slip is NOT draft?
+428 |         # Actually, standard flow: mark them as 'linked'. Status update might happen when slip is Finalized.
+429 |         # BUT, to prevent double inclusion in next draft run, we should mark them or link them.
+    |                                                                                         ^^^^^^^ E501
+430 |         # Let's set the link now. Status update 'paid'/'reimbursed' should arguably happen on Finalize.
+431 |         # Ideally, filter logic in calculate() excludes those already linked.
+    |
+
+hr_payroll\payroll\services.py:430:89: E501 Line too long (103 > 88)
+    |
+428 |         # Actually, standard flow: mark them as 'linked'. Status update might happen when slip is Finalized.
+429 |         # BUT, to prevent double inclusion in next draft run, we should mark them or link them.
+430 |         # Let's set the link now. Status update 'paid'/'reimbursed' should arguably happen on Finalize.
+    |                                                                                         ^^^^^^^^^^^^^^^ E501
+431 |         # Ideally, filter logic in calculate() excludes those already linked.
+432 |         # My calculate() logic: `payroll_slip__isnull=True`. So linking checks it out.
+    |
+
+hr_payroll\policies\accessors.py:166:5: E722 Do not use bare `except`
+    |
+164 |     try:
+165 |         return Decimal(str(percent))
+166 |     except:
+    |     ^^^^^^ E722
+167 |         return Decimal("0")
+    |
+
+hr_payroll\policies\accessors.py:207:12: BLE001 Do not catch blind exception: `Exception`
+    |
+205 |         minute = int(parts[1]) if len(parts) > 1 else 0
+206 |         return time(hour=hour, minute=minute)
+207 |     except Exception:
+    |            ^^^^^^^^^ BLE001
+208 |         return fallback
+    |
+
+hr_payroll\users\admin.py:32:24: S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+   |
+30 |     base = "".join(ch for ch in base if ch.isalnum() or ch in {".", "-", "_"})
+31 |     while True:
+32 |         salt = "".join(random.choices(string.ascii_lowercase + string.digits, k=4))
+   |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ S311
+33 |         candidate = f"{base}-{salt}"
+34 |         if not User.objects.filter(username=candidate).exists():
+   |
+
+hr_payroll\users\admin.py:40:20: S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+   |
+38 | def _generate_password() -> str:
+39 |     charset = string.ascii_letters + string.digits + "!@#$%^&*()"
+40 |     return "".join(random.choices(charset, k=12))
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ S311
+   |
+
+hr_payroll\users\admin.py:55:20: FBT002 Boolean default positional argument in function definition
+   |
+53 |         ]
+54 |
+55 |     def save(self, commit=True):
+   |                    ^^^^^^ FBT002
+56 |         user = super().save(commit=False)
+57 |         first = (user.first_name or "").strip() or "User"
+   |
+
+hr_payroll\users\api\permissions.py:22:89: E501 Line too long (96 > 88)
+   |
+21 | class IsManagerOrAdmin(BasePermission):
+22 |     """Allow access to staff/superusers, or Admin/Manager users who have an employee profile."""
+   |                                                                                         ^^^^^^^^ E501
+23 |
+24 |     def has_permission(self, request, view):
+   |
+
+hr_payroll\users\api\views.py:39:89: E501 Line too long (93 > 88)
+   |
+37 |         if not getattr(user, "is_authenticated", False):  # pragma: no cover - safety
+38 |             return User.objects.none()
+39 |         # Managers/Admins may list all users; require employee profile unless staff/superuser
+   |                                                                                         ^^^^^ E501
+40 |         if getattr(user, "is_superuser", False) or getattr(user, "is_staff", False):
+41 |             return User.objects.all()
+   |
+
+hr_payroll\users\signals.py:34:89: E501 Line too long (97 > 88)
+   |
+32 | @receiver(m2m_changed, sender=get_user_model().groups.through)
+33 | def prevent_elevated_without_employee(sender, instance, action, pk_set, **kwargs):
+34 |     """Block adding elevated roles to users without an employee profile (unless staff/superuser).
+   |                                                                                         ^^^^^^^^^ E501
+35 |
+36 |     Allows the default "Employee" group for onboarding flow. Logs and silently drops
+   |
+
+seed_payroll_data.py:11:1: E402 Module level import not at top of file
+   |
+ 9 | django.setup()
+10 |
+11 | from hr_payroll.employees.models import Contract
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+12 | from hr_payroll.employees.models import Employee
+13 | from hr_payroll.employees.models import JobHistory
+   |
+
+seed_payroll_data.py:12:1: E402 Module level import not at top of file
+   |
+11 | from hr_payroll.employees.models import Contract
+12 | from hr_payroll.employees.models import Employee
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+13 | from hr_payroll.employees.models import JobHistory
+14 | from hr_payroll.org.models import Department
+   |
+
+seed_payroll_data.py:13:1: E402 Module level import not at top of file
+   |
+11 | from hr_payroll.employees.models import Contract
+12 | from hr_payroll.employees.models import Employee
+13 | from hr_payroll.employees.models import JobHistory
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+14 | from hr_payroll.org.models import Department
+15 | from hr_payroll.payroll.models import BankDetail
+   |
+
+seed_payroll_data.py:14:1: E402 Module level import not at top of file
+   |
+12 | from hr_payroll.employees.models import Employee
+13 | from hr_payroll.employees.models import JobHistory
+14 | from hr_payroll.org.models import Department
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+15 | from hr_payroll.payroll.models import BankDetail
+16 | from hr_payroll.payroll.models import BankMaster
+   |
+
+seed_payroll_data.py:15:1: E402 Module level import not at top of file
+   |
+13 | from hr_payroll.employees.models import JobHistory
+14 | from hr_payroll.org.models import Department
+15 | from hr_payroll.payroll.models import BankDetail
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+16 | from hr_payroll.payroll.models import BankMaster
+17 | from hr_payroll.payroll.models import EmployeeSalaryStructure
+   |
+
+seed_payroll_data.py:16:1: E402 Module level import not at top of file
+   |
+14 | from hr_payroll.org.models import Department
+15 | from hr_payroll.payroll.models import BankDetail
+16 | from hr_payroll.payroll.models import BankMaster
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+17 | from hr_payroll.payroll.models import EmployeeSalaryStructure
+18 | from hr_payroll.payroll.models import SalaryComponent
+   |
+
+seed_payroll_data.py:17:1: E402 Module level import not at top of file
+   |
+15 | from hr_payroll.payroll.models import BankDetail
+16 | from hr_payroll.payroll.models import BankMaster
+17 | from hr_payroll.payroll.models import EmployeeSalaryStructure
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+18 | from hr_payroll.payroll.models import SalaryComponent
+19 | from hr_payroll.payroll.models import SalaryStructureItem
+   |
+
+seed_payroll_data.py:18:1: E402 Module level import not at top of file
+   |
+16 | from hr_payroll.payroll.models import BankMaster
+17 | from hr_payroll.payroll.models import EmployeeSalaryStructure
+18 | from hr_payroll.payroll.models import SalaryComponent
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+19 | from hr_payroll.payroll.models import SalaryStructureItem
+20 | from hr_payroll.payroll.models import TaxCode
+   |
+
+seed_payroll_data.py:19:1: E402 Module level import not at top of file
+   |
+17 | from hr_payroll.payroll.models import EmployeeSalaryStructure
+18 | from hr_payroll.payroll.models import SalaryComponent
+19 | from hr_payroll.payroll.models import SalaryStructureItem
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+20 | from hr_payroll.payroll.models import TaxCode
+21 | from hr_payroll.payroll.models import TaxCodeVersion
+   |
+
+seed_payroll_data.py:20:1: E402 Module level import not at top of file
+   |
+18 | from hr_payroll.payroll.models import SalaryComponent
+19 | from hr_payroll.payroll.models import SalaryStructureItem
+20 | from hr_payroll.payroll.models import TaxCode
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+21 | from hr_payroll.payroll.models import TaxCodeVersion
+   |
+
+seed_payroll_data.py:21:1: E402 Module level import not at top of file
+   |
+19 | from hr_payroll.payroll.models import SalaryStructureItem
+20 | from hr_payroll.payroll.models import TaxCode
+21 | from hr_payroll.payroll.models import TaxCodeVersion
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+   |
+
+seed_payroll_data.py:24:5: C901 `seed` is too complex (13 > 10)
+   |
+24 | def seed():
+   |     ^^^^ C901
+25 |     # 1. Banks
+26 |     bank, _ = BankMaster.objects.get_or_create(
+   |
+
+seed_payroll_data.py:80:30: S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+   |
+78 |         # --- Update Employee Core Fields ---
+79 |         if not emp.department:
+80 |             emp.department = random.choice(departments)
+   |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^ S311
+81 |
+82 |         if not emp.title:
+   |
+
+seed_payroll_data.py:83:25: S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+   |
+82 |         if not emp.title:
+83 |             emp.title = random.choice(roles)
+   |                         ^^^^^^^^^^^^^^^^^^^^ S311
+84 |
+85 |         if not emp.join_date:
+   |
+
+seed_payroll_data.py:123:39: S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+    |
+121 |                 bank=bank,
+122 |                 account_holder=f"{emp.user.username.upper()}",
+123 |                 account_number=f"1000{random.randint(100000, 999999)}",
+    |                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ S311
+124 |             )
+    |
+
+seed_payroll_data.py:135:16: S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+    |
+134 |         # Random Salary between 80000 and 150000 (higher values)
+135 |         base = random.randint(80, 150) * 1000
+    |                ^^^^^^^^^^^^^^^^^^^^^^^ S311
+136 |         trans = random.choice([2000, 3000, 5000])
+137 |         house = random.choice([3000, 5000, 0])
+    |
+
+seed_payroll_data.py:136:17: S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+    |
+134 |         # Random Salary between 80000 and 150000 (higher values)
+135 |         base = random.randint(80, 150) * 1000
+136 |         trans = random.choice([2000, 3000, 5000])
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ S311
+137 |         house = random.choice([3000, 5000, 0])
+    |
+
+seed_payroll_data.py:137:17: S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+    |
+135 |         base = random.randint(80, 150) * 1000
+136 |         trans = random.choice([2000, 3000, 5000])
+137 |         house = random.choice([3000, 5000, 0])
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ S311
+138 |
+139 |         structure.base_salary = Decimal(base)
+    |
+
+seed_tax.py:8:1: E402 Module level import not at top of file
+   |
+ 6 | django.setup()
+ 7 |
+ 8 | from datetime import date
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+ 9 |
+10 | from hr_payroll.payroll.models import TaxCode
+   |
+
+seed_tax.py:10:1: E402 Module level import not at top of file
+   |
+ 8 | from datetime import date
+ 9 |
+10 | from hr_payroll.payroll.models import TaxCode
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+11 | from hr_payroll.payroll.models import TaxCodeVersion
+   |
+
+seed_tax.py:11:1: E402 Module level import not at top of file
+   |
+10 | from hr_payroll.payroll.models import TaxCode
+11 | from hr_payroll.payroll.models import TaxCodeVersion
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+   |
+
+Found 73 errors.

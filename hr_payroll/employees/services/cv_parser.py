@@ -330,7 +330,7 @@ def parse_cv(pdf_bytes: bytes, filename: str | None = None) -> dict[str, Any]:  
     # Optional: LLM post-processing to enrich mapping of fields
     if _cv_llm_enabled():
         try:
-            from hr_payroll.employees.services.cv_llm_mapper import (  # noqa: PLC0415
+            from hr_payroll.employees.services.cv_llm_mapper import (
                 llm_map_cv_text_to_fields,
             )
         except Exception:  # noqa: BLE001 - optional import path

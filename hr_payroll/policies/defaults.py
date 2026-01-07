@@ -10,7 +10,7 @@ DEFAULT_POLICY_DOCUMENT: dict[str, Any] = {
         "companyName": "Example Co",
         "effectiveDate": "2025-01-01",
         "adminContact": "hr@example.com",
-        "policyVersion": "v1.0",
+        "policyVersion": "v2.0",
     },
     "attendancePolicy": {
         "shiftTimes": [
@@ -18,18 +18,27 @@ DEFAULT_POLICY_DOCUMENT: dict[str, Any] = {
             {"name": "Night Shift", "start": "18:00", "end": "02:00"},
         ],
         "gracePeriod": {
-            "minutesAllowed": 10,
-            "lateAfter": 10,
-            "penaltyRule": "3 late arrivals per month = 1 warning",
+            "minutesAllowed": 15,
+            "lateAfter": 15,
+            "allowedOccurrencesPerMonth": 3,
+            "penaltyRule": "Salary deduction after limit exceeded",
         },
         "lateEarlyRules": {
             "halfDayLateAfterMinutes": 120,
             "halfDayEarlyLeaveMinutes": 120,
-            "acceptableLateMinutes": 10,
+            "acceptableLateMinutes": 15,
         },
         "absentRules": {
             "absentAfterMinutes": 240,
             "noClockInAbsent": True,
+        },
+        "workFromHome": {
+            "allowedDaysPerMonth": 4,
+            "approvalRequired": {
+                "__type": "dropdown",
+                "options": ["Yes", "No"],
+                "value": "Yes",
+            },
         },
         "overtimeRules": {
             "overtimeAllowed": {
@@ -72,13 +81,23 @@ DEFAULT_POLICY_DOCUMENT: dict[str, Any] = {
         "leaveTypes": [
             {"id": "annual", "name": "Annual Leave", "paid": True, "daysPerYear": 21},
             {"id": "sick", "name": "Sick Leave", "paid": True, "daysPerYear": 15},
+            {"id": "casual", "name": "Casual Leave", "paid": True, "daysPerYear": 7},
         ],
         "accrualRules": {
             "monthlyAccrualDays": 1.75,
             "carryoverLimit": 12,
-            "expiryMonths": 12,
+            "expiryMonths": 18,
+            "proRataJoining": True,
         },
-        "eligibilityRules": {"maternityMinServiceMonths": 3, "sabbaticalMinYears": 5},
+        "eligibilityRules": {
+            "maternityMinServiceMonths": 3,
+            "sabbaticalMinYears": 5,
+            "casualLeaveProbation": False,
+        },
+        "encashmentRules": {
+            "allowedAtSeparation": True,
+            "maxEncashableDays": 30,
+        },
         "documentationRules": {
             "sickLeaveCertificateAfterDays": 2,
             "bereavementRequired": True,
@@ -93,17 +112,19 @@ DEFAULT_POLICY_DOCUMENT: dict[str, Any] = {
     "holidayPolicy": {
         "fixedHolidays": [
             {"date": "2025-01-01", "name": "New Year"},
-            {"date": "2025-04-20", "name": "National Day"},
+            {"date": "2025-05-01", "name": "Labor Day"},
         ],
-        "floatingHolidays": [{"name": "Easter", "rule": "auto-calc"}],
-        "companyHolidays": [{"date": "2025-12-31", "name": "Company Foundation Day"}],
+        "floatingHolidays": [
+            {"name": "Religious Holiday", "rule": "Employee Choice (1/year)"}
+        ],
+        "companyHolidays": [{"date": "2025-12-31", "name": "Year End Closure"}],
         "holidayPayRules": {
             "holidayIsPaid": {
                 "__type": "dropdown",
                 "options": ["Yes", "No"],
                 "value": "Yes",
             },
-            "holidayOvertimeRate": 2,
+            "holidayOvertimeRate": 2.0,
         },
     },
     "shiftPolicy": {
@@ -113,12 +134,18 @@ DEFAULT_POLICY_DOCUMENT: dict[str, Any] = {
             {"id": 1, "name": "Fixed Day Shift", "type": "fixed"},
             {"id": 2, "name": "Night Rotation", "type": "rotational"},
         ],
-        "rotationRules": {"rotationEveryDays": 7, "nightShiftAllowance": 300},
+        "rotationRules": {"rotationEveryDays": 14, "nightShiftAllowance": 300},
     },
     "overtimePolicy": {
-        "overtimeRate": 1.5,
-        "weekendRate": 2,
-        "holidayRate": 2,
+        "rates": {
+            "standardRate": 1.5,
+            "weekendRate": 2.0,
+            "holidayRate": 2.0,
+        },
+        "compOff": {
+            "allowed": True,
+            "expireDays": 60,
+        },
         "minOvertimeMinutes": 30,
         "approvalRequired": {
             "__type": "dropdown",
@@ -126,38 +153,82 @@ DEFAULT_POLICY_DOCUMENT: dict[str, Any] = {
             "value": "Yes",
         },
     },
+    "probationPolicy": {
+        "durationMonths": 3,
+        "extensionMonths": 3,
+        "noticePeriodDuringProbationDays": 15,
+        "trainingRequired": True,
+    },
+    "expensePolicy": {
+        "dailyPerDiem": 500,
+        "travelLimits": {
+            "flightClass": "Economy",
+            "hotelPerNight": 2000,
+        },
+        "approvalWorkflow": ["manager", "finance"],
+    },
+    "loanPolicy": {
+        "maxAmountMultiplier": 3,  # 3x Gross Salary
+        "maxRepaymentMonths": 12,
+        "interestRate": 0,
+        "eligibilityMinServiceMonths": 6,
+    },
+    "terminationPolicy": {
+        "noticePeriodDays": {
+            "probation": 15,
+            "confirmed": 30,
+            "senior": 60,
+        },
+        "handoverChecklist": ["Laptop", "ID Card", "Keys"],
+    },
     "disciplinaryPolicy": {
         "warningRules": {
-            "firstWarning": "3 lateness in a month",
-            "secondWarning": "6 lateness in a month",
-            "thirdWarning": "Disciplinary meeting",
+            "firstWarning": "Verbal Warning",
+            "secondWarning": "Written Warning",
+            "thirdWarning": "Final Warning / Suspension",
         },
         "penalties": {
-            "repeatedLatePenalty": "Salary deduction",
-            "absencePenalty": "Written warning",
+            "repeatedLatePenalty": "Deduction",
+            "absencePenalty": "Warning Letter",
         },
         "escalation": {"steps": ["manager", "hr", "director"]},
     },
     "jobStructurePolicy": {
-        "jobLevels": ["Junior", "Mid", "Senior", "Lead"],
-        "departments": ["HR", "Finance", "Engineering", "Operations"],
+        "jobLevels": [
+            "Intern",
+            "Junior",
+            "Mid",
+            "Senior",
+            "Lead",
+            "Manager",
+            "Director",
+        ],
+        "departments": [
+            "HR",
+            "Finance",
+            "Engineering",
+            "Operations",
+            "Sales",
+            "Marketing",
+        ],
         "promotionRules": {
             "minimumMonthsPerLevel": 12,
-            "requiredPerformanceRating": "B or higher",
+            "requiredPerformanceRating": "Exceeds Expectations",
         },
     },
     "salaryStructurePolicy": {
-        "baseSalaryTemplate": {"gradeA": 25000, "gradeB": 20000, "gradeC": 15000},
+        "baseSalaryTemplate": {"gradeA": 30000, "gradeB": 20000, "gradeC": 15000},
         "allowances": [
-            {"name": "Transport", "value": 1000},
-            {"name": "Housing", "value": 2000},
+            {"name": "Transport", "value": 1500},
+            {"name": "Housing", "value": 3000},
+            {"name": "Internet", "value": 500},
         ],
         "deductions": {
-            "pensionPercent": 7,
+            "pensionPercent": 8,
             "taxBracket": [
-                {"min": 0, "max": 10000, "rate": 5, "appliedfor": "Department"},
-                {"min": 10001, "max": 20000, "rate": 15, "appliedfor": "All"},
-                {"min": 20001, "max": 40000, "rate": 25, "appliedfor": "All"},
+                {"min": 0, "max": 10000, "rate": 0, "appliedfor": "All"},
+                {"min": 10001, "max": 25000, "rate": 10, "appliedfor": "All"},
+                {"min": 25001, "max": 50000, "rate": 20, "appliedfor": "All"},
             ],
         },
     },

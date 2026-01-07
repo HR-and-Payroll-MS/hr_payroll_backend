@@ -1,8 +1,11 @@
+from collections import defaultdict
 from datetime import date
 
 from django.contrib.auth.models import Group
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.utils import extend_schema_view
+from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -15,10 +18,16 @@ from hr_payroll.leaves.models import LeaveType
 from hr_payroll.leaves.models import PublicHoliday
 from hr_payroll.org.models import Department
 from hr_payroll.org.models import OrganizationPolicy
+from hr_payroll.org.models import OrgChartNode
+from hr_payroll.payroll.models import SalaryComponent
+from hr_payroll.payroll.models import TaxCode
+from hr_payroll.payroll.models import TaxCodeVersion
 from hr_payroll.policies import get_policy_document
 from hr_payroll.users.api.permissions import IsManagerOrAdmin
 
 from .serializers import DepartmentSerializer
+from .serializers import OrgChartNodeSerializer
+from .serializers import OrgChartNodeTreeSerializer
 
 
 def _parse_iso_date(value) -> date | None:
@@ -171,6 +180,93 @@ def _sync_departments_from_policy(job_structure_policy: dict) -> None:
         Department.objects.get_or_create(name=name.strip())
 
 
+def _sync_allowances(allowances: list) -> None:
+    if not isinstance(allowances, list):
+        return
+
+    for item in allowances:
+        if not isinstance(item, dict):
+            continue
+        name = item.get("name")
+        if not name:
+            continue
+
+        SalaryComponent.objects.update_or_create(
+            name=name.strip(),
+            defaults={
+                "component_type": "earning",
+                "is_taxable": item.get("isTaxable", True),
+                "is_recurring": item.get("isRecurring", True),
+            },
+        )
+
+
+def _sync_deductions(deductions: list) -> None:
+    if not isinstance(deductions, list):
+        return
+
+    for item in deductions:
+        if not isinstance(item, dict):
+            continue
+        name = item.get("name")
+        if not name:
+            continue
+
+        SalaryComponent.objects.update_or_create(
+            name=name.strip(),
+            defaults={
+                "component_type": "deduction",
+                "is_taxable": False,
+                "is_recurring": True,
+            },
+        )
+
+
+def _sync_tax_rules(tax_rules: list) -> None:
+    if not isinstance(tax_rules, list):
+        return
+
+    for item in tax_rules:
+        if not isinstance(item, dict):
+            continue
+        rule_name = item.get("name") or "Income Tax"
+
+        # Ensure TaxCode exists
+        code_obj, _ = TaxCode.objects.get_or_create(
+            code=rule_name.upper().replace(" ", "_")[:20],
+            defaults={"name": rule_name, "is_active": True},
+        )
+
+        TaxCodeVersion.objects.update_or_create(
+            tax_code=code_obj,
+            effective_from=timezone.now().date().replace(day=1, month=1),
+            defaults={
+                "rate": (item.get("rate") or 0) / 100.0,
+                "metadata": {
+                    "min_income": item.get("minIncome"),
+                    "max_income": item.get("maxIncome"),
+                },
+            },
+        )
+
+
+def _sync_salary_policy_from_doc(doc: dict) -> None:
+    """Sync Salary Components and Tax logic from global policy.
+
+    Maps:
+    - salaryStructurePolicy.allowances -> SalaryComponent (Earning)
+    - salaryStructurePolicy.standardDeductions -> SalaryComponent (Deduction)
+    - salaryStructurePolicy.taxRules -> TaxCode + Versions
+    """
+    policy = doc.get("salaryStructurePolicy")
+    if not isinstance(policy, dict):
+        return
+
+    _sync_allowances(policy.get("allowances", []))
+    _sync_deductions(policy.get("standardDeductions", []))
+    _sync_tax_rules(policy.get("taxRules", []))
+
+
 def _sync_backend_resources_from_policy_document(doc: dict) -> None:
     if not isinstance(doc, dict):
         return
@@ -184,6 +280,9 @@ def _sync_backend_resources_from_policy_document(doc: dict) -> None:
     job_structure_policy = doc.get("jobStructurePolicy")
     if isinstance(job_structure_policy, dict):
         _sync_departments_from_policy(job_structure_policy)
+
+    # Sync Salary Policy
+    _sync_salary_policy_from_doc(doc)
 
 
 @extend_schema_view(
@@ -292,6 +391,13 @@ class OrganizationPolicySectionView(APIView):
         "disciplinaryPolicy",
         "jobStructurePolicy",
         "salaryStructurePolicy",
+        "probationPolicy",
+        "expensePolicy",
+        "loanPolicy",
+        "terminationPolicy",
+        "recruitmentPolicy",
+        "efficiencyPolicy",
+        "announcementPolicy",
     }
 
     def get(self, request, org_id: int, section: str):
@@ -325,8 +431,54 @@ class OrganizationPolicySectionView(APIView):
             _sync_public_holidays_from_policy(section_payload)
         elif section == "leavePolicy" and isinstance(section_payload, dict):
             _sync_leave_types_from_policy(section_payload)
+            _sync_leave_policies_from_policy(section_payload)
         elif section == "jobStructurePolicy" and isinstance(section_payload, dict):
             _sync_departments_from_policy(section_payload)
+        elif section == "salaryStructurePolicy" and isinstance(section_payload, dict):
+            # We need to wrap it in a pseudo-doc structure because the sync function expects top-level keys
+            _sync_salary_policy_from_doc({"salaryStructurePolicy": section_payload})
 
         # Return merged doc so missing keys are always present.
         return Response(get_policy_document(org_id=org_id), status=200)
+
+
+@extend_schema_view(
+    list=extend_schema(tags=["Org Chart"], summary="List org chart tree"),
+    retrieve=extend_schema(tags=["Org Chart"]),
+    create=extend_schema(tags=["Org Chart"]),
+    update=extend_schema(tags=["Org Chart"]),
+    partial_update=extend_schema(tags=["Org Chart"]),
+    destroy=extend_schema(tags=["Org Chart"]),
+)
+class OrgChartViewSet(viewsets.ModelViewSet):
+    """CRUD for org chart nodes with tree-shaped list output."""
+
+    queryset = OrgChartNode.objects.all().select_related("occupant", "parent")
+    serializer_class = OrgChartNodeSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        if self.request and self.request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+            # Restrict writes to Admin/Manager
+            return [IsManagerOrAdmin()]
+        return super().get_permissions()
+
+    def list(self, request, *args, **kwargs):
+        nodes = list(self.get_queryset().order_by("parent_id", "order", "id"))
+        children_map: dict[int | None, list[OrgChartNode]] = defaultdict(list)
+        for node in nodes:
+            children_map[node.parent_id].append(node)
+        for child_list in children_map.values():
+            child_list.sort(key=lambda x: (x.order, x.id))
+        for node in nodes:
+            node.children_cached = children_map.get(node.id, [])
+        roots = children_map.get(None, [])
+        ser = OrgChartNodeTreeSerializer(roots, many=True, context={"request": request})
+        return Response(ser.data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=["get"], url_path="flat")
+    @extend_schema(tags=["Org Chart"], summary="List flat nodes")
+    def flat(self, request):
+        qs = self.get_queryset().order_by("parent_id", "order", "id")
+        ser = OrgChartNodeSerializer(qs, many=True, context={"request": request})
+        return Response(ser.data)

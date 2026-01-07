@@ -1,0 +1,649 @@
+config\api_router.py:45:89: E501 Line too long (89 > 88)
+   |
+43 |         include(("hr_payroll.audit.api.urls", "audit"), namespace="audit"),
+44 |     ),
+45 |     # Employee-scoped attendance endpoints (e.g., /api/v1/employees/<id>/attendances/...)
+   |                                                                                         ^ E501
+46 |     path("", include("hr_payroll.attendance.api.urls")),
+47 |     path(
+   |
+
+hr_payroll\attendance\api\serializers.py:68:89: E501 Line too long (94 > 88)
+   |
+66 |             raise serializers.ValidationError(
+67 |                 {
+68 |                     "date": f"Attendance edits only allowed for the last {window_days} days.",
+   |                                                                                         ^^^^^^ E501
+69 |                 }
+70 |             )
+   |
+
+hr_payroll\attendance\api\views.py:27:89: E501 Line too long (99 > 88)
+   |
+26 | def _client_ip(request) -> str:
+27 |     # Prefer explicitly forwarded client IPs in dev; fallback to REMOTE_ADDR (likely docker bridge)
+   |                                                                                         ^^^^^^^^^^^ E501
+28 |     x_client = request.META.get("HTTP_X_CLIENT_IP")
+29 |     if settings.DEBUG and x_client:
+   |
+
+hr_payroll\attendance\api\views.py:89:89: E501 Line too long (90 > 88)
+   |
+88 | def _ensure_shift_defaults(record: AttendanceRecord) -> None:
+89 |     # Always pull current dynamic policy so frontend policy edits take effect immediately.
+   |                                                                                         ^^ E501
+90 |
+91 |     # 1. Try to find the shift assigned to this employee
+   |
+
+hr_payroll\attendance\api\views.py:379:89: E501 Line too long (89 > 88)
+    |
+378 | class AttendancePlaceholderViewSet(viewsets.ViewSet):
+379 |     """Placeholder to show /attendances at API root (real routes under /attendances/)."""
+    |                                                                                         ^ E501
+380 |
+381 |     permission_classes = [permissions.IsAuthenticated]
+    |
+
+hr_payroll\attendance\api\views.py:513:89: E501 Line too long (114 > 88)
+    |
+511 |     if not status_in_payload:
+512 |         computed_status = _attendance_status(record)
+513 |         # Only auto-update status if it's in a standard state (not manually overridden to something custom/final?)
+    |                                                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^ E501
+514 |         # Actually logic was: if current status is one of standard dynamic ones, update it.
+515 |         if (record.status or "").lower() in {
+    |
+
+hr_payroll\attendance\api\views.py:514:89: E501 Line too long (91 > 88)
+    |
+512 |         computed_status = _attendance_status(record)
+513 |         # Only auto-update status if it's in a standard state (not manually overridden to something custom/final?)
+514 |         # Actually logic was: if current status is one of standard dynamic ones, update it.
+    |                                                                                         ^^^ E501
+515 |         if (record.status or "").lower() in {
+516 |             "",
+    |
+
+hr_payroll\efficiency\api\views.py:102:89: E501 Line too long (94 > 88)
+    |
+100 |         # Validating structure: Schema says kpis is {name, weight},
+101 |         # but frontend might save it as list or dict.
+102 |         # Assuming frontend saves it as defined in schema: { name: "", weight: "" } (object??)
+    |                                                                                         ^^^^^^ E501
+103 |         # Actually PolicyFormSchemas shows kpis: { name: ..., weight: ... } which usually implies a single object in the array if generic,
+104 |         # OR it's a fixed object.
+    |
+
+hr_payroll\efficiency\api\views.py:103:89: E501 Line too long (138 > 88)
+    |
+101 |         # but frontend might save it as list or dict.
+102 |         # Assuming frontend saves it as defined in schema: { name: "", weight: "" } (object??)
+103 |         # Actually PolicyFormSchemas shows kpis: { name: ..., weight: ... } which usually implies a single object in the array if generic,
+    |                                                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E501
+104 |         # OR it's a fixed object.
+105 |         # Let's assume generic "Performance" kpi if empty.
+    |
+
+hr_payroll\employees\api\serializers.py:284:9: PLR0912 Too many branches (20 > 12)
+    |
+282 |         return f"{prefix}{nxt:05d}"
+283 |
+284 |     def create(self, validated):  # noqa: C901 - orchestrates multiple related creates atomically
+    |         ^^^^^^ PLR0912
+285 |         # Create User with generated username/email/password
+286 |         first = validated.get("first_name", "").strip()
+    |
+
+hr_payroll\employees\api\serializers.py:284:9: PLR0915 Too many statements (69 > 50)
+    |
+282 |         return f"{prefix}{nxt:05d}"
+283 |
+284 |     def create(self, validated):  # noqa: C901 - orchestrates multiple related creates atomically
+    |         ^^^^^^ PLR0915
+285 |         # Create User with generated username/email/password
+286 |         first = validated.get("first_name", "").strip()
+    |
+
+hr_payroll\employees\api\serializers.py:421:89: E501 Line too long (92 > 88)
+    |
+419 |                 {"kind": "offset", "amount": validated["offset"], "label": "Offset"}
+420 |             )
+421 |         # one_off is typically not part of recurring structure, but we can add it as one-off
+    |                                                                                         ^^^^ E501
+422 |         if validated.get("one_off"):
+423 |             comps.append(
+    |
+
+hr_payroll\leaves\tests\test_models.py:89:85: RUF100 [*] Unused `noqa` directive (unused: `S106`)
+   |
+87 | class TestEmployeeBalance:
+88 |     def setup_method(self):
+89 |         self.user = User.objects.create_user(username="emp1", password="password")  # noqa: S106
+   |                                                                                     ^^^^^^^^^^^^ RUF100
+90 |         self.employee = Employee.objects.create(user=self.user)
+91 |         self.lt = LeaveType.objects.create(name="Annual", unit="Days")
+   |
+   = help: Remove unused `noqa` directive
+
+hr_payroll\leaves\tests\test_models.py:117:85: RUF100 [*] Unused `noqa` directive (unused: `S106`)
+    |
+115 | class TestLeaveRequest:
+116 |     def setup_method(self):
+117 |         self.user = User.objects.create_user(username="emp1", password="password")  # noqa: S106
+    |                                                                                     ^^^^^^^^^^^^ RUF100
+118 |         self.employee = Employee.objects.create(user=self.user)
+119 |         self.lt = LeaveType.objects.create(name="Annual", unit="Days")
+    |
+    = help: Remove unused `noqa` directive
+
+hr_payroll\leaves\tests\test_models.py:155:85: RUF100 [*] Unused `noqa` directive (unused: `S106`)
+    |
+153 | class TestBalanceHistory:
+154 |     def setup_method(self):
+155 |         self.user = User.objects.create_user(username="emp1", password="password")  # noqa: S106
+    |                                                                                     ^^^^^^^^^^^^ RUF100
+156 |         self.employee = Employee.objects.create(user=self.user)
+157 |         self.lt = LeaveType.objects.create(name="Annual", unit="Days")
+    |
+    = help: Remove unused `noqa` directive
+
+hr_payroll\loans\api\serializers.py:56:89: E501 Line too long (94 > 88)
+   |
+55 |         # 1. Get Policy
+56 |         # Assuming org_id 1 or from employee's org. For now defaulting to 1 or active context.
+   |                                                                                         ^^^^^^ E501
+57 |         org_id = employee.department.organization_id if employee.department else 1
+58 |         policy_doc = get_policy_document(org_id=org_id)
+   |
+
+hr_payroll\loans\api\views.py:39:89: E501 Line too long (90 > 88)
+   |
+37 |         loan = self.get_object()
+38 |         if loan.status != LoanRequest.Status.SUBMITTED:
+39 |             # Allow approving from draft for simplicity in MVP, or enforce submission flow
+   |                                                                                         ^^ E501
+40 |             pass
+   |
+
+hr_payroll\loans\api\views.py:54:89: E501 Line too long (104 > 88)
+   |
+52 |         for i in range(loan.term_months):
+53 |             due_date = start_date + relativedelta(months=i)
+54 |             # Adjust last installment for rounding issues if needed, but using fixed installment for now
+   |                                                                                         ^^^^^^^^^^^^^^^^ E501
+55 |             repayments.append(
+56 |                 LoanRepayment(
+   |
+
+hr_payroll\messaging\api\serializers.py:103:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+    |
+101 |         except Chat.DoesNotExist:
+102 |             msg = "Chat not found"
+103 |             raise serializers.ValidationError(msg)
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ B904
+104 |         return value
+    |
+
+hr_payroll\org\api\views.py:245:28: DTZ011 `datetime.date.today()` used
+    |
+243 |         TaxCodeVersion.objects.update_or_create(
+244 |             tax_code=code_obj,
+245 |             effective_from=date.today().replace(day=1, month=1),
+    |                            ^^^^^^^^^^^^ DTZ011
+246 |             defaults={
+247 |                 "rate": (item.get("rate") or 0) / 100.0,
+    |
+    = help: Use `datetime.datetime.now(tz=...).date()` instead
+
+hr_payroll\org\api\views.py:442:89: E501 Line too long (107 > 88)
+    |
+440 |             _sync_departments_from_policy(section_payload)
+441 |         elif section == "salaryStructurePolicy" and isinstance(section_payload, dict):
+442 |             # We need to wrap it in a pseudo-doc structure because the sync function expects top-level keys
+    |                                                                                         ^^^^^^^^^^^^^^^^^^^ E501
+443 |             _sync_salary_policy_from_doc({"salaryStructurePolicy": section_payload})
+    |
+
+hr_payroll\payroll\api\urls.py:1:1: I001 [*] Import block is un-sorted or un-formatted
+   |
+ 1 | / from django.urls import path
+ 2 | | from rest_framework.routers import DefaultRouter
+ 3 | |
+ 4 | | from .views import BankDetailViewSet
+ 5 | | from .views import BankMasterViewSet
+ 6 | |
+ 7 | |
+ 8 | | from .views import EmployeeSalaryStructureViewSet
+ 9 | | from .views import PayCycleViewSet
+10 | | from .views import PayrollEmployeeListView
+11 | |
+12 | |
+13 | | from .views import PayrollPreviewView
+14 | | from .views import PayrollReportView
+15 | | from .views import PayrollRunViewSet
+16 | | from .views import PayrollSlipViewSet
+17 | | from .views import PayslipDocumentViewSet
+18 | | from .views import PayslipLineItemViewSet
+19 | | from .views import PayslipUploadView
+20 | | from .views import SalaryComponentViewSet
+21 | | from .views import SalaryStructureItemViewSet
+22 | | from .views import TaxCodeVersionViewSet
+23 | | from .views import TaxCodeViewSet
+24 | |
+25 | | router = DefaultRouter()
+   | |_^ I001
+26 |   router.register("banks", BankMasterViewSet, basename="bank-master")
+27 |   router.register("components", SalaryComponentViewSet, basename="salary-component")
+   |
+   = help: Organize imports
+
+hr_payroll\payroll\api\views.py:73:1: E402 Module level import not at top of file
+   |
+73 | from hr_payroll.payroll.services import PayrollCalculator
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+   |
+
+hr_payroll\payroll\api\views.py:445:16: BLE001 Do not catch blind exception: `Exception`
+    |
+443 |             cycle.save()
+444 |             return Response(stats, status=200)
+445 |         except Exception as e:
+    |                ^^^^^^^^^ BLE001
+446 |             import traceback
+    |
+
+hr_payroll\payroll\services.py:26:89: E501 Line too long (89 > 88)
+   |
+24 |     """
+25 |     Auto-generate or update an EmployeeSalaryStructure based on policy defaults.
+26 |     1. Determines Base Salary from Job Structure Policy (using title as proxy for grade).
+   |                                                                                         ^ E501
+27 |     2. Adds all Policy Allowances as SalaryStructureItems.
+28 |     """
+   |
+
+hr_payroll\payroll\services.py:210:89: E501 Line too long (89 > 88)
+    |
+209 |         if late_count > grace_limit:
+210 |             # Policy: "Salary deduction". Assumption: 0.5 days pay per excess occurrence.
+    |                                                                                         ^ E501
+211 |             excess = late_count - grace_limit
+    |
+
+hr_payroll\payroll\services.py:227:89: E501 Line too long (112 > 88)
+    |
+225 |                         "amount": penalty,
+226 |                         "component": None,
+227 |                         "category": PayslipLineItem.Category.RECURRING,  # Defaulting to recurring for deduction
+    |                                                                                         ^^^^^^^^^^^^^^^^^^^^^^^^ E501
+228 |                     }
+229 |                 )
+    |
+
+hr_payroll\payroll\services.py:287:89: E501 Line too long (93 > 88)
+    |
+285 |                         "amount": pension_amt,
+286 |                         "component": None,
+287 |                         "category": PayslipLineItem.Category.TAX,  # Group with tax/statutory
+    |                                                                                         ^^^^^ E501
+288 |                     }
+289 |                 )
+    |
+
+hr_payroll\payroll\services.py:303:89: E501 Line too long (113 > 88)
+    |
+301 |         tax_total = Decimal(0)
+302 |
+303 |         # Simple slab implementation: Find the bracket that matches gross and apply that rate to the WHOLE amount
+    |                                                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^ E501
+304 |         # OR Progressive? The policy data suggests slabs with rates.
+305 |         # "rate": 10, "min": 10001, "max": 25000.
+    |
+
+hr_payroll\payroll\services.py:306:89: E501 Line too long (117 > 88)
+    |
+304 |         # OR Progressive? The policy data suggests slabs with rates.
+305 |         # "rate": 10, "min": 10001, "max": 25000.
+306 |         # Let's assume 'Simple Slab' for now based on common payroll simplifications unless progressive is specified.
+    |                                                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E501
+307 |         # Use the highest matching bracket.
+    |
+
+hr_payroll\payroll\services.py:362:9: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+    |
+360 |     except PayCycle.DoesNotExist:
+361 |         msg = "PayCycle not found"
+362 |         raise ValueError(msg)
+    |         ^^^^^^^^^^^^^^^^^^^^^ B904
+363 |
+364 |     employees = (
+    |
+
+hr_payroll\payroll\services.py:403:13: PERF401 Use a list comprehension to create a transformed list
+    |
+401 |           line_items = []
+402 |           for item in result["earnings"]:
+403 |               line_items.append(
+    |  _____________^
+404 | |                 PayslipLineItem(
+405 | |                     slip=slip,
+406 | |                     component=item.get("component"),
+407 | |                     label=item["label"],
+408 | |                     amount=item["amount"],
+409 | |                     category=item.get("category", PayslipLineItem.Category.RECURRING),
+410 | |                 )
+411 | |             )
+    | |_____________^ PERF401
+412 |
+413 |           for item in result["deductions"]:
+    |
+
+hr_payroll\payroll\services.py:414:13: PERF401 Use a list comprehension to create a transformed list
+    |
+413 |           for item in result["deductions"]:
+414 |               line_items.append(
+    |  _____________^
+415 | |                 PayslipLineItem(
+416 | |                     slip=slip,
+417 | |                     component=item.get("component"),
+418 | |                     label=item["label"],
+419 | |                     amount=item["amount"],
+420 | |                     category=item.get("category", PayslipLineItem.Category.RECURRING),
+421 | |                 )
+422 | |             )
+    | |_____________^ PERF401
+423 |
+424 |           PayslipLineItem.objects.bulk_create(line_items)
+    |
+
+hr_payroll\payroll\services.py:428:89: E501 Line too long (108 > 88)
+    |
+426 |         # Link Loans & Expenses to the Slip
+427 |         # Important: We only mark them as paid/reimbursed if the slip is NOT draft?
+428 |         # Actually, standard flow: mark them as 'linked'. Status update might happen when slip is Finalized.
+    |                                                                                         ^^^^^^^^^^^^^^^^^^^^ E501
+429 |         # BUT, to prevent double inclusion in next draft run, we should mark them or link them.
+430 |         # Let's set the link now. Status update 'paid'/'reimbursed' should arguably happen on Finalize.
+    |
+
+hr_payroll\payroll\services.py:429:89: E501 Line too long (95 > 88)
+    |
+427 |         # Important: We only mark them as paid/reimbursed if the slip is NOT draft?
+428 |         # Actually, standard flow: mark them as 'linked'. Status update might happen when slip is Finalized.
+429 |         # BUT, to prevent double inclusion in next draft run, we should mark them or link them.
+    |                                                                                         ^^^^^^^ E501
+430 |         # Let's set the link now. Status update 'paid'/'reimbursed' should arguably happen on Finalize.
+431 |         # Ideally, filter logic in calculate() excludes those already linked.
+    |
+
+hr_payroll\payroll\services.py:430:89: E501 Line too long (103 > 88)
+    |
+428 |         # Actually, standard flow: mark them as 'linked'. Status update might happen when slip is Finalized.
+429 |         # BUT, to prevent double inclusion in next draft run, we should mark them or link them.
+430 |         # Let's set the link now. Status update 'paid'/'reimbursed' should arguably happen on Finalize.
+    |                                                                                         ^^^^^^^^^^^^^^^ E501
+431 |         # Ideally, filter logic in calculate() excludes those already linked.
+432 |         # My calculate() logic: `payroll_slip__isnull=True`. So linking checks it out.
+    |
+
+hr_payroll\payroll\tests\test_models.py:221:34: RUF100 [*] Unused `noqa` directive (unused: `S106`)
+    |
+219 |         username="testuser",
+220 |         email="test@example.com",
+221 |         password="testpass123",  # noqa: S106
+    |                                  ^^^^^^^^^^^^ RUF100
+222 |     )
+223 |     return Employee.objects.create(user=user, employee_id="E-00001", title="Engineer")
+    |
+    = help: Remove unused `noqa` directive
+
+hr_payroll\policies\accessors.py:166:5: E722 Do not use bare `except`
+    |
+164 |     try:
+165 |         return Decimal(str(percent))
+166 |     except:
+    |     ^^^^^^ E722
+167 |         return Decimal("0")
+    |
+
+hr_payroll\policies\accessors.py:207:12: BLE001 Do not catch blind exception: `Exception`
+    |
+205 |         minute = int(parts[1]) if len(parts) > 1 else 0
+206 |         return time(hour=hour, minute=minute)
+207 |     except Exception:
+    |            ^^^^^^^^^ BLE001
+208 |         return fallback
+    |
+
+hr_payroll\users\admin.py:32:24: S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+   |
+30 |     base = "".join(ch for ch in base if ch.isalnum() or ch in {".", "-", "_"})
+31 |     while True:
+32 |         salt = "".join(random.choices(string.ascii_lowercase + string.digits, k=4))
+   |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ S311
+33 |         candidate = f"{base}-{salt}"
+34 |         if not User.objects.filter(username=candidate).exists():
+   |
+
+hr_payroll\users\admin.py:40:20: S311 Standard pseudo-random generators are not suitable for cryptographic purposes
+   |
+38 | def _generate_password() -> str:
+39 |     charset = string.ascii_letters + string.digits + "!@#$%^&*()"
+40 |     return "".join(random.choices(charset, k=12))
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ S311
+   |
+
+hr_payroll\users\admin.py:55:20: FBT002 Boolean default positional argument in function definition
+   |
+53 |         ]
+54 |
+55 |     def save(self, commit=True):
+   |                    ^^^^^^ FBT002
+56 |         user = super().save(commit=False)
+57 |         first = (user.first_name or "").strip() or "User"
+   |
+
+hr_payroll\users\api\permissions.py:22:89: E501 Line too long (96 > 88)
+   |
+21 | class IsManagerOrAdmin(BasePermission):
+22 |     """Allow access to staff/superusers, or Admin/Manager users who have an employee profile."""
+   |                                                                                         ^^^^^^^^ E501
+23 |
+24 |     def has_permission(self, request, view):
+   |
+
+hr_payroll\users\api\views.py:39:89: E501 Line too long (93 > 88)
+   |
+37 |         if not getattr(user, "is_authenticated", False):  # pragma: no cover - safety
+38 |             return User.objects.none()
+39 |         # Managers/Admins may list all users; require employee profile unless staff/superuser
+   |                                                                                         ^^^^^ E501
+40 |         if getattr(user, "is_superuser", False) or getattr(user, "is_staff", False):
+41 |             return User.objects.all()
+   |
+
+hr_payroll\users\signals.py:34:89: E501 Line too long (97 > 88)
+   |
+32 | @receiver(m2m_changed, sender=get_user_model().groups.through)
+33 | def prevent_elevated_without_employee(sender, instance, action, pk_set, **kwargs):
+34 |     """Block adding elevated roles to users without an employee profile (unless staff/superuser).
+   |                                                                                         ^^^^^^^^^ E501
+35 |
+36 |     Allows the default "Employee" group for onboarding flow. Logs and silently drops
+   |
+
+hr_payroll\users\tests\api\test_djoser_auth.py:20:42: RUF100 [*] Unused `noqa` directive (unused: `S106`)
+   |
+18 |             username="manager",
+19 |             email="manager@example.com",
+20 |             password="ManagerPass!123",  # noqa: S106
+   |                                          ^^^^^^^^^^^^ RUF100
+21 |         )
+22 |         manager.is_active = True
+   |
+   = help: Remove unused `noqa` directive
+
+hr_payroll\users\tests\api\test_djoser_auth.py:84:41: RUF100 [*] Unused `noqa` directive (unused: `S106`)
+   |
+82 |             username="bob",
+83 |             email="bob@example.com",
+84 |             password="StrongPass!234",  # noqa: S106
+   |                                         ^^^^^^^^^^^^ RUF100
+85 |         )
+86 |         user.is_active = True
+   |
+   = help: Remove unused `noqa` directive
+
+hr_payroll\users\tests\api\test_jwt_verify.py:24:37: RUF100 [*] Unused `noqa` directive (unused: `S106`)
+   |
+22 |         username="verifyuser",
+23 |         email="verify@example.com",
+24 |         password="VerifyPass!123",  # noqa: S106
+   |                                     ^^^^^^^^^^^^ RUF100
+25 |     )
+26 |     client = APIClient()
+   |
+   = help: Remove unused `noqa` directive
+
+hr_payroll\users\tests\api\test_user_permissions.py:21:34: RUF100 [*] Unused `noqa` directive (unused: `S106`)
+   |
+19 |         username="mgrrole",
+20 |         email="mgrrole@example.com",
+21 |         password="MgrPass!123",  # noqa: S106
+   |                                  ^^^^^^^^^^^^ RUF100
+22 |     )
+23 |     g, _ = Group.objects.get_or_create(name="Manager")
+   |
+   = help: Remove unused `noqa` directive
+
+hr_payroll\users\tests\api\test_user_permissions.py:33:34: RUF100 [*] Unused `noqa` directive (unused: `S106`)
+   |
+31 |         username="regular",
+32 |         email="regular@example.com",
+33 |         password="RegPass!123",  # noqa: S106
+   |                                  ^^^^^^^^^^^^ RUF100
+34 |     )
+   |
+   = help: Remove unused `noqa` directive
+
+hr_payroll\users\tests\api\test_user_permissions.py:47:36: RUF100 [*] Unused `noqa` directive (unused: `S106`)
+   |
+45 |         username="otheruser",
+46 |         email="other@example.com",
+47 |         password="OtherPass!123",  # noqa: S106
+   |                                    ^^^^^^^^^^^^ RUF100
+48 |     )
+49 |     client = APIClient()
+   |
+   = help: Remove unused `noqa` directive
+
+hr_payroll\users\tests\api\test_user_update_immutability.py:14:33: RUF100 [*] Unused `noqa` directive (unused: `S106`)
+   |
+12 |         username="immut001",
+13 |         email="immut001@example.com",
+14 |         password="Pass!12345",  # noqa: S106
+   |                                 ^^^^^^^^^^^^ RUF100
+15 |         first_name="Old",
+16 |         last_name="Name",
+   |
+   = help: Remove unused `noqa` directive
+
+hr_payroll\users\tests\test_auth_backends.py:82:36: RUF100 [*] Unused `noqa` directive (unused: `S106`)
+   |
+80 |             None,
+81 |             username="test",
+82 |             password="wrongpass",  # noqa: S106
+   |                                    ^^^^^^^^^^^^ RUF100
+83 |         )
+84 |         assert user is None
+   |
+   = help: Remove unused `noqa` directive
+
+hr_payroll\users\tests\test_auth_backends.py:95:36: RUF100 [*] Unused `noqa` directive (unused: `S106`)
+   |
+93 |             None,
+94 |             username="test@gmail.com",
+95 |             password="wrongpass",  # noqa: S106
+   |                                    ^^^^^^^^^^^^ RUF100
+96 |         )
+97 |         assert user is None
+   |
+   = help: Remove unused `noqa` directive
+
+hr_payroll\users\tests\test_auth_backends.py:108:36: RUF100 [*] Unused `noqa` directive (unused: `S106`)
+    |
+106 |             None,
+107 |             username="wronguser",
+108 |             password="wrongpass",  # noqa: S106
+    |                                    ^^^^^^^^^^^^ RUF100
+109 |         )
+110 |         assert user is None
+    |
+    = help: Remove unused `noqa` directive
+
+hr_payroll\users\tests\test_auth_backends.py:121:36: RUF100 [*] Unused `noqa` directive (unused: `S106`)
+    |
+119 |             None,
+120 |             username="wrong@gmail.com",
+121 |             password="wrongpass",  # noqa: S106
+    |                                    ^^^^^^^^^^^^ RUF100
+122 |         )
+123 |         assert user is None
+    |
+    = help: Remove unused `noqa` directive
+
+seed_payroll_data.py:24:5: C901 `seed` is too complex (13 > 10)
+   |
+24 | def seed():
+   |     ^^^^ C901
+25 |     # 1. Banks
+26 |     bank, _ = BankMaster.objects.get_or_create(
+   |
+
+tests\permissions\factories.py:42:35: RUF100 [*] Unused `noqa` directive (unused: `S106`)
+   |
+40 |         username=username,
+41 |         email=f"{username}@example.com",
+42 |         password="TestPass123!",  # noqa: S106
+   |                                   ^^^^^^^^^^^^ RUF100
+43 |     )
+44 |     if is_staff:
+   |
+   = help: Remove unused `noqa` directive
+
+tests\test_employee_document_upload.py:30:34: RUF100 [*] Unused `noqa` directive (unused: `S106`)
+   |
+28 |         username="docuser",
+29 |         email="docuser@example.com",
+30 |         password="testpass123",  # noqa: S106
+   |                                  ^^^^^^^^^^^^ RUF100
+31 |     )
+32 |     employee = Employee.objects.create(user=user, employee_id="E-DOCTEST", title="Eng")
+   |
+   = help: Remove unused `noqa` directive
+
+tests\test_employee_document_upload.py:63:34: RUF100 [*] Unused `noqa` directive (unused: `S106`)
+   |
+61 |         username="docuser2",
+62 |         email="docuser2@example.com",
+63 |         password="testpass123",  # noqa: S106
+   |                                  ^^^^^^^^^^^^ RUF100
+64 |     )
+65 |     employee = Employee.objects.create(user=user, employee_id="E-DOCTEST2", title="Eng")
+   |
+   = help: Remove unused `noqa` directive
+
+tests\test_employee_document_upload.py:92:34: RUF100 [*] Unused `noqa` directive (unused: `S106`)
+   |
+90 |         username="docuser3",
+91 |         email="docuser3@example.com",
+92 |         password="testpass123",  # noqa: S106
+   |                                  ^^^^^^^^^^^^ RUF100
+93 |     )
+94 |     employee = Employee.objects.create(user=user, employee_id="E-DOCTEST3", title="Eng")
+   |
+   = help: Remove unused `noqa` directive
+
+Found 61 errors.
+[*] 20 fixable with the `--fix` option.

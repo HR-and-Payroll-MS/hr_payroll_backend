@@ -39,6 +39,7 @@ from .serializers import EmployeeDocumentSerializer
 from .serializers import EmployeeNestedUpdateSerializer
 from .serializers import EmployeeReadSerializer
 from .serializers import EmployeeRegistrationSerializer
+from .serializers import EmployeeSearchSerializer
 
 
 def _log_file_upload(request_type, request):
@@ -348,6 +349,52 @@ class EmployeeRegistrationViewSet(viewsets.ModelViewSet):
             inst.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @extend_schema(
+        tags=["Employees"],
+        responses={200: EmployeeSearchSerializer(many=True)},
+        examples=[
+            OpenApiExample(
+                name="Search Result",
+                value=[
+                    {
+                        "id": 1,
+                        "name": "Jane Doe",
+                        "photo": "https://example.com/media/employees/photos/1/jane.jpg",
+                        "email": "jane@example.com",
+                        "employeeid": "E-00001",
+                    }
+                ],
+                response_only=True,
+            )
+        ],
+    )
+    @action(detail=False, methods=["get"], url_path="search")
+    def search(self, request):
+        """Minimal employees search endpoint.
+
+        Accepts ?search=<term> or ?q=<term>, returns a limited list of
+        employees scoped by RBAC, projected to minimal fields.
+        """
+        term = request.query_params.get("search") or request.query_params.get("q") or ""
+        try:
+            limit = int(request.query_params.get("limit", "20"))
+        except ValueError:
+            limit = 20
+        limit = max(1, min(limit, 50))
+
+        qs = self.get_queryset()
+        if term:
+            qs = qs.filter(
+                Q(user__first_name__icontains=term)
+                | Q(user__last_name__icontains=term)
+                | Q(user__email__icontains=term)
+                | Q(user__username__icontains=term)
+            )
+        qs = qs.select_related("user").order_by("user__username")[:limit]
+
+        ser = EmployeeSearchSerializer(qs, many=True, context={"request": request})
+        return Response(ser.data)
+
     @action(detail=False, methods=["get"], url_path=r"serve-document/(?P<doc_id>\d+)")
     def serve_document(self, request, doc_id=None):
         """Serve document content globally (no employee ID needed in URL)."""
@@ -488,3 +535,70 @@ class EmployeeRegistrationViewSet(viewsets.ModelViewSet):
 
         doc.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @extend_schema(
+        tags=["Employees"],
+        request={
+            "application/json": {
+                "type": "object",
+                "properties": {
+                    "termination_reason": {"type": "string"},
+                    "last_working_date": {"type": "string", "format": "date"},
+                },
+                "required": ["termination_reason"],
+            }
+        },
+        responses={200: EmployeeReadSerializer},
+    )
+    @action(detail=True, methods=["post"], url_path="terminate")
+    def terminate(self, request, pk=None):
+        """Terminate an employee using policy-driven notice periods."""
+        emp = self.get_object()
+
+        # 1. Get Reason & Date
+        reason = request.data.get("termination_reason", "")
+        last_working_date = request.data.get("last_working_date")
+
+        # 2. Get Policy
+        from hr_payroll.policies import get_policy_document
+
+        org_id = emp.department.organization_id if emp.department else 1
+        policy_doc = get_policy_document(org_id=org_id)
+        term_policy = policy_doc.get("terminationPolicy", {})
+
+        # 3. Calculate Notice Period based on Status
+        # Default fallback map if policy is empty
+        notice_days = 0
+        status_map = {
+            "probation": term_policy.get("noticePeriodDays", {}).get("probation", 0),
+            "active": term_policy.get("noticePeriodDays", {}).get("confirmed", 30),
+        }
+
+        # If employee is "active" but tenure > X years, maybe "senior" applies?
+        # For simplicity, using simple mapping first.
+        current_status = emp.employment_status  # e.g. 'active', 'probation'
+        notice_days = status_map.get(current_status, 30)
+
+        # 4. Update Employee
+        emp.employment_status = "terminated"
+        emp.termination_reason = reason
+        emp.notice_period_days = notice_days
+
+        # If last_working_date not provided, calculate it?
+        # For now, we trust the input or leave null if immediate.
+        if last_working_date:
+            emp.last_working_date = last_working_date
+
+        emp.is_active = False
+        emp.save()
+
+        # Log it
+        log_action(
+            "employee.terminate",
+            actor=request.user,
+            model_name="Employee",
+            record_id=emp.id,
+            after={"status": "terminated", "notice_days": notice_days},
+        )
+
+        return Response(EmployeeReadSerializer(emp).data)

@@ -6,7 +6,6 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from hr_payroll.attendance.models import Attendance
 from hr_payroll.leaves.models import LeavePolicy
 from hr_payroll.leaves.models import LeaveRequest
 from hr_payroll.leaves.models import LeaveType
@@ -105,20 +104,7 @@ class RoleAPITestCase(APITestCase):
                 duration=1,
             ),
         }
-        self.attendance_records = {
-            "team": Attendance.objects.create(
-                employee=self.roles[ROLE_EMPLOYEE].employee,
-                date=timezone.now().date(),
-                clock_in=timezone.now(),
-                clock_in_location="HQ kiosk",
-            ),
-            "other": Attendance.objects.create(
-                employee=self.others["employee"].employee,
-                date=timezone.now().date(),
-                clock_in=timezone.now(),
-                clock_in_location="Remote kiosk",
-            ),
-        }
+        self.attendance_records = {}
 
     # Utilities -------------------------------------------------------------
     def _create_department(self, name: str):

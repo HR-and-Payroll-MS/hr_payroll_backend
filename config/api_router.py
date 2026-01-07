@@ -4,13 +4,17 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 from rest_framework.routers import SimpleRouter
 
-from hr_payroll.attendance.api.views import AttendanceViewSet
+from hr_payroll.announcements.api.views import AnnouncementViewSet
+from hr_payroll.attendance.api.views import AttendancePlaceholderViewSet
 from hr_payroll.employees.api.views import EmployeeRegistrationViewSet
 from hr_payroll.leaves.api.views import LeavesPlaceholderViewSet
+from hr_payroll.messaging.api.views import ChatViewSet
+from hr_payroll.messaging.api.views import MessageViewSet
 from hr_payroll.notifications.api.views import NotificationViewSet
 from hr_payroll.org.api.views import DepartmentViewSet
 from hr_payroll.org.api.views import OrganizationPoliciesView
 from hr_payroll.org.api.views import OrganizationPolicySectionView
+from hr_payroll.org.api.views import OrgChartViewSet
 from hr_payroll.payroll.api.views import PayrollPlaceholderViewSet
 from hr_payroll.users.api.views import UserViewSet
 
@@ -20,13 +24,15 @@ router.register("users", UserViewSet)
 router.register("leaves", LeavesPlaceholderViewSet, basename="leaves")
 router.register("payroll", PayrollPlaceholderViewSet, basename="payroll")
 router.register("departments", DepartmentViewSet)
+router.register("org-chart", OrgChartViewSet, basename="org-chart")
 # Top-level canonical endpoints.
-# Retain top-level 'attendances' to expose collection summary actions
-# (e.g. /api/v1/attendances/my/summary/) without forcing a nested lookup.
-router.register("attendances", AttendanceViewSet)
 # New clean employees endpoint using registration viewset
 router.register("employees", EmployeeRegistrationViewSet, basename="employees")
 router.register("notifications", NotificationViewSet, basename="notifications")
+router.register("chats", ChatViewSet, basename="chats")
+router.register("messages", MessageViewSet, basename="messages")
+router.register("announcements", AnnouncementViewSet, basename="announcements")
+router.register("attendances", AttendancePlaceholderViewSet, basename="attendance-root")
 
 
 app_name = "api"
@@ -36,6 +42,8 @@ urlpatterns = [
         "audit/",
         include(("hr_payroll.audit.api.urls", "audit"), namespace="audit"),
     ),
+    # Employee-scoped attendance endpoints (e.g., /api/v1/employees/<id>/attendances/...)
+    path("", include("hr_payroll.attendance.api.urls")),
     path(
         "orgs/<int:org_id>/policies/",
         OrganizationPoliciesView.as_view(),
@@ -59,5 +67,7 @@ urlpatterns = [
     path("leaves/", include("hr_payroll.leaves.api.urls")),
     path("payroll/", include("hr_payroll.payroll.api.urls")),
     path("efficiency/", include("hr_payroll.efficiency.api.urls")),
+    path("loans/", include("hr_payroll.loans.api.urls")),
+    path("expenses/", include("hr_payroll.expenses.api.urls")),
     *router.urls,
 ]

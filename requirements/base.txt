@@ -30,6 +30,7 @@ django-webpack-loader==3.2.1  # https://github.com/django-webpack/django-webpack
 djangorestframework-simplejwt==5.3.1
 dj-rest-auth==5.0.2
 djoser==2.3.1
+django-countries==7.6.1
 
 # Document parsing (CV extraction)
 pdfminer.six==20231228  # robust PDF text extraction (no AI)

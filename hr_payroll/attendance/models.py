@@ -1,134 +1,103 @@
-import ipaddress
-from datetime import timedelta
+from __future__ import annotations
 
-from django.conf import settings
+import ipaddress
+
 from django.db import models
 from django.utils import timezone
 
 
-class Attendance(models.Model):
-    """Core attendance record.
+class OfficeNetworkRange(models.Model):
+    """CIDR ranges that represent office networks for attendance gating."""
 
-    - Integer PK (default AutoField)
-    - One record per date/shift per employee
-    - Computed properties: logged_time, deficit
-    """
+    name = models.CharField(max_length=100)
+    cidr = models.CharField(max_length=64, help_text="CIDR, e.g. 192.168.0.0/24")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
-    class Status(models.TextChoices):
-        PRESENT = "PRESENT", "Present"
-        ABSENT = "ABSENT", "Absent"
-        PERMITTED = "PERMITTED", "Permitted"
+    def __str__(self) -> str:  # pragma: no cover - simple
+        return f"{self.name} ({self.cidr})"
+
+    def contains(self, ip: str) -> bool:
+        try:
+            return ipaddress.ip_address(ip) in ipaddress.ip_network(
+                self.cidr, strict=False
+            )
+        except ValueError:
+            return False
+
+
+class AttendanceRecord(models.Model):
+    STATUS_CHOICES = (
+        ("pending", "Pending"),
+        ("present", "Present"),
+        ("absent", "Absent"),
+        ("partial", "Partial"),
+    )
 
     employee = models.ForeignKey(
         "employees.Employee",
         on_delete=models.CASCADE,
-        related_name="attendances",
+        related_name="attendance_records",
     )
     date = models.DateField()
-    # clock_in is nullable to support HR corrections such as clearing an
-    # accidental clock-in (or resetting a day). Punch endpoints must treat
-    # clock_in=None as "not clocked-in".
-    clock_in = models.DateTimeField(null=True, blank=True)
-    clock_in_location = models.CharField(max_length=255, blank=True, default="")
-    clock_out = models.DateTimeField(null=True, blank=True)
-    clock_out_location = models.CharField(max_length=255, blank=True, default="")
-    work_schedule_hours = models.IntegerField(default=8)
-    paid_time = models.DurationField(default=timedelta(0))
-    notes = models.TextField(blank=True)
-    status = models.CharField(
-        max_length=16, choices=Status.choices, default=Status.PRESENT
-    )
-    overtime_seconds = models.IntegerField(default=0)
-
+    shift_name = models.CharField(max_length=100, blank=True, default="")
+    shift_start = models.TimeField(null=True, blank=True)
+    shift_end = models.TimeField(null=True, blank=True)
+    clock_in = models.TimeField(null=True, blank=True)
+    clock_out = models.TimeField(null=True, blank=True)
+    clock_in_location = models.CharField(max_length=100, blank=True, default="")
+    clock_out_location = models.CharField(max_length=100, blank=True, default="")
+    paid_minutes = models.PositiveIntegerField(default=0)
+    work_schedule_minutes = models.PositiveIntegerField(default=0)
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default="pending")
+    notes = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["-date"]
-        unique_together = (("employee", "date"),)
+        ordering = ["-date", "-id"]
+        unique_together = ("employee", "date")
 
-    def __str__(self) -> str:  # pragma: no cover - simple repr
-        return f"Attendance({self.employee_id}@{self.date})"
-
-    @property
-    def logged_time(self) -> timedelta | None:
-        """Compute raw logged time (clock_out - clock_in) when clock_out is present."""
-        if not self.clock_out or not self.clock_in:
-            return None
-        ci = self.clock_in
-        co = self.clock_out
-
-        if timezone.is_naive(ci):
-            try:
-                ci = timezone.make_aware(ci, timezone.get_current_timezone())
-            except (ValueError, TypeError):  # pragma: no cover - fallback
-                ci = timezone.make_aware(ci)
-        if timezone.is_naive(co):
-            try:
-                co = timezone.make_aware(co, timezone.get_current_timezone())
-            except (ValueError, TypeError):  # pragma: no cover - fallback
-                co = timezone.make_aware(co)
-        return co - ci
+    def __str__(self) -> str:  # pragma: no cover - simple
+        return f"Attendance({self.employee_id}:{self.date})"
 
     @property
-    def deficit(self) -> timedelta | None:
-        """Compute schedule - paid_time (positive = deficit, negative = overtime)."""
-        scheduled = timezone.timedelta(hours=int(self.work_schedule_hours))
-        paid = self.paid_time or timezone.timedelta(0)
-        return scheduled - paid
+    def paid_hours_display(self) -> str:
+        hours = self.paid_minutes // 60
+        mins = self.paid_minutes % 60
+        return f"{hours}h{mins:02d}m"
 
     @property
-    def overtime(self) -> timedelta | None:
-        """Paid time minus scheduled time (positive = overtime, negative = deficit)."""
-        d = self.deficit
-        if d is None:
-            return None
-        seconds = -int(d.total_seconds())
-        return timezone.timedelta(seconds=seconds)
+    def work_schedule_hours_display(self) -> str:
+        hours = self.work_schedule_minutes // 60
+        mins = self.work_schedule_minutes % 60
+        return f"{hours}h{mins:02d}m"
 
 
-class AttendanceAdjustment(models.Model):
-    """Audit trail for adjustments to paid_time or attendance details."""
+class AttendancePunch(models.Model):
+    TYPE_CHECK_IN = "check_in"
+    TYPE_CHECK_OUT = "check_out"
+    TYPE_BREAK_START = "break_start"
+    TYPE_BREAK_END = "break_end"
+
+    TYPE_CHOICES = (
+        (TYPE_CHECK_IN, "Check in"),
+        (TYPE_CHECK_OUT, "Check out"),
+        (TYPE_BREAK_START, "Break start"),
+        (TYPE_BREAK_END, "Break end"),
+    )
 
     attendance = models.ForeignKey(
-        Attendance, on_delete=models.CASCADE, related_name="adjustments"
+        AttendanceRecord, on_delete=models.CASCADE, related_name="punches"
     )
-    performed_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True
-    )
-    previous_paid_time = models.DurationField(null=True, blank=True)
-    new_paid_time = models.DurationField(null=True, blank=True)
-    notes = models.TextField(blank=True)
+    punch_type = models.CharField(max_length=20, choices=TYPE_CHOICES)
+    timestamp = models.DateTimeField(default=timezone.now)
+    location = models.CharField(max_length=100, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-created_at"]
+        ordering = ["timestamp", "id"]
 
-    def __str__(self) -> str:  # pragma: no cover - simple repr
-        return f"AttendanceAdjustment({self.attendance_id} by {self.performed_by_id})"
-
-
-class OfficeNetwork(models.Model):
-    """Allowed office network ranges for self-submission (option 3).
-
-    Uses CIDR notation stored as text; validated via Python's ipaddress.
-    """
-
-    label = models.CharField(max_length=100, blank=True)
-    cidr = models.CharField(max_length=64, unique=True)
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["cidr"]
-
-    def __str__(self) -> str:  # pragma: no cover - simple repr
-        return self.label or self.cidr
-
-    def clean(self):  # pragma: no cover - validated by tests/usage
-        # Validate CIDR value
-        try:
-            ipaddress.ip_network(self.cidr, strict=False)
-        except ValueError as exc:
-            msg = f"Invalid CIDR: {self.cidr}"
-            raise ValueError(msg) from exc
+    def __str__(self) -> str:  # pragma: no cover - simple
+        return f"Punch({self.punch_type} @ {self.timestamp})"

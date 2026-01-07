@@ -17,7 +17,9 @@ from PIL.Image import UnidentifiedImageError
 from rest_framework import serializers
 
 from hr_payroll.employees.models import Contract
+from hr_payroll.employees.models import EmergencyContact
 from hr_payroll.employees.models import Employee
+from hr_payroll.employees.models import EmployeeAddress
 from hr_payroll.employees.models import EmployeeDocument
 from hr_payroll.employees.models import JobHistory
 from hr_payroll.org.models import Department
@@ -27,6 +29,7 @@ from hr_payroll.payroll.models import Dependent
 from hr_payroll.payroll.models import EmployeeSalaryStructure
 from hr_payroll.payroll.models import SalaryComponent
 from hr_payroll.payroll.models import SalaryStructureItem
+from hr_payroll.policies import get_policy_document
 from hr_payroll.users.models import User
 from hr_payroll.users.models import UserProfile
 
@@ -104,12 +107,53 @@ class EmployeeRegistrationSerializer(serializers.Serializer):
     contract_start_date = serializers.DateField(required=False, allow_null=True)
     contract_end_date = serializers.DateField(required=False, allow_null=True)
 
-    # Compensation components
+    # Shift Assignment
+    current_shift = serializers.CharField(required=False, allow_blank=True)
+
+    # Compensation components (legacy list support)
     components = SalaryComponentInputSerializer(many=True, required=False)
+    # Compensation flat fields (Frontend Adapter)
+    salary = serializers.DecimalField(
+        max_digits=12, decimal_places=2, required=False, allow_null=True
+    )
+    offset = serializers.DecimalField(
+        max_digits=12, decimal_places=2, required=False, allow_null=True
+    )
+    one_off = serializers.DecimalField(
+        max_digits=12, decimal_places=2, required=False, allow_null=True
+    )
 
     # Dependents list
     dependents = serializers.ListSerializer(
         child=serializers.DictField(), required=False
+    )
+
+    # Address
+    primary_address = serializers.CharField(required=False, allow_blank=True)
+    country = serializers.CharField(required=False, allow_blank=True)
+    state = serializers.CharField(
+        required=False, allow_blank=True
+    )  # Frontend sends 'state'
+    city = serializers.CharField(required=False, allow_blank=True)
+    postcode = serializers.CharField(
+        required=False, allow_blank=True
+    )  # Frontend sends 'postcode'
+
+    # Emergency Contact (Frontend sends emefullname, etc.)
+    emergency_full_name = serializers.CharField(
+        required=False, allow_blank=True, source="emefullname"
+    )
+    emergency_phone = serializers.CharField(
+        required=False, allow_blank=True, source="emephonenumber"
+    )
+    emergency_state = serializers.CharField(
+        required=False, allow_blank=True, source="emestate"
+    )
+    emergency_city = serializers.CharField(
+        required=False, allow_blank=True, source="emecity"
+    )
+    emergency_postcode = serializers.CharField(
+        required=False, allow_blank=True, source="emepostcode"
     )
 
     # Bank detail (optional)
@@ -221,13 +265,23 @@ class EmployeeRegistrationSerializer(serializers.Serializer):
         return get_random_string(12, charset)
 
     def _generate_employee_id(self) -> str:
-        # Very simple sequential pattern: E-<zero-padded>
+        # Load rule from Recruitment Policy (Org ID 1 hardcoded for now)
+        policy = get_policy_document(org_id=1)
+        recruitment = policy.get("recruitmentPolicy", {})
+        onboarding = recruitment.get("onboarding", {})
+
+        # Defaults
+        prefix = "E-"
+
+        if onboarding.get("idPrefix"):
+            prefix = onboarding["idPrefix"].strip().upper()
+
+        # Sequential Generation
         last = Employee.objects.order_by("-id").first()
         nxt = (last.id + 1) if last else 1
-        return f"E-{nxt:05d}"
+        return f"{prefix}{nxt:05d}"
 
-    def create(self, validated):  # noqa: C901 - orchestrates multiple related creates atomically
-        # Create User with generated username/email/password
+    def _create_user_and_profile(self, validated):
         first = validated.get("first_name", "").strip()
         last = validated.get("last_name", "").strip()
         if not first or not last:
@@ -246,7 +300,6 @@ class EmployeeRegistrationSerializer(serializers.Serializer):
             last_name=last,
         )
 
-        # Create or update UserProfile
         UserProfile.objects.create(
             user=user,
             phone=validated.get("phone", ""),
@@ -259,53 +312,58 @@ class EmployeeRegistrationSerializer(serializers.Serializer):
             social_insurance=validated.get("social_insurance", ""),
         )
 
-        # Create Employee
-        emp = Employee.objects.create(
-            user=user,
-            title=validated.get("title", ""),
-            department=validated.get("department_id"),
-            time_zone=validated.get("time_zone", ""),
-            office=validated.get("office", ""),
-            join_date=validated.get("join_date"),
-            last_working_date=validated.get("last_working_date"),
-            is_active=True,
-            health_care=validated.get("health_care", ""),
-            fingerprint_token=(validated.get("fingerprint_token") or None),
+        # Mark email as verified and primary in allauth
+        EmailAddress.objects.get_or_create(
+            user=user, email=email, defaults={"verified": True, "primary": True}
         )
-        # set photo if present (with validation)
-        if validated.get("photo") is not None:
-            self._validate_image(validated.get("photo"))
-            emp.photo = validated.get("photo")
-            emp.save(update_fields=["photo"])
 
-        # Generate employee_id after we have pk
-        emp.employee_id = self._generate_employee_id()
-        emp.save(update_fields=["employee_id"])
+        return user, username, email, raw_password
 
-        # Job history
-        if validated.get("job_effective_date"):
-            JobHistory.objects.create(
-                employee=emp,
-                effective_date=validated.get("job_effective_date"),
-                job_title=validated.get("title", ""),
-                position_type=validated.get("job_position_type", ""),
-                employment_type=validated.get("job_employment_type", ""),
-                line_manager=None,
-            )
-
-        # Contract creation
+    def _create_contract_record(self, emp, validated):
         if validated.get("contract_number") and validated.get("contract_start_date"):
+            c_start = validated.get("contract_start_date")
+            c_end = validated.get("contract_end_date")
+            c_type = validated.get("contract_type", "").lower()
+
+            # Apply Probation Policy if type is probation and end date is missing
+            if "probation" in c_type and not c_end:
+                policy = get_policy_document(org_id=1)
+                probation_months = policy.get("probationPolicy", {}).get(
+                    "durationMonths"
+                )
+                if probation_months and isinstance(probation_months, int):
+                    from dateutil.relativedelta import relativedelta
+
+                    c_end = c_start + relativedelta(months=probation_months)
+
             Contract.objects.create(
                 employee=emp,
                 contract_number=validated.get("contract_number"),
                 contract_name=validated.get("contract_name", ""),
                 contract_type=validated.get("contract_type", ""),
-                start_date=validated.get("contract_start_date"),
-                end_date=validated.get("contract_end_date"),
+                start_date=c_start,
+                end_date=c_end,
             )
 
-        # Salary structure and components
+    def _create_salary_structure(self, emp, validated):
         comps = validated.get("components") or []
+        if validated.get("salary"):
+            comps.append(
+                {"kind": "base", "amount": validated["salary"], "label": "Base Salary"}
+            )
+        if validated.get("offset"):
+            comps.append(
+                {"kind": "offset", "amount": validated["offset"], "label": "Offset"}
+            )
+        if validated.get("one_off"):
+            comps.append(
+                {
+                    "kind": "one_off",
+                    "amount": validated["one_off"],
+                    "label": "Sign-on Bonus",
+                }
+            )
+
         if comps:
             structure = EmployeeSalaryStructure.objects.create(
                 employee=emp,
@@ -313,7 +371,6 @@ class EmployeeRegistrationSerializer(serializers.Serializer):
             )
             total_base = Decimal("0.00")
             for c in comps:
-                # Lookup or create SalaryComponent
                 component, _ = SalaryComponent.objects.get_or_create(
                     name=c.get("label") or f"{c['kind']} component",
                     defaults={
@@ -322,18 +379,15 @@ class EmployeeRegistrationSerializer(serializers.Serializer):
                         "is_taxable": True,
                     },
                 )
-                # Create structure item
                 SalaryStructureItem.objects.create(
                     structure=structure, component=component, amount=c["amount"]
                 )
-                # Sum up base salary
                 if c["kind"] == "base":
                     total_base += c["amount"]
-            # Update base salary
             structure.base_salary = total_base
             structure.save(update_fields=["base_salary"])
 
-        # Dependents
+    def _create_bank_and_dependents(self, emp, validated):
         for d in validated.get("dependents", []) or []:
             name = d.get("name")
             if not name:
@@ -345,10 +399,8 @@ class EmployeeRegistrationSerializer(serializers.Serializer):
                 date_of_birth=d.get("date_of_birth"),
             )
 
-        # Bank detail
         if validated.get("bank_name") or validated.get("account_number"):
             bank_name = validated.get("bank_name", "").strip()
-            # Lookup or create BankMaster
             if bank_name:
                 bank, _ = BankMaster.objects.get_or_create(
                     name=bank_name,
@@ -366,7 +418,72 @@ class EmployeeRegistrationSerializer(serializers.Serializer):
                     iban=validated.get("iban", ""),
                 )
 
-        # Single document (if provided)
+    def _create_addresses_contacts(self, emp, validated):
+        if any(validated.get(k) for k in ["primary_address", "city", "country"]):
+            EmployeeAddress.objects.create(
+                employee=emp,
+                primary_address=validated.get("primary_address", ""),
+                country=validated.get("country", ""),
+                state_province=validated.get("state", ""),
+                city=validated.get("city", ""),
+                postal_code=validated.get("postcode", ""),
+            )
+
+        if validated.get("emefullname"):
+            EmergencyContact.objects.create(
+                employee=emp,
+                full_name=validated.get("emefullname", ""),
+                phone_number=validated.get("emephonenumber", ""),
+                state_province=validated.get("emestate", ""),
+                city=validated.get("emecity", ""),
+                postal_code=validated.get("emepostcode", ""),
+            )
+
+    def create(self, validated):
+        user, username, email, raw_password = self._create_user_and_profile(validated)
+
+        department = validated.get("department_id")
+        line_manager = None
+        if department and department.manager:
+            line_manager = department.manager
+
+        emp = Employee.objects.create(
+            user=user,
+            title=validated.get("title", ""),
+            department=department,
+            line_manager=line_manager,
+            time_zone=validated.get("time_zone", ""),
+            office=validated.get("office", ""),
+            current_shift=validated.get("current_shift", ""),
+            join_date=validated.get("join_date"),
+            last_working_date=validated.get("last_working_date"),
+            is_active=True,
+            health_care=validated.get("health_care", ""),
+            fingerprint_token=(validated.get("fingerprint_token") or None),
+        )
+        if validated.get("photo") is not None:
+            self._validate_image(validated.get("photo"))
+            emp.photo = validated.get("photo")
+            emp.save(update_fields=["photo"])
+
+        emp.employee_id = self._generate_employee_id()
+        emp.save(update_fields=["employee_id"])
+
+        if validated.get("job_effective_date"):
+            JobHistory.objects.create(
+                employee=emp,
+                effective_date=validated.get("job_effective_date"),
+                job_title=validated.get("title", ""),
+                position_type=validated.get("job_position_type", ""),
+                employment_type=validated.get("job_employment_type", ""),
+                line_manager=line_manager,
+            )
+
+        self._create_contract_record(emp, validated)
+        self._create_addresses_contacts(emp, validated)
+        self._create_salary_structure(emp, validated)
+        self._create_bank_and_dependents(emp, validated)
+
         doc_file = validated.get("document_file")
         if doc_file is not None:
             self._validate_document(doc_file, validated.get("document_name"))
@@ -375,12 +492,6 @@ class EmployeeRegistrationSerializer(serializers.Serializer):
             ).strip()
             EmployeeDocument.objects.create(employee=emp, name=doc_name, file=doc_file)
 
-        # Mark email as verified and primary in allauth
-        EmailAddress.objects.get_or_create(
-            user=user, email=email, defaults={"verified": True, "primary": True}
-        )
-
-        # Record credentials on serializer for response
         self.created_credentials = {
             "username": username,
             "email": email,
@@ -469,6 +580,7 @@ class EmployeeReadSerializer(serializers.ModelSerializer):
             "department": obj.department.name if obj.department else "",
             "office": obj.office or "",
             "timezone": obj.time_zone or "",
+            "shift": obj.current_shift or "",
         }
 
     def get_payroll(self, obj) -> dict[str, Any]:
@@ -557,6 +669,7 @@ class EmployeeUpdateSerializer(serializers.ModelSerializer):
             "health_care",
             "department_id",
             "line_manager_id",
+            "current_shift",
         ]
 
     def validate_photo(self, f):
@@ -668,6 +781,9 @@ class EmployeeNestedUpdateSerializer(serializers.Serializer):
         if "timezone" in job:
             instance.time_zone = job["timezone"]
             updated_fields.append("timezone")
+        if "shift" in job:
+            instance.current_shift = job["shift"]
+            updated_fields.append("current_shift")
         if "joindate" in job:
             if job["joindate"]:
                 try:
@@ -801,3 +917,38 @@ class EmployeeDocumentSerializer(serializers.ModelSerializer):
         # reuse logic from EmployeeRegistrationSerializer or similar if needed
         # For now, basic validation
         return f
+
+
+class EmployeeSearchSerializer(serializers.ModelSerializer):
+    """Minimal projection for employee search suggestions."""
+
+    name = serializers.SerializerMethodField()
+    email = serializers.SerializerMethodField()
+    photo = serializers.SerializerMethodField()
+    employeeid = serializers.CharField(source="employee_id", allow_blank=True)
+
+    class Meta:
+        model = Employee
+        fields = ["id", "name", "photo", "email", "employeeid"]
+
+    def get_name(self, obj) -> str:
+        user = getattr(obj, "user", None)
+        return getattr(user, "name", "") or ""
+
+    def get_email(self, obj) -> str:
+        user = getattr(obj, "user", None)
+        return getattr(user, "email", "") or ""
+
+    def get_photo(self, obj) -> str:
+        request = (
+            self.context.get("request") if isinstance(self.context, dict) else None
+        )
+        if not obj.photo:
+            return ""
+        url = getattr(obj.photo, "url", "")
+        if not url:
+            return ""
+        if request is not None:
+            with suppress(Exception):
+                return request.build_absolute_uri(url)
+        return url

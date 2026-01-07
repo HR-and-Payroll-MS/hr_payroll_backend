@@ -4,11 +4,6 @@ def jwt_tag_override(result, generator, request, public):
         (lambda p: p.startswith("/api/v1/auth/jwt/"), "JWT Authentication"),
         (lambda p: p.startswith("/api/v1/auth/"), "Authentication"),
         (lambda p: p.startswith("/api/v1/users/"), "Users"),
-        (
-            lambda p: p.startswith("/api/v1/employees/") and "/attendances" in p,
-            "Employee Attendance",
-        ),
-        (lambda p: p.startswith("/api/v1/attendances/"), "Attendance"),
         (lambda p: p.startswith("/api/v1/departments/"), "Departments"),
         (lambda p: p.startswith("/api/v1/payroll/cycles/"), "Payroll Cycles"),
         (lambda p: p.startswith("/api/v1/payroll/records/"), "Payroll Records"),

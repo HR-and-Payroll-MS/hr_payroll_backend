@@ -6,6 +6,7 @@ from dj_rest_auth.views import UserDetailsView
 from django.urls import path
 
 from .auth_views import CookieOnlyLoginView
+from .auth_views import PasswordUpdateView
 
 # Curated auth URLs excluding token-based endpoints.
 # Login is overridden to set HttpOnly JWT cookies and omit tokens from the JSON body.
@@ -19,5 +20,6 @@ urlpatterns = [
         name="rest_password_reset_confirm",
     ),
     path("password/change/", PasswordChangeView.as_view(), name="rest_password_change"),
+    path("update-password/", PasswordUpdateView.as_view(), name="password_update"),
     path("user/", UserDetailsView.as_view(), name="rest_user_details"),
 ]

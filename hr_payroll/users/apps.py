@@ -10,4 +10,4 @@ class UsersConfig(AppConfig):
 
     def ready(self):
         with contextlib.suppress(ImportError):
-            import hr_payroll.users.signals  # noqa: F401, PLC0415
+            import hr_payroll.users.signals  # noqa: F401

@@ -5,8 +5,12 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 from dj_rest_auth.views import LoginView
 from django.conf import settings
+from django.contrib.auth import update_session_auth_hash
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenRefreshView
+
+from .serializers import PasswordUpdateSerializer
 
 
 def _set_cookie(
@@ -73,3 +77,20 @@ class CookieOnlyJWTRefreshView(TokenRefreshView):
                 _set_jwt_cookies(response, access, refresh)
                 response.data = {"detail": "refresh successful"}
         return response
+
+
+class PasswordUpdateView(APIView):
+    """Endpoint to change current user's password.
+
+    Accepts {current_password|old_password, new_password, confirm_password?} and
+    reuses Django validators. Keeps the session alive via `update_session_auth_hash`.
+    """
+
+    def post(self, request):  # type: ignore[override]
+        serializer = PasswordUpdateSerializer(
+            data=request.data, context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        update_session_auth_hash(request, user)
+        return Response({"detail": "Password updated successfully."})

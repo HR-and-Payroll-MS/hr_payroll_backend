@@ -27,7 +27,7 @@ def test_employee_upload_document_multipart_tempfile_no_deepcopy_error(
     user = User.objects.create_user(
         username="docuser",
         email="docuser@example.com",
-        password="testpass123",  # noqa: S106
+        password="testpass123",
     )
     employee = Employee.objects.create(user=user, employee_id="E-DOCTEST", title="Eng")
 
@@ -60,7 +60,7 @@ def test_employee_upload_document_accepts_frontend_alias_fields(settings, tmp_pa
     user = User.objects.create_user(
         username="docuser2",
         email="docuser2@example.com",
-        password="testpass123",  # noqa: S106
+        password="testpass123",
     )
     employee = Employee.objects.create(user=user, employee_id="E-DOCTEST2", title="Eng")
 
@@ -89,7 +89,7 @@ def test_employee_upload_document_missing_file_returns_clear_400(settings, tmp_p
     user = User.objects.create_user(
         username="docuser3",
         email="docuser3@example.com",
-        password="testpass123",  # noqa: S106
+        password="testpass123",
     )
     employee = Employee.objects.create(user=user, employee_id="E-DOCTEST3", title="Eng")
 

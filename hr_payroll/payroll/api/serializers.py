@@ -100,6 +100,10 @@ class PayCycleSerializer(serializers.ModelSerializer):
     manager_name = serializers.CharField(
         source="manager_in_charge.user.name", read_only=True, allow_null=True
     )
+    total_payout = serializers.DecimalField(
+        max_digits=12, decimal_places=2, read_only=True
+    )
+    employee_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = PayCycle
@@ -112,6 +116,8 @@ class PayCycleSerializer(serializers.ModelSerializer):
             "manager_in_charge",
             "manager_name",
             "status",
+            "total_payout",
+            "employee_count",
             "created_at",
             "updated_at",
         ]
@@ -256,3 +262,43 @@ class PayrollRunSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+
+class PayrollReportRowSerializer(serializers.Serializer):
+    """Serializer for aggregated payroll report rows.
+
+    Uses snake_case internally to satisfy linting, then outputs camelCase
+    for frontend compatibility via `to_representation`.
+    """
+
+    cycle_id = serializers.IntegerField(required=False, allow_null=True)
+    cycle_name = serializers.CharField(required=False, allow_null=True)
+    employee_id = serializers.IntegerField()
+    employee_name = serializers.CharField(allow_null=True)
+    base_salary = serializers.DecimalField(
+        max_digits=12, decimal_places=2, allow_null=True
+    )
+    total_earnings = serializers.DecimalField(
+        max_digits=12, decimal_places=2, allow_null=True
+    )
+    total_deductions = serializers.DecimalField(
+        max_digits=12, decimal_places=2, allow_null=True
+    )
+    gross = serializers.DecimalField(max_digits=12, decimal_places=2, allow_null=True)
+    net = serializers.DecimalField(max_digits=12, decimal_places=2, allow_null=True)
+    source = serializers.ChoiceField(choices=["slip", "document"])
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        return {
+            "cycleId": data.get("cycle_id"),
+            "cycleName": data.get("cycle_name"),
+            "employeeId": data.get("employee_id"),
+            "employeeName": data.get("employee_name"),
+            "baseSalary": data.get("base_salary"),
+            "totalEarnings": data.get("total_earnings"),
+            "totalDeductions": data.get("total_deductions"),
+            "gross": data.get("gross"),
+            "net": data.get("net"),
+            "source": data.get("source"),
+        }

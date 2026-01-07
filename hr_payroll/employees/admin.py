@@ -21,6 +21,7 @@ class EmployeeAdmin(admin.ModelAdmin):
         "created_at",
         "updated_at",
     ]
+    exclude = ["line_manager"]
 
 
 @admin.register(models.JobHistory)

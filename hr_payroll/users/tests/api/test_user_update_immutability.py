@@ -11,7 +11,7 @@ def user():
     return get_user_model().objects.create_user(
         username="immut001",
         email="immut001@example.com",
-        password="Pass!12345",  # noqa: S106
+        password="Pass!12345",
         first_name="Old",
         last_name="Name",
     )

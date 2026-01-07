@@ -29,6 +29,8 @@ from hr_payroll.leaves.models import LeavePolicy
 from hr_payroll.leaves.models import LeaveRequest
 from hr_payroll.leaves.models import LeaveType
 from hr_payroll.leaves.models import PublicHoliday
+from hr_payroll.realtime.socketio import emit_event_to_employee
+from hr_payroll.realtime.socketio import emit_event_to_group
 
 logger = logging.getLogger(__name__)
 
@@ -226,6 +228,39 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
                     record_id=getattr(inst, "pk", None),
                     ip_address=self.request.META.get("REMOTE_ADDR", "") or "",
                 )
+
+            # Emit realtime event to intended approver(s)
+            with contextlib.suppress(Exception):
+                approver_targets: list[int] = []
+                if getattr(inst, "assigned_approver_id", None):
+                    approver_targets.append(int(inst.assigned_approver_id))
+                else:
+                    # Default to line manager and/or department manager
+                    lm_id = getattr(inst.employee, "line_manager_id", None)
+                    if lm_id:
+                        approver_targets.append(int(lm_id))
+                    dept = getattr(inst.employee, "department", None)
+                    mgr_id = getattr(dept, "manager_id", None) if dept else None
+                    if mgr_id:
+                        approver_targets.append(int(mgr_id))
+
+                payload = {
+                    "id": getattr(inst, "id", None),
+                    "employeeId": getattr(inst.employee, "id", None),
+                    "approverIds": approver_targets,
+                    "departmentId": getattr(inst.employee, "department_id", None),
+                    "startDate": str(getattr(inst, "start_date", "")),
+                    "endDate": str(getattr(inst, "end_date", "")),
+                    "duration": str(getattr(inst, "duration", "")),
+                    "status": getattr(inst, "status", ""),
+                    "policyName": getattr(getattr(inst, "policy", None), "name", ""),
+                }
+
+                for approver_id in approver_targets:
+                    emit_event_to_employee(
+                        approver_id, "leave.request.created", payload
+                    )
+
         else:
             raise ValidationError(
                 {"detail": "User does not have an associated Employee profile."}
@@ -266,6 +301,25 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
                     after={"status": new_status},
                     ip_address=self.request.META.get("REMOTE_ADDR", "") or "",
                 )
+
+            # Emit status update to the employee
+            with contextlib.suppress(Exception):
+                payload = {
+                    "id": getattr(updated, "id", None),
+                    "employeeId": getattr(updated.employee, "id", None),
+                    "status": str(new_status or ""),
+                    "rejectionReason": getattr(updated, "rejection_reason", ""),
+                    "approverId": getattr(updated, "assigned_approver_id", None),
+                    "departmentId": getattr(updated.employee, "department_id", None),
+                }
+                emp_id = getattr(updated.employee, "id", None)
+                if emp_id:
+                    emit_event_to_employee(int(emp_id), "leave.request.status", payload)
+
+                # If a line manager approved, escalate to admins (HR proxy)
+                actor_is_lm = _user_in_groups(self.request.user, [ROLE_LINE_MANAGER])
+                if actor_is_lm and str(new_status) == str(LeaveRequest.Status.APPROVED):
+                    emit_event_to_group(ROLE_ADMIN, "leave.request.escalated", payload)
 
 
 class BalanceHistoryViewSet(viewsets.ReadOnlyModelViewSet):

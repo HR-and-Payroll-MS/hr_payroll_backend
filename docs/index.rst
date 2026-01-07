@@ -12,7 +12,6 @@ Welcome to hr_payroll's documentation!
 
    api_overview
    auth_and_rbac
-   attendance
    efficiency
    payroll
    onboarding

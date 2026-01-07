@@ -1,6 +1,5 @@
 """Base settings to build other settings files upon."""
 
-import os
 import ssl
 from datetime import timedelta
 from pathlib import Path
@@ -60,9 +59,6 @@ DATABASES["default"]["ATOMIC_REQUESTS"] = True
 # https://docs.djangoproject.com/en/stable/ref/settings/#std:setting-DEFAULT_AUTO_FIELD
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Attendance settings
-ATTENDANCE_EDIT_WINDOW_DAYS = int(os.getenv("ATTENDANCE_EDIT_WINDOW_DAYS", "31"))
-
 # URLS
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#root-urlconf
@@ -118,6 +114,10 @@ LOCAL_APPS = [
     "hr_payroll.leaves",
     "hr_payroll.notifications",
     "hr_payroll.efficiency",
+    "hr_payroll.announcements",
+    "hr_payroll.messaging",
+    "hr_payroll.loans",
+    "hr_payroll.expenses",
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
@@ -167,8 +167,8 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Feature flags
 # ------------------------------------------------------------------------------
-# Toggle to expose Djoser endpoints (kept for compatibility but disabled by default)
-DJOSER_ENABLED = env.bool("DJOSER_ENABLED", default=False)
+# Toggle to expose Djoser endpoints (enabled by default; can be turned off via env)
+DJOSER_ENABLED = env.bool("DJOSER_ENABLED", default=True)
 
 # MIDDLEWARE
 # ------------------------------------------------------------------------------
@@ -407,17 +407,17 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 25,
 }
 
-# dj-rest-auth: use JWT
-REST_USE_JWT = True
-# Disable DRF Token model entirely (we use JWT)
-TOKEN_MODEL = None
-REST_AUTH_TOKEN_MODEL = None
-# In some versions, dj-rest-auth reads this from the REST_AUTH dict
-REST_AUTH = {
-    "TOKEN_MODEL": None,
-}
+# FEATURE FLAGS
+# ------------------------------------------------------------------------------
+# Toggle to expose Djoser endpoints (enabled by default; can be turned off via env)
+DJOSER_ENABLED = env.bool("DJOSER_ENABLED", default=True)
 
-# SimpleJWT defaults
+
+# AUTHENTICATION PACKAGES CONFIGURATION
+# ------------------------------------------------------------------------------
+
+# 1. DJANGO-REST-FRAMEWORK SIMPLEJWT
+# Used by Djoser for JWT generation and management.
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
@@ -426,26 +426,32 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
-# dj-rest-auth cookie-based JWT (HttpOnly cookies for browsers)
-# When REST_USE_JWT=True, login/refresh endpoints set access/refresh cookies
+# 2. DJ-REST-AUTH
+# Configuration for cookie-based auth (if used) and broad consistency.
+# Note: Current Frontend primarily uses Djoser, but these settings support
+# alternative cookie-based flows.
+REST_USE_JWT = True
+REST_AUTH = {
+    "USE_JWT": True,
+    "JWT_AUTH_COOKIE": env("JWT_AUTH_COOKIE", default="access_token"),
+    "JWT_AUTH_REFRESH_COOKIE": env("JWT_AUTH_REFRESH_COOKIE", default="refresh_token"),
+    # Disable default Token model since we use JWT
+    "TOKEN_MODEL": None,
+}
+# Cookie security settings for dj-rest-auth
 JWT_AUTH_COOKIE = env("JWT_AUTH_COOKIE", default="access_token")
 JWT_AUTH_REFRESH_COOKIE = env("JWT_AUTH_REFRESH_COOKIE", default="refresh_token")
 JWT_AUTH_COOKIE_SAMESITE = env("JWT_AUTH_COOKIE_SAMESITE", default="Lax")
-# In production this should be True to send cookies only over HTTPS
 JWT_AUTH_COOKIE_SECURE = env.bool("JWT_AUTH_COOKIE_SECURE", default=not DEBUG)
-
-# Generated identity defaults
-# Domain used for auto-generated user emails during employee registration
-GENERATED_EMAIL_DOMAIN = env("GENERATED_EMAIL_DOMAIN", default="hrpayroll.com")
-# Enforce CSRF protection when using cookies for JWT
 JWT_AUTH_COOKIE_USE_CSRF = env.bool("JWT_AUTH_COOKIE_USE_CSRF", default=True)
 
-# djoser configuration
+
+# 3. DJOSER
+# Primary Authentication setup for the Frontend.
 DJOSER = {
     "LOGIN_FIELD": "username",
     "USER_CREATE_PASSWORD_RETYPE": True,
-    # Disable activation emails to streamline manager-led onboarding
-    "SEND_ACTIVATION_EMAIL": False,
+    "SEND_ACTIVATION_EMAIL": False,  # Manager-led onboarding
     "ACTIVATION_URL": "auth/activate/{uid}/{token}",
     "PASSWORD_RESET_CONFIRM_URL": "auth/password/reset/confirm/{uid}/{token}",
     "USERNAME_RESET_CONFIRM_URL": "auth/username/reset/confirm/{uid}/{token}",
@@ -454,23 +460,19 @@ DJOSER = {
         "current_user": "hr_payroll.users.api.serializers.UserSerializer",
     },
     "PERMISSIONS": {
-        # Only Admins/Managers may create/list/delete users via Djoser
         "user_create": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
         "user_delete": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
         "user_list": ["hr_payroll.users.api.permissions.IsManagerOrAdmin"],
-        # Authenticated users may view/update their own user; serializer limits fields
         "user": ["rest_framework.permissions.IsAuthenticated"],
         "current_user": ["rest_framework.permissions.IsAuthenticated"],
-        # Allow authenticated users to change their own password
         "set_password": ["rest_framework.permissions.IsAuthenticated"],
-        # Restrict username reset workflow to admins only
         "username_reset": ["rest_framework.permissions.IsAdminUser"],
         "username_reset_confirm": ["rest_framework.permissions.IsAdminUser"],
     },
 }
 
 # django-cors-headers - https://github.com/adamchainz/django-cors-headers#setup
-CORS_URLS_REGEX = r"^/api/.*$"
+CORS_URLS_REGEX = r"^/(api|ws)/.*$"
 CORS_ALLOW_CREDENTIALS = True
 
 # CSRF settings suitable for cookie-based auth in browsers
@@ -496,18 +498,6 @@ SPECTACULAR_SETTINGS = {
         {"name": "Authentication", "description": "Login, JWT, and auth utilities."},
         {"name": "Users", "description": "User accounts and profiles."},
         {"name": "Employees", "description": "Employee records and management."},
-        {
-            "name": "Attendance",
-            "description": "Attendance records and administrative actions.",
-        },
-        {
-            "name": "Employee Attendance",
-            "description": "Employee-scoped attendance actions.",
-        },
-        {
-            "name": "Attendance Reports",
-            "description": "Attendance summaries and reporting.",
-        },
         {
             "name": "Departments",
             "description": "Departments and manager assignments.",
@@ -556,9 +546,3 @@ LLM_MODEL = env("LLM_MODEL", default="gemini-1.5-flash")
 LLM_TIMEOUT = env.float("LLM_TIMEOUT", default=15.0)
 # Provider secrets (optional; required when enabling Gemini)
 GEMINI_API_KEY = env("GEMINI_API_KEY", default=None)
-
-# Attendance module defaults
-ATTENDANCE_EDIT_DAYS = env.int("ATTENDANCE_EDIT_DAYS", default=31)
-ATTENDANCE_DEFAULT_SCHEDULE_HOURS = env.int(
-    "ATTENDANCE_DEFAULT_SCHEDULE_HOURS", default=8
-)

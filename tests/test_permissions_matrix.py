@@ -1,7 +1,5 @@
 """Integration-style permission tests covering core RBAC scenarios."""
 
-from datetime import timedelta
-
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.urls import reverse
@@ -9,7 +7,6 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from hr_payroll.attendance.models import Attendance
 from hr_payroll.employees.models import Employee
 from hr_payroll.leaves.models import LeavePolicy
 from hr_payroll.leaves.models import LeaveRequest
@@ -86,18 +83,6 @@ class PermissionMatrixAPITests(APITestCase):
             end_date=timezone.now().date(),
             duration=1,
         )
-        self.attendance_self = Attendance.objects.create(
-            employee=self.employee_employee,
-            date=timezone.now().date(),
-            clock_in=timezone.now(),
-            clock_in_location="HQ kiosk",
-        )
-        self.attendance_other = Attendance.objects.create(
-            employee=self.other_employee_employee,
-            date=timezone.now().date(),
-            clock_in=timezone.now(),
-            clock_in_location="Remote kiosk",
-        )
 
     # Helpers -----------------------------------------------------------------
     def _create_user(
@@ -134,41 +119,6 @@ class PermissionMatrixAPITests(APITestCase):
         return data if isinstance(data, list) else []
 
     # Tests --------------------------------------------------------------------
-    def test_regular_employee_sees_only_their_attendance_records(self):
-        url = reverse(
-            "employee-attendance-list",
-            kwargs={"employee_id": self.employee_employee.pk},
-        )
-        self.client.force_authenticate(user=self.employee_user)
-        resp = self.client.get(url)
-        assert resp.status_code == status.HTTP_200_OK
-        employees = {row["employee"] for row in self._extract_results(resp)}
-        assert employees == {self.employee_employee.pk}
-
-    def test_admin_attendance_list_blocked_for_regular_employee(self):
-        url = reverse("api_v1:attendance-list")
-        self.client.force_authenticate(user=self.employee_user)
-        resp = self.client.get(url)
-        assert resp.status_code == status.HTTP_403_FORBIDDEN
-
-    def test_manual_entry_uses_authenticated_user_profile(self):
-        url = reverse(
-            "employee-attendance-manual-entry",
-            kwargs={"employee_id": self.employee_employee.pk},
-        )
-        target_date = (timezone.now().date() + timedelta(days=7)).isoformat()
-        target_clock_in = (timezone.now() + timedelta(days=7)).isoformat()
-        payload = {
-            "employee": self.manager_employee.pk,
-            "date": target_date,
-            "clock_in": target_clock_in,
-            "clock_in_location": "HQ kiosk",
-        }
-        self.client.force_authenticate(user=self.employee_user)
-        allowed = self.client.post(url, payload, format="json")
-        assert allowed.status_code == status.HTTP_201_CREATED
-        assert allowed.data["employee"] == self.employee_employee.pk
-
     def test_payroll_endpoints_only_allow_admin_or_payroll_roles(self):
         url = "/api/v1/payroll/banks/"
         self.client.force_authenticate(user=self.manager_user)

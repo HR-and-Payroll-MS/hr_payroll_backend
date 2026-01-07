@@ -41,3 +41,36 @@ class Department(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover - trivial
         return self.name
+
+
+class OrgChartNode(models.Model):
+    """Organizational chart node.
+
+    Represents a position/title in the org chart with optional occupant.
+    Nodes form a simple tree via a self-referential parent relation.
+    """
+
+    title = models.CharField(max_length=150)
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="children",
+    )
+    occupant = models.ForeignKey(
+        "employees.Employee",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="orgchart_nodes",
+    )
+    order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["parent_id", "order", "id"]
+
+    def __str__(self) -> str:  # pragma: no cover - trivial
+        return f"{self.title}"

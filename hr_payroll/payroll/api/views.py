@@ -3,7 +3,11 @@ from datetime import date
 from decimal import Decimal
 from decimal import InvalidOperation
 
+from django.db.models import Count
+from django.db.models import Q
+from django.db.models import Sum
 from django.utils import timezone
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.utils import extend_schema_view
@@ -29,6 +33,7 @@ from hr_payroll.payroll.models import SalaryComponent
 from hr_payroll.payroll.models import SalaryStructureItem
 from hr_payroll.payroll.models import TaxCode
 from hr_payroll.payroll.models import TaxCodeVersion
+from hr_payroll.payroll.services import PayrollCalculator
 from hr_payroll.policies import get_policy_document
 
 from .serializers import BankDetailSerializer
@@ -37,6 +42,7 @@ from .serializers import DependentSerializer
 from .serializers import EmployeeSalaryStructureSerializer
 from .serializers import PayCycleSerializer
 from .serializers import PayrollGeneralSettingSerializer
+from .serializers import PayrollReportRowSerializer
 from .serializers import PayrollRunSerializer
 from .serializers import PayrollSlipSerializer
 from .serializers import PayslipDocumentSerializer
@@ -70,54 +76,10 @@ def _employee_basic_payload(emp: Employee) -> dict:
 
 def _payroll_preview_payload(emp: Employee, month: str | None) -> dict:
     policy = get_policy_document(org_id=1)
-    salary_policy = (
-        policy.get("salaryStructurePolicy", {}) if isinstance(policy, dict) else {}
-    )
-    base_salary = 0
-    earnings = []
-    deductions = []
 
-    # Use salary structure + items when present
-    structure = getattr(emp, "salary_structure", None)
-    if structure:
-        base_salary = float(structure.base_salary or 0)
-        for item in structure.items.select_related("component"):
-            comp = item.component
-            if not comp:
-                continue
-            payload = {"label": comp.name, "amount": float(item.amount)}
-            if comp.component_type == comp.Type.DEDUCTION:
-                deductions.append(payload)
-            else:
-                earnings.append(payload)
-    else:
-        # fallback to policy template or sane default
-        base_salary = float(
-            salary_policy.get("baseSalaryTemplate", {}).get("gradeA", 0) or 0
-        )
-
-    # If no earnings were added, seed a basic breakdown like the frontend dummy
-    if not earnings:
-        allowance = round(base_salary * 0.2, 2)
-        bonus = round(base_salary * 0.05, 2)
-        earnings = [
-            {"label": "Basic Salary", "amount": base_salary},
-            {"label": "Allowance", "amount": allowance},
-            {"label": "Bonus", "amount": bonus},
-        ]
-
-    if not deductions:
-        gross_guess = sum(e["amount"] for e in earnings)
-        tax = round(gross_guess * 0.1, 2)
-        pension = round(gross_guess * 0.03, 2)
-        deductions = [
-            {"label": "Income Tax (10%)", "amount": tax},
-            {"label": "Pension (3%)", "amount": pension},
-        ]
-
-    gross = sum(e["amount"] for e in earnings)
-    total_deductions = sum(d["amount"] for d in deductions)
-    net = gross - total_deductions
+    # Use the centralized calculator for consistency
+    calculator = PayrollCalculator(emp)
+    result = calculator.calculate()
 
     bank_detail = getattr(emp, "bank_detail", None)
     dept = getattr(emp, "department", None)
@@ -151,11 +113,11 @@ def _payroll_preview_payload(emp: Employee, month: str | None) -> dict:
         },
         "month": month,
         "company": company,
-        "earnings": earnings,
-        "deductions": deductions,
-        "gross": gross,
-        "totalDeductions": total_deductions,
-        "net": net,
+        "earnings": result["earnings"],
+        "deductions": result["deductions"],  # Includes taxes
+        "gross": result["total_earnings"],
+        "totalDeductions": result["total_deductions"],
+        "net": result["net_pay"],
         "paymentMethod": "Bank Transfer",
         "paymentDate": timezone.now().date().isoformat(),
     }
@@ -455,6 +417,34 @@ class PayCycleViewSet(viewsets.ModelViewSet):
     search_fields = ["name"]
     ordering = ["-start_date"]
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        return qs.annotate(
+            total_payout=Sum("slips__net_pay", filter=Q(slips__status="paid")),
+            employee_count=Count("slips", filter=Q(slips__status="paid")),
+        )
+
+    @extend_schema(tags=["Payroll • Pay Cycles"], responses={200: OpenApiTypes.OBJECT})
+    @action(detail=True, methods=["post"], url_path="generate")
+    def generate(self, request, pk=None):
+        """Trigger payroll calculation for this cycle."""
+        from hr_payroll.payroll.services import generate_payroll_for_cycle
+
+        cycle = self.get_object()
+        if cycle.status == PayCycle.Status.CLOSED:
+            return Response({"detail": "Cannot regenerate closed payroll"}, status=400)
+
+        try:
+            stats = generate_payroll_for_cycle(cycle.id)
+            cycle.status = PayCycle.Status.PROCESSING
+            cycle.save()
+            return Response(stats, status=200)
+        except Exception as e:  # noqa: BLE001 - need to catch all for user-facing error
+            import traceback
+
+            traceback.print_exc()
+            return Response({"detail": str(e)}, status=500)
+
 
 @extend_schema_view(
     list=extend_schema(tags=["Payroll • Slips"]),
@@ -596,3 +586,115 @@ class PayrollRunViewSet(viewsets.ModelViewSet):
             return Response({"detail": "Run cannot be finalized"}, status=400)
         run.mark_finalized(request.user)
         return Response(self.get_serializer(run).data, status=200)
+
+
+class PayrollReportView(APIView):
+    """Aggregated payroll reports per cycle and employee.
+
+    Combines data from `PayrollSlip` (authoritative when present) and
+    `PayslipDocument` (fallback) to produce rows expected by the frontend.
+    Filters:
+      - cycle: integer ID of `PayCycle`
+      - employee: integer ID of `Employee`
+      - month: YYYY-MM string (applies to documents)
+    """
+
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrPayrollOnly]
+
+    @extend_schema(
+        tags=["Payroll • Reports"],
+        parameters=[
+            OpenApiParameter(
+                name="cycle",
+                required=False,
+                type=int,
+                description="Filter by PayCycle ID",
+            ),
+            OpenApiParameter(
+                name="employee",
+                required=False,
+                type=int,
+                description="Filter by Employee ID",
+            ),
+            OpenApiParameter(
+                name="month",
+                required=False,
+                type=str,
+                description="Filter documents by YYYY-MM",
+            ),
+        ],
+        responses={200: {"type": "array", "items": {"type": "object"}}},
+    )
+    def get(self, request):
+        cycle_id = request.query_params.get("cycle")
+        employee_id = request.query_params.get("employee")
+        month = request.query_params.get("month")
+
+        slips_qs = PayrollSlip.objects.select_related("employee__user", "cycle")
+        if cycle_id:
+            slips_qs = slips_qs.filter(cycle_id=cycle_id)
+        if employee_id:
+            slips_qs = slips_qs.filter(employee_id=employee_id)
+
+        rows: list[dict] = []
+        covered_pairs: set[tuple[int | None, int]] = set()
+
+        for slip in slips_qs:
+            emp = slip.employee
+            user = getattr(emp, "user", None)
+            name = (
+                getattr(user, "name", None)
+                or getattr(user, "username", None)
+                or getattr(user, "email", None)
+            )
+            rows.append(
+                {
+                    "cycle_id": getattr(slip.cycle, "id", None),
+                    "cycle_name": getattr(slip.cycle, "name", None),
+                    "employee_id": emp.pk,
+                    "employee_name": name,
+                    "base_salary": slip.base_salary,
+                    "total_earnings": slip.total_earnings,
+                    "total_deductions": slip.total_deductions,
+                    "gross": slip.total_earnings,
+                    "net": slip.net_pay,
+                    "source": "slip",
+                }
+            )
+            covered_pairs.add((getattr(slip.cycle, "id", None), emp.pk))
+
+        docs_qs = PayslipDocument.objects.select_related("employee__user", "cycle")
+        if cycle_id:
+            docs_qs = docs_qs.filter(cycle_id=cycle_id)
+        if employee_id:
+            docs_qs = docs_qs.filter(employee_id=employee_id)
+        if month:
+            docs_qs = docs_qs.filter(month=month)
+
+        for doc in docs_qs:
+            pair = (getattr(doc.cycle, "id", None), doc.employee_id)
+            if pair in covered_pairs:
+                continue
+            user = getattr(doc.employee, "user", None)
+            name = (
+                getattr(user, "name", None)
+                or getattr(user, "username", None)
+                or getattr(user, "email", None)
+            )
+            rows.append(
+                {
+                    "cycle_id": getattr(doc.cycle, "id", None),
+                    "cycle_name": getattr(doc.cycle, "name", None),
+                    "employee_id": doc.employee_id,
+                    "employee_name": name,
+                    "base_salary": None,
+                    "total_earnings": None,
+                    "total_deductions": None,
+                    "gross": doc.gross,
+                    "net": doc.net,
+                    "source": "document",
+                }
+            )
+
+        serializer = PayrollReportRowSerializer(rows, many=True)
+        return Response(serializer.data, status=200)

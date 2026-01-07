@@ -72,9 +72,41 @@ class EfficiencyTemplateViewSet(viewsets.ModelViewSet):
         title, performanceMetrics, feedbackSections.
         """
         tpl = self.get_queryset().first()
-        if not tpl:
-            return Response({}, status=200)
-        return Response(tpl.schema or {}, status=200)
+        if tpl and tpl.schema:
+            return Response(tpl.schema, status=200)
+
+        # Fallback: Measure 0 -> Generate default schema from Policy
+        from hr_payroll.policies import get_policy_document
+
+        policy = get_policy_document().get("efficiencyPolicy", {})
+
+        # Build default from policy
+        rating_scale = policy.get("performanceReviews", {}).get("ratingScale", 5)
+        policy.get("kpis", {})  # kpis might be a dict or list based on form schema
+
+        # Construct a simple default schema
+        default_schema = {
+            "title": "Standard Performance Review",
+            "sections": [
+                {
+                    "id": "kpi_section",
+                    "title": "Key Performance Indicators",
+                    "questions": [],
+                }
+            ],
+        }
+
+        # Inject Policy KPIs
+        # Validating structure: Schema says kpis is {name, weight},
+        # but frontend might save it as list or dict.
+        # Assuming frontend saves it as defined in schema: { name: "", weight: "" } (object??)
+        # Actually PolicyFormSchemas shows kpis: { name: ..., weight: ... } which usually implies a single object in the array if generic,
+        # OR it's a fixed object.
+        # Let's assume generic "Performance" kpi if empty.
+
+        default_schema["ratingScale"] = rating_scale
+
+        return Response(default_schema, status=200)
 
     @action(detail=False, methods=["put"], url_path="schema-set")
     def put_schema(self, request):

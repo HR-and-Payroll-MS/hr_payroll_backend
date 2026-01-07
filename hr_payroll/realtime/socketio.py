@@ -224,3 +224,11 @@ def emit_event_to_employee(
     payload: dict[str, Any],
 ) -> None:
     emit_event_to_room(room_for_employee(employee_id), event, payload)
+
+
+def emit_event_to_all(event: str, payload: dict[str, Any]) -> None:
+    """Emit an event to all connected clients (no room filter).
+
+    Useful for global broadcasts such as announcements visible to everyone.
+    """
+    async_to_sync(sio.emit)(event, payload)

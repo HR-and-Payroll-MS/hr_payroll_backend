@@ -14,11 +14,11 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.views import TokenVerifyView
 
-from hr_payroll.attendance.api.views import EmployeeAttendanceViewSet
 from hr_payroll.org.api.views import OrganizationPoliciesView
 from hr_payroll.org.api.views import OrganizationPolicySectionView
 from hr_payroll.payroll.api.views import PayslipUploadView
 from hr_payroll.users.api.auth_views import CookieOnlyJWTRefreshView
+from hr_payroll.users.api.auth_views import PasswordUpdateView
 
 from .health import health as health_view
 
@@ -94,13 +94,9 @@ urlpatterns += [
             namespace="dj_rest_auth_v1",
         ),
     ),
-    # v1 Djoser (users) behind feature flag
-    # Enable via DJOSER_ENABLED=True in settings/env
-    *(
-        [path("api/v1/auth/", include("djoser.urls"))]
-        if getattr(settings, "DJOSER_ENABLED", False)
-        else []
-    ),
+    # Djoser endpoints under the main auth prefix for default paths
+    path("api/v1/auth/", include("djoser.urls")),
+    path("api/v1/auth/", include("djoser.urls.jwt")),
     # v1 JWT endpoints (explicit to control schema tags)
 ]
 
@@ -148,84 +144,16 @@ urlpatterns += [
         TokenVerifyView.as_view(),
         name="djoser-jwt-verify",
     ),
-]
-
-# Nested Employee Attendance endpoints (manual wiring)
-employee_attendance_list = EmployeeAttendanceViewSet.as_view({"get": "list"})
-employee_attendance_detail = EmployeeAttendanceViewSet.as_view({"get": "retrieve"})
-employee_attendance_clock_in = EmployeeAttendanceViewSet.as_view({"post": "clock_in"})
-employee_attendance_clock_out = EmployeeAttendanceViewSet.as_view({"post": "clock_out"})
-employee_attendance_clock_out_today = EmployeeAttendanceViewSet.as_view(
-    {"post": "clock_out_today"}
-)
-employee_attendance_fingerprint_scan = EmployeeAttendanceViewSet.as_view(
-    {"post": "fingerprint_scan"}
-)
-employee_attendance_network_status = EmployeeAttendanceViewSet.as_view(
-    {"get": "network_status"}
-)
-employee_attendance_manual_entry = EmployeeAttendanceViewSet.as_view(
-    {"post": "manual_entry"}
-)
-employee_attendance_actions = EmployeeAttendanceViewSet.as_view({"get": "actions"})
-employee_attendance_today = EmployeeAttendanceViewSet.as_view({"get": "today"})
-employee_attendance_check = EmployeeAttendanceViewSet.as_view({"post": "check"})
-
-urlpatterns += [
+    # Convenience aliases for password update outside the auth namespace
     path(
-        "api/v1/employees/<int:employee_id>/attendances/",
-        employee_attendance_list,
-        name="employee-attendance-list",
+        "api/update-password/",
+        PasswordUpdateView.as_view(),
+        name="password-update-root",
     ),
     path(
-        "api/v1/employees/<int:employee_id>/attendances/clock-in/",
-        employee_attendance_clock_in,
-        name="employee-attendance-clock-in",
-    ),
-    path(
-        "api/v1/employees/<int:employee_id>/attendances/clock-out/",
-        employee_attendance_clock_out_today,
-        name="employee-attendance-clock-out-today",
-    ),
-    path(
-        "api/v1/employees/<int:employee_id>/attendances/fingerprint/scan/",
-        employee_attendance_fingerprint_scan,
-        name="employee-attendance-fingerprint-scan",
-    ),
-    path(
-        "api/v1/employees/<int:employee_id>/attendances/network-status/",
-        employee_attendance_network_status,
-        name="employee-attendance-network-status",
-    ),
-    path(
-        "api/v1/employees/<int:employee_id>/attendances/manual-entry/",
-        employee_attendance_manual_entry,
-        name="employee-attendance-manual-entry",
-    ),
-    path(
-        "api/v1/employees/<int:employee_id>/attendances/actions/",
-        employee_attendance_actions,
-        name="employee-attendance-actions",
-    ),
-    path(
-        "api/v1/employees/<int:employee_id>/attendances/today/",
-        employee_attendance_today,
-        name="employee-attendance-today",
-    ),
-    path(
-        "api/v1/employees/<int:employee_id>/attendances/check/",
-        employee_attendance_check,
-        name="employee-attendance-check",
-    ),
-    path(
-        "api/v1/employees/<int:employee_id>/attendances/<int:pk>/",
-        employee_attendance_detail,
-        name="employee-attendance-detail",
-    ),
-    path(
-        "api/v1/employees/<int:employee_id>/attendances/<int:pk>/clock-out/",
-        employee_attendance_clock_out,
-        name="employee-attendance-clock-out",
+        "api/v1/update-password/",
+        PasswordUpdateView.as_view(),
+        name="password-update-v1",
     ),
 ]
 

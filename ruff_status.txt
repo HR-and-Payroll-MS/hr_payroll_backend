@@ -1,0 +1,11 @@
+hr_payroll\org\api\views.py:245:28: F821 Undefined name `timezone`
+    |
+243 |         TaxCodeVersion.objects.update_or_create(
+244 |             tax_code=code_obj,
+245 |             effective_from=timezone.now().date().replace(day=1, month=1),
+    |                            ^^^^^^^^ F821
+246 |             defaults={
+247 |                 "rate": (item.get("rate") or 0) / 100.0,
+    |
+
+Found 1 error.

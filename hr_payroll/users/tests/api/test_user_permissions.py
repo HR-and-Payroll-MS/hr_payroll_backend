@@ -18,7 +18,7 @@ def manager(user_model):
     mgr = user_model.objects.create_user(
         username="mgrrole",
         email="mgrrole@example.com",
-        password="MgrPass!123",  # noqa: S106
+        password="MgrPass!123",
     )
     g, _ = Group.objects.get_or_create(name="Manager")
     mgr.groups.add(g)
@@ -30,7 +30,7 @@ def employee(user_model):
     return user_model.objects.create_user(
         username="regular",
         email="regular@example.com",
-        password="RegPass!123",  # noqa: S106
+        password="RegPass!123",
     )
 
 
@@ -44,7 +44,7 @@ def test_manager_lists_all_users(manager, employee, user_model):
     user_model.objects.create_user(
         username="otheruser",
         email="other@example.com",
-        password="OtherPass!123",  # noqa: S106
+        password="OtherPass!123",
     )
     client = APIClient()
     client.force_authenticate(user=manager)
