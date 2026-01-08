@@ -1,4 +1,5 @@
 import calendar
+import logging
 from datetime import date
 from datetime import timedelta
 from decimal import Decimal
@@ -18,6 +19,10 @@ from hr_payroll.payroll.models import SalaryComponent
 from hr_payroll.payroll.models import SalaryStructureItem
 from hr_payroll.policies import accessors as policy_accessors
 from hr_payroll.policies import get_policy_document
+from hr_payroll.realtime.events import EVENT_PAYROLL_PROGRESS
+from hr_payroll.realtime.socketio import emit_event_to_group
+
+logger = logging.getLogger(__name__)
 
 
 def generate_structure_from_policy(employee: Employee):
@@ -370,7 +375,23 @@ def generate_payroll_for_cycle(cycle_id: str) -> dict[str, int]:
     created = 0
     updated = 0
 
-    for emp in employees:
+    # Notify start
+    total_employees = len(employees)
+    processed_count = 0
+    emit_event_to_group(
+        "HR Manager",
+        EVENT_PAYROLL_PROGRESS,
+        {
+            "cycle_id": cycle_id,
+            "status": "started",
+            "total": total_employees,
+            "processed": 0,
+            "percentage": 0,
+        },
+    )
+
+    for i, emp in enumerate(employees, start=1):
+        processed_count = i
         calculator = PayrollCalculator(emp, cycle.end_date)
         result = calculator.calculate()
 
@@ -448,6 +469,22 @@ def generate_payroll_for_cycle(cycle_id: str) -> dict[str, int]:
             created += 1
         else:
             updated += 1
+
+        # Update progress every 5 employees or 10% (optimization to avoid socket spam)
+        processed_count += 1
+        if processed_count % 5 == 0 or processed_count == total_employees:
+            percentage = int((processed_count / total_employees) * 100)
+            emit_event_to_group(
+                "HR Manager",
+                EVENT_PAYROLL_PROGRESS,
+                {
+                    "cycle_id": cycle_id,
+                    "status": "processing",
+                    "total": total_employees,
+                    "processed": processed_count,
+                    "percentage": percentage,
+                },
+            )
 
     return {"created": created, "updated": updated}
 
